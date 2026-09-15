@@ -306,6 +306,8 @@ fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv]
 fcad compare-rev <baseline.json> <candidate.json>
 ```
 
+`compare-rev` compares review-pack summary metrics, hotspot categories, evidence records, actions, and confidence summaries. Its `comparison_scope` lists metrics compared and metrics unavailable in one or both inputs, and explicitly marks hole positions as `not_compared` and shape equivalence as `not_evaluated`. Equal volume, face count, or edge count does not prove identical geometry. Baseline and candidate warnings are preserved with their source labels; the scope limitation also appears first in `revision_story` for Studio's compare viewer. Older comparison artifacts without `comparison_scope` remain readable, but do not establish geometric equivalence.
+
 `review-context` accepts explicit package-side quality/design inputs as before.
 For `--inspection-evidence`, it now requires the canonical checksum-bound
 authorization and immutable attachment record created by the onboarding flow,
@@ -354,6 +356,8 @@ Major runtime and analysis commands now also emit an additive output manifest na
 Inside the create-quality report, `generated_shape_geometry` marks measurements captured from the FreeCAD shape that `fcad create` generated before export. `reimported_step_geometry` marks measurements captured only after the exported STEP file is re-imported, so it is STEP round-trip evidence for the exported file, not a replacement source for generated-shape checks. When STEP re-import geometry is unavailable, create-quality records an explicit unavailable STEP geometry state instead of fake measurements; that provenance is separate from package `inspection_evidence`.
 
 `fcad draw` also writes an additive `<base>_drawing_quality.json` summary beside the existing draw sidecars. It aggregates required-dimension coverage, conflict counts, layout overlap signals, BOM consistency, and traceability coverage into one status block. Default draw still completes with warnings, while `--strict-quality` exits non-zero when blocking draw-quality issues remain.
+
+Required-dimension coverage includes a deduplicated base-length, base-width, or overall-height intent only when its smart-dedupe reference matches a unique automatic extent label in the final SVG, with the same view, axis, and numeric value. When such links exist, `dimensions.auto_represented_dimensions` records them separately. Missing SVG identities, approximate/value-only matches, and unanchored local features remain uncovered. This is annotation coverage; model-feature traceability and other quality gates are unchanged.
 
 `fcad report` now also writes an additive `<base>_report_summary.json` beside the PDF. The summary keeps the first-page executive decision fields machine-readable:
 

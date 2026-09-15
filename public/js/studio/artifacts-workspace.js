@@ -25,6 +25,7 @@ import {
   shortJobId,
 } from './artifact-insights.js';
 import {
+  deriveArtifactContentActions,
   deriveArtifactReentryCapabilities,
   findDefaultArtifactForJob,
   findPreferredConfigArtifact,
@@ -237,6 +238,7 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
 
 function renderArtifactCard(artifact, selected = false) {
   const classification = classifyArtifact(artifact);
+  const contentActions = deriveArtifactContentActions(artifact);
   return el('article', {
     className: `artifact-card${selected ? ' is-selected' : ''}`,
     dataset: { tone: classification.tone },
@@ -275,18 +277,26 @@ function renderArtifactCard(artifact, selected = false) {
       el('div', {
         className: 'artifact-card-action-row',
         children: [
-          artifact.capabilities?.can_open
+          contentActions.open
             ? el('a', {
                 className: 'action-button action-button-primary',
-                text: 'Open',
-                attrs: { href: artifact.links.open, target: '_blank', rel: 'noreferrer noopener' },
+                text: contentActions.open.label,
+                attrs: {
+                  href: contentActions.open.href,
+                  target: contentActions.open.target,
+                  rel: contentActions.open.rel,
+                },
               })
             : null,
-          artifact.capabilities?.can_download
+          contentActions.download
             ? el('a', {
                 className: 'action-button action-button-ghost',
-                text: 'Download',
-                attrs: { href: artifact.links.download, rel: 'noreferrer' },
+                text: contentActions.download.label,
+                attrs: {
+                  href: contentActions.download.href,
+                  target: contentActions.download.target,
+                  rel: contentActions.download.rel,
+                },
               })
             : null,
         ].filter(Boolean),
@@ -412,8 +422,7 @@ function firstMatchingArtifact(artifacts = [], predicate) {
 }
 
 function buildGeneratedArtifactRow({ id, label, hint, artifact }) {
-  const canOpen = Boolean(artifact?.capabilities?.can_open && artifact?.links?.open);
-  const canDownload = Boolean(artifact?.capabilities?.can_download && artifact?.links?.download);
+  const actions = deriveArtifactContentActions(artifact);
   return {
     id,
     label,
@@ -421,10 +430,10 @@ function buildGeneratedArtifactRow({ id, label, hint, artifact }) {
     artifactId: artifact.id || '',
     fileName: artifact.file_name || artifact.key || 'Artifact',
     type: artifact.type || '',
-    openHref: canOpen ? artifact.links.open : '',
-    downloadHref: canDownload ? artifact.links.download : '',
-    canOpen,
-    canDownload,
+    openHref: actions.open?.href || '',
+    downloadHref: actions.download?.href || '',
+    canOpen: actions.canOpen,
+    canDownload: actions.canDownload,
   };
 }
 
@@ -871,8 +880,15 @@ function renderExtractedSemanticsSection(extractedSemantics = null) {
             children: [
               el('a', {
                 className: 'action-button action-button-ghost',
-                text: `Open output - ${evidenceArtifact.label}`,
-                attrs: { href: evidenceArtifact.href, target: '_blank', rel: 'noreferrer noopener' },
+                children: [
+                  el('span', { text: evidenceArtifact.actionLabel || 'Open' }),
+                  el('span', { text: ` ${evidenceArtifact.label}` }),
+                ],
+                attrs: {
+                  href: evidenceArtifact.href,
+                  target: evidenceArtifact.target,
+                  rel: evidenceArtifact.rel,
+                },
               }),
             ],
           })
@@ -1030,8 +1046,15 @@ function renderDrawingQualitySection(drawingQuality = null) {
             children: [
               el('a', {
                 className: 'action-button action-button-ghost',
-                text: `Open output - ${evidenceArtifact.label}`,
-                attrs: { href: evidenceArtifact.href, target: '_blank', rel: 'noreferrer noopener' },
+                children: [
+                  el('span', { text: evidenceArtifact.actionLabel || 'Open' }),
+                  el('span', { text: ` ${evidenceArtifact.label}` }),
+                ],
+                attrs: {
+                  href: evidenceArtifact.href,
+                  target: evidenceArtifact.target,
+                  rel: evidenceArtifact.rel,
+                },
               }),
             ],
           })
@@ -1122,8 +1145,19 @@ function renderFailureActionButtons({ model = {}, state = {} } = {}) {
     createQualityLink
       ? el('a', {
           className: 'action-button action-button-primary',
-          text: 'Inspect quality output',
-          attrs: { href: createQualityLink.href, target: '_blank', rel: 'noreferrer noopener' },
+          ...(createQualityLink.actionKind === 'download'
+            ? {
+                children: [
+                  el('span', { text: createQualityLink.actionLabel }),
+                  el('span', { text: ` ${createQualityLink.label}` }),
+                ],
+              }
+            : { text: 'Inspect quality output' }),
+          attrs: {
+            href: createQualityLink.href,
+            target: createQualityLink.target,
+            rel: createQualityLink.rel,
+          },
         })
       : null,
     hasGeneratedFileTargets(model)
@@ -1274,8 +1308,19 @@ function renderArtifactLinks(artifactLinks = []) {
     children: artifactLinks.map((artifact) =>
       el('a', {
         className: 'action-button action-button-ghost',
-        text: artifact.statusLabel ? `${artifact.label} - ${artifact.statusLabel}` : artifact.label,
-        attrs: { href: artifact.href, target: '_blank', rel: 'noreferrer noopener' },
+        children: [
+          el('span', { text: artifact.actionLabel || 'Open' }),
+          el('span', {
+            text: artifact.statusLabel
+              ? ` ${artifact.label} - ${artifact.statusLabel}`
+              : ` ${artifact.label}`,
+          }),
+        ],
+        attrs: {
+          href: artifact.href,
+          target: artifact.target,
+          rel: artifact.rel,
+        },
       })
     ),
   });
@@ -1283,13 +1328,9 @@ function renderArtifactLinks(artifactLinks = []) {
 
 function renderQualityDashboard(model, state = {}) {
   const checks = model.checks || {};
-  const requiredUnavailable = (checks.unavailable || []).filter((entry) => entry.required && !entry.decision);
-  const failedChecks = [
-    ...(checks.failed || []).filter((entry) => !entry.decision),
-    ...requiredUnavailable,
-  ];
+  const failedChecks = (checks.failed || []).filter((entry) => !entry.decision);
   const passedChecks = (checks.passed || []).filter((entry) => !entry.decision);
-  const unavailableChecks = (checks.unavailable || []).filter((entry) => !entry.required || entry.decision);
+  const unavailableChecks = checks.unavailable || [];
   const commonHeader = [
     ...renderQualityDashboardHeader(model),
     ...renderDecisionNotes(model),
@@ -1348,6 +1389,11 @@ function renderQualityDashboard(model, state = {}) {
           title: 'Passed checks',
           empty: 'No passed checks were reported for this artifact set.',
           items: passedChecks,
+        }),
+        renderCheckSection({
+          title: 'Not run or unavailable',
+          empty: 'No unavailable checks were reported for this artifact set.',
+          items: unavailableChecks,
         }),
         renderArtifactLinks(model.artifactLinks),
       ].filter(Boolean),

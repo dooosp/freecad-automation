@@ -40,6 +40,18 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
     if not features:
         return ""
 
+    # Several holes can project to one coordinate. Keep one dimension for that
+    # coordinate and tolerance, while preserving opposite sides of the datum.
+    coordinate = 0 if axis == 'horizontal' else 1
+    unique_features = []
+    for feature in features:
+        if any(abs(feature['position'][coordinate] - previous['position'][coordinate]) <= 1e-6
+               and feature.get('tolerance', '') == previous.get('tolerance', '')
+               for previous in unique_features):
+            continue
+        unique_features.append(feature)
+    features = unique_features
+
     _sc = style_cfg or {}
     eff_gap = _sc.get("dim_gap", DIM_GAP)
     eff_row_spacing = _sc.get("baseline_row_spacing",
@@ -283,4 +295,3 @@ def _ext_line_h(x_start, y, x_end):
     return (f'<line x1="{x_start:.2f}" y1="{y:.2f}" '
             f'x2="{x_end:.2f}" y2="{y:.2f}" '
             f'stroke="#000" stroke-width="{DIM_LINE_W}"/>')
-

@@ -8,7 +8,7 @@ import {
   updateDrawingTrackedRunFromJob,
 } from './drawing-tracked-runs.js';
 import {
-  buildDrawingCanvasCaption,
+  buildDrawingQaRows,
   buildDrawingPreviewReadySummary,
   buildDrawingPreviewResultSummary,
   previewReference,
@@ -19,6 +19,11 @@ import {
   ensureModelTrackedRunState,
 } from './model-tracked-runs.js';
 import { applyTranslations, t } from '../i18n/index.js';
+import { syncSectionBadges } from './renderers.js';
+import { drawingInputSnapshot, isDrawingPreviewStale, STALE_DRAWING_COPY, drawingWorkspaceBadges, drawingWorkspaceSummary, workingConfigRows } from './workbench-presentation.js';
+
+// Route/locale remounts replace the renderer while a shared request can continue.
+const mountedDrawingWorkspaces = new WeakMap();
 
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
@@ -61,6 +66,17 @@ async function postJson(url, body) {
   }
 
   return response.json();
+}
+
+function drawingFailureMessage(error) {
+  const detail = error instanceof Error ? error.message : String(error);
+  if (detail === 'Failed to fetch') {
+    return 'The local API connection failed. Reconnect to the local server, then retry. After a server restart, use Preview Drawing before reapplying annotation edits.';
+  }
+  if (/^No drawing preview found for id .+\.$/.test(detail)) {
+    return 'This drawing preview is no longer available on the server. Use Preview Drawing to recreate it from the current TOML, then reapply annotation edits.';
+  }
+  return detail;
 }
 
 function setSurface(surface, label, copy, tone) {
@@ -172,11 +188,24 @@ export function mountDrawingWorkspace({
   loadSelectedExampleIntoSharedModel,
   loadConfigFileIntoSharedModel,
   submitTrackedJob,
+  onDraftChange = () => {},
 }) {
   let drawing = ensureDrawingState(state.data.drawing);
   const viewerStore = createViewerStore();
-  viewerStore.state.dimensions.history = structuredClone(drawing.history);
-  viewerStore.state.dimensions.index = drawing.historyIndex;
+  restoreRendererHistory();
+
+  function restoreRendererHistory() {
+    viewerStore.state.dimensions.history = structuredClone(drawing.history);
+    viewerStore.state.dimensions.index = drawing.historyIndex;
+    // Older in-memory history belongs to its current preview.
+    viewerStore.state.drawing.lastPlanPath = drawing.historyPlanReference ?? previewReference(drawing.preview || {});
+  }
+
+  function publishRendererHistory() {
+    drawing.history = structuredClone(viewerStore.state.dimensions.history);
+    drawing.historyIndex = viewerStore.state.dimensions.index;
+    drawing.historyPlanReference = viewerStore.state.drawing.lastPlanPath;
+  }
 
   const runtimeSurface = root.querySelector('[data-hook="drawing-runtime-surface"]');
   const sourceSurface = root.querySelector('[data-hook="drawing-source-surface"]');
@@ -205,11 +234,11 @@ export function mountDrawingWorkspace({
   const reportButton = root.querySelector('[data-hook="drawing-report"]');
   const reportStatusElement = root.querySelector('[data-hook="drawing-report-status"]');
   const configFileInput = root.querySelector('[data-hook="drawing-config-file"]');
+  const exampleSelect = root.querySelector('[data-hook="example-select"]');
 
   let destroyed = false;
   let renderedSignature = '';
   let drawingRenderer = null;
-  let reportSubmitting = false;
 
   function currentModel() {
     return ensureModelTrackedRunState(state.data.model);
@@ -219,9 +248,8 @@ export function mountDrawingWorkspace({
     const nextDrawing = ensureDrawingState(state.data.drawing);
     if (nextDrawing === drawing) return;
     drawing = nextDrawing;
-    viewerStore.state.dimensions.history = structuredClone(drawing.history);
-    viewerStore.state.dimensions.index = drawing.historyIndex;
     renderedSignature = '';
+    dimensionsSignature = '';
   }
 
   function reportPresentation() {
@@ -247,6 +275,29 @@ export function mountDrawingWorkspace({
     button.dataset.actionKind = primary ? 'primary' : 'secondary';
   }
 
+  let dimensionsSignature = '';
+
+  function requestIsCurrent(request) {
+    if (state.data.drawing !== drawing || drawing.activeRequest !== request) return false;
+    if (request.input === drawingInputSnapshot(state.data.model, drawing.settings)) return true;
+    drawing.activeRequest = null;
+    drawing.status = drawing.preview ? 'ready' : 'idle';
+    drawing.summary = STALE_DRAWING_COPY;
+    drawingRenderer?.clearPendingEdit();
+    syncAll();
+    return false;
+  }
+
+  function hasPendingRequest() {
+    return drawing.activeRequest?.input === drawingInputSnapshot(state.data.model, drawing.settings);
+  }
+
+  function startRequest() {
+    const request = { input: drawingInputSnapshot(state.data.model, drawing.settings), settings: structuredClone(drawing.settings) };
+    drawing.activeRequest = request;
+    return request;
+  }
+
   function syncSettingsFromControls() {
     const views = viewInputs
       .filter((input) => input.checked)
@@ -264,16 +315,17 @@ export function mountDrawingWorkspace({
     const apiReady = state.connectionState === 'connected';
     const runtimeReady = state.data.health.available === true;
     const hasConfig = Boolean(String(state.data.model.configText || '').trim());
-    const canPreview = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating';
+    const canPreview = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating' && !drawing.trackedRun.submitting;
     const canRunTracked = canPreview && drawing.trackedRun.submitting !== true;
-    const hasPreview = drawing.status === 'ready' && Boolean(drawing.preview?.svg);
+    const hasPreview = drawing.status === 'ready' && Boolean(drawing.preview?.svg) && !isDrawingPreviewStale(drawing, state.data.model);
     const canRunReport = apiReady
       && runtimeReady
       && hasConfig
       && hasPreview
-      && !reportSubmitting
+      && !currentModel().trackedRun.submitting
       && !reportRunIsActive();
 
+    if (exampleSelect) exampleSelect.value = state.data.examples.selectedId || '';
     const views = new Set(drawing.settings.views || []);
     viewInputs.forEach((input) => {
       input.checked = views.has(input.dataset.view);
@@ -320,19 +372,16 @@ export function mountDrawingWorkspace({
   }
 
   function syncSourceSummary() {
-    renderInfoRows(sourceSummaryElement, [
-      ['Source', state.data.model.sourceType || 'Not loaded'],
-      ['Name', state.data.model.sourceName || 'Untitled config'],
-      ['Reference', state.data.model.sourcePath || 'In-memory draft'],
-      ['Config', state.data.model.configText?.trim() ? 'Ready for drawing' : 'Load or generate a config first'],
-    ]);
+    renderInfoRows(sourceSummaryElement, workingConfigRows(state.data.model));
   }
 
   function syncStatusSurfaces() {
+    syncSectionBadges(root, drawingWorkspaceBadges(state));
     const runtimeAvailable = state.data.health.status === 'ready' && state.data.health.available;
     const hasConfig = Boolean(state.data.model.configText?.trim());
-    const ready = drawing.status === 'ready' && drawing.preview?.svg;
-    const tone = ready ? 'ok' : drawing.status === 'error' ? 'bad' : drawing.status === 'generating' ? 'warn' : 'info';
+    const stale = isDrawingPreviewStale(drawing, state.data.model);
+    const ready = drawing.status === 'ready' && drawing.preview?.svg && !stale;
+    const tone = stale ? 'warn' : ready ? 'ok' : drawing.status === 'error' ? 'bad' : drawing.status === 'generating' ? 'warn' : 'info';
 
     setSurface(
       sourceSurface,
@@ -352,14 +401,14 @@ export function mountDrawingWorkspace({
     );
     setSurface(
       jobSurface,
-      drawing.status === 'generating' ? 'Generating' : ready ? 'Drawing ready' : drawing.status === 'error' ? 'Drawing failed' : 'No drawing yet',
-      drawing.summary || 'Preview Drawing iterates locally, while tracked drawing uses the shell monitor and recent jobs list.',
+      stale ? 'Drawing needs regeneration' : drawing.status === 'generating' ? 'Generating' : ready ? 'Drawing ready' : drawing.status === 'error' ? 'Drawing failed' : 'No drawing yet',
+      stale ? STALE_DRAWING_COPY : drawing.summary || 'Preview Drawing iterates locally, while tracked drawing uses the shell monitor and recent jobs list.',
       tone,
     );
     setSurface(
       resultSurface,
-      ready ? 'Sheet ready' : drawing.status === 'error' ? 'Last run failed' : 'Sheet pending',
-      ready
+      stale ? 'Previous sheet' : ready ? 'Sheet ready' : drawing.status === 'error' ? 'Last run failed' : 'Sheet pending',
+      stale ? STALE_DRAWING_COPY : ready
         ? buildDrawingPreviewResultSummary(drawing.preview, drawing.settings)
         : (drawing.errorMessage || 'BOM, annotations, QA, and dimension status summarize here after the first render.'),
       tone,
@@ -382,6 +431,7 @@ export function mountDrawingWorkspace({
   function syncCanvas() {
     const preview = drawing.preview;
     const showPreview = Boolean(preview?.svg);
+    bomElement.closest('.studio-card').hidden = !preview?.bom?.length;
     const nextSignature = showPreview ? `${preview.id}:${preview.drawn_at}` : '';
 
     if (!showPreview) {
@@ -397,7 +447,9 @@ export function mountDrawingWorkspace({
     }
 
     if (canvasCaptionElement) {
-      canvasCaptionElement.textContent = buildDrawingCanvasCaption(preview);
+      canvasCaptionElement.textContent = preview.editable_plan_available
+        ? 'Drag to pan. Scroll to zoom. Click a dimension to edit its annotation.'
+        : 'Drag to pan. Scroll to zoom.';
     }
 
     if (drawingRenderer && renderedSignature !== nextSignature) {
@@ -424,18 +476,25 @@ export function mountDrawingWorkspace({
       return;
     }
 
-    renderInfoRows(qaElement, [
-      ['QA score', qaSummary.score == null ? 'Unavailable' : `${qaSummary.score}/100`],
-      ['Weight profile', qaSummary.weight_profile || 'default'],
-      ['Planned dimensions', qaSummary.planned_dimension_count == null ? 'Unavailable' : String(qaSummary.planned_dimension_count)],
-      ['Rendered dimensions', qaSummary.rendered_dimension_count == null ? 'Unavailable' : String(qaSummary.rendered_dimension_count)],
-      ['Conflicts', qaSummary.conflict_count == null ? 'Unavailable' : String(qaSummary.conflict_count)],
-    ]);
+    renderInfoRows(qaElement, buildDrawingQaRows(qaSummary));
   }
 
   async function updateDimension({ dimId, valueMm, historyOp = 'edit' }) {
+    if (hasPendingRequest() || drawing.trackedRun.submitting) return;
     const previewId = drawing.preview?.id;
-    if (!previewId) return;
+    if (!previewId || isDrawingPreviewStale(drawing, state.data.model)) {
+      drawingRenderer?.clearPendingEdit();
+      return;
+    }
+    if (!dimId || !Number.isFinite(valueMm) || valueMm <= 0) {
+      drawing.errorMessage = 'Enter a valid positive dimension value before applying.';
+      drawing.summary = drawing.errorMessage;
+      drawingRenderer?.clearPendingEdit();
+      syncAll();
+      return;
+    }
+    const request = startRequest();
+    const submittedDraft = drawing.dimensionDrafts?.[dimId];
 
     drawing.status = 'generating';
     drawing.errorMessage = '';
@@ -448,7 +507,13 @@ export function mountDrawingWorkspace({
         value_mm: valueMm,
         history_op: historyOp,
       });
+      if (!requestIsCurrent(request)) return;
+      restoreRendererHistory();
       drawingRenderer?.handleDimensionUpdated(payload.update);
+      // An accepted response may belong to a renderer retired during the request.
+      publishRendererHistory();
+      if (drawing.dimensionDrafts?.[dimId] === submittedDraft) delete drawing.dimensionDrafts[dimId];
+      drawing.activeRequest = null;
       drawing.status = 'ready';
       drawing.errorMessage = '';
       drawing.preview = payload.preview;
@@ -461,12 +526,15 @@ export function mountDrawingWorkspace({
       });
       syncAll();
     } catch (error) {
-      drawing.errorMessage = error instanceof Error ? error.message : String(error);
+      if (!requestIsCurrent(request)) return;
+      drawing.activeRequest = null;
+      drawing.status = 'error';
+      drawing.errorMessage = drawingFailureMessage(error);
       drawing.summary = drawing.errorMessage;
       drawingRenderer?.clearPendingEdit();
       addLog({
         status: 'Drawing',
-        message: drawing.errorMessage,
+        message: error instanceof Error ? error.message : String(error),
         tone: 'warn',
         time: 'drawing',
       });
@@ -476,6 +544,18 @@ export function mountDrawingWorkspace({
 
   function syncDimensions() {
     const dimensions = drawing.preview?.dimensions || [];
+    const owner = JSON.stringify([previewReference(drawing.preview || {}), drawingInputSnapshot(state.data.model, drawing.settings)]);
+    if (drawing.dimensionDraftOwner !== owner) {
+      drawing.dimensionDraftOwner = owner;
+      drawing.dimensionDrafts = Object.create(null);
+      drawing.dimensionFocus = '';
+    }
+    dimensionsElement.querySelectorAll('[data-action="drawing-apply-dimension"]').forEach((button) => {
+      button.disabled = hasPendingRequest() || drawing.trackedRun.submitting || isDrawingPreviewStale(drawing, state.data.model);
+    });
+    const signature = JSON.stringify([owner, dimensions, drawing.preview?.editable_plan_available, isDrawingPreviewStale(drawing, state.data.model)]);
+    if (dimensionsSignature === signature) return;
+    dimensionsSignature = signature;
     if (!dimensions.length) {
       const note = document.createElement('p');
       note.className = 'inline-note';
@@ -514,7 +594,7 @@ export function mountDrawingWorkspace({
         input.type = 'number';
         input.step = '0.1';
         input.min = '0.01';
-        input.value = formatNumber(dimension.value_mm);
+        input.value = drawing.dimensionDrafts[dimension.id] ?? formatNumber(dimension.value_mm);
         input.dataset.dimId = dimension.id;
 
         const applyButton = document.createElement('button');
@@ -523,18 +603,18 @@ export function mountDrawingWorkspace({
         applyButton.textContent = 'Apply';
         applyButton.dataset.action = 'drawing-apply-dimension';
         applyButton.dataset.dimId = dimension.id;
+        applyButton.disabled = hasPendingRequest() || drawing.trackedRun.submitting || isDrawingPreviewStale(drawing, state.data.model);
 
         controls.append(input, applyButton);
         card.append(copy, controls);
         return card;
       })
     );
+    const focused = [...dimensionsElement.querySelectorAll('input[data-dim-id]')].find((input) => input.dataset.dimId === drawing.dimensionFocus);
+    focused?.focus();
   }
 
   function syncHistory() {
-    drawing.history = structuredClone(viewerStore.state.dimensions.history);
-    drawing.historyIndex = viewerStore.state.dimensions.index;
-
     if (!drawing.history.length) {
       const note = document.createElement('p');
       note.className = 'inline-note';
@@ -550,14 +630,14 @@ export function mountDrawingWorkspace({
         .reverse()
         .map((entry, index) => ({
           label: `${entry.dimId}: ${entry.oldValue} -> ${entry.newValue}`,
-          meta: index === 0 ? 'Latest' : `${drawing.history.length - index}`,
+          meta: drawing.history.length - index - 1 <= drawing.historyIndex ? 'Applied' : 'Undone',
         })),
       'Dimension history will appear here after the first change.'
     );
   }
 
   function syncSummary() {
-    summaryElement.textContent = drawing.summary || 'Iterate quickly with Preview Drawing, or publish results with a tracked drawing run.';
+    summaryElement.textContent = drawingWorkspaceSummary(drawing, state.data.model);
   }
 
   function syncTrackedStatus() {
@@ -620,8 +700,21 @@ export function mountDrawingWorkspace({
   }
 
   function syncAll() {
-    if (destroyed) return;
+    if (destroyed) {
+      if (state.data.drawing === drawing) mountedDrawingWorkspaces.get(state)?.();
+      return;
+    }
     syncDrawingReference();
+    // Shared history is canonical; rendering must never publish a pre-response copy.
+    restoreRendererHistory();
+    if (!hasPendingRequest()) drawingRenderer?.clearPendingEdit();
+    if (drawing.activeRequest && drawing.activeRequest.input !== drawingInputSnapshot(state.data.model, drawing.settings)) {
+      drawing.activeRequest = null;
+      drawing.status = drawing.preview ? 'ready' : 'idle';
+      drawing.summary = STALE_DRAWING_COPY;
+      drawingRenderer?.clearPendingEdit();
+    }
+    onDraftChange();
     syncControls();
     syncSourceSummary();
     syncStatusSurfaces();
@@ -638,6 +731,7 @@ export function mountDrawingWorkspace({
   }
 
   async function generateDrawing() {
+    if (hasPendingRequest() || drawing.trackedRun.submitting) return;
     const configToml = String(state.data.model.configText || '').trim();
     if (!configToml) {
       drawing.status = 'error';
@@ -648,6 +742,7 @@ export function mountDrawingWorkspace({
     }
 
     syncSettingsFromControls();
+    const request = startRequest();
     drawing.status = 'generating';
     drawing.errorMessage = '';
     drawing.summary = 'Generating drawing, sheet QA, and drawing-sidecar data...';
@@ -656,10 +751,16 @@ export function mountDrawingWorkspace({
     try {
       const payload = await postJson('/api/studio/drawing-preview', {
         config_toml: configToml,
-        drawing_settings: drawing.settings,
+        drawing_settings: request.settings,
       });
+      if (!requestIsCurrent(request)) return;
+      drawing.activeRequest = null;
       drawing.status = 'ready';
       drawing.preview = payload.preview;
+      drawing.previewInputSnapshot = request.input;
+      if (state.data.model.configText.trim() === configToml) {
+        state.data.model.overview = payload.preview.overview || state.data.model.overview;
+      }
       drawing.summary = buildDrawingPreviewReadySummary(payload.preview, drawing.settings);
       addLog({
         status: 'Drawing',
@@ -671,12 +772,14 @@ export function mountDrawingWorkspace({
       reportButton?.focus();
       requestAnimationFrame(() => reportButton?.focus());
     } catch (error) {
+      if (!requestIsCurrent(request)) return;
+      drawing.activeRequest = null;
       drawing.status = 'error';
-      drawing.errorMessage = error instanceof Error ? error.message : String(error);
+      drawing.errorMessage = drawingFailureMessage(error);
       drawing.summary = drawing.errorMessage;
       addLog({
         status: 'Drawing',
-        message: drawing.errorMessage,
+        message: error instanceof Error ? error.message : String(error),
         tone: 'warn',
         time: 'drawing',
       });
@@ -685,6 +788,7 @@ export function mountDrawingWorkspace({
   }
 
   async function runTrackedDraw() {
+    if (hasPendingRequest() || drawing.trackedRun.submitting) return;
     const configToml = String(state.data.model.configText || '').trim();
     if (!configToml) {
       drawing.errorMessage = 'Load an example or open a config before starting a tracked draw.';
@@ -694,6 +798,8 @@ export function mountDrawingWorkspace({
     }
 
     syncSettingsFromControls();
+    const owner = drawing;
+    const ownsSubmission = () => state.data.drawing === owner;
     drawing.trackedRun.submitting = true;
     drawing.trackedRun.error = '';
     drawing.summary = 'Submitting tracked draw while keeping the preview sheet available.';
@@ -704,12 +810,13 @@ export function mountDrawingWorkspace({
         type: 'draw',
         configToml,
         drawingSettings: drawing.settings,
-        drawingPreviewId: drawing.preview?.id || '',
+        drawingPreviewId: isDrawingPreviewStale(drawing, state.data.model) ? '' : drawing.preview?.id || '',
         completionAction: {
           type: 'open-artifacts-on-success',
           route: 'artifacts',
         },
       });
+      if (!ownsSubmission()) return;
       updateDrawingTrackedRunFromJob(drawing, job);
       drawing.errorMessage = '';
       drawing.summary = drawing.trackedRun.preservedEditedPreview
@@ -725,9 +832,10 @@ export function mountDrawingWorkspace({
       });
       syncAll();
     } catch (error) {
+      if (!ownsSubmission()) return;
       drawing.trackedRun.submitting = false;
       drawing.trackedRun.error = error instanceof Error ? error.message : String(error);
-      drawing.errorMessage = error instanceof Error ? error.message : String(error);
+      drawing.errorMessage = drawingFailureMessage(error);
       drawing.summary = `Tracked draw could not be queued: ${drawing.errorMessage}`;
       addLog({
         status: 'Drawing',
@@ -743,14 +851,17 @@ export function mountDrawingWorkspace({
     const model = currentModel();
     const configToml = String(model.configText || '').trim();
     if (
-      reportSubmitting
-      || reportRunIsActive()
+      reportRunIsActive()
+      || model.trackedRun.submitting
       || !configToml
       || drawing.status !== 'ready'
       || !drawing.preview?.svg
+      || isDrawingPreviewStale(drawing, model)
     ) return;
 
-    reportSubmitting = true;
+    const submission = {};
+    model.activeTrackedSubmission = submission;
+    const ownsSubmission = () => state.data.model === model && model.activeTrackedSubmission === submission;
     model.trackedRun = {
       type: 'report',
       lastJobId: '',
@@ -769,6 +880,7 @@ export function mountDrawingWorkspace({
           includeDrawing: true,
         }),
       });
+      if (!ownsSubmission()) return;
       model.trackedRun = {
         type: 'report',
         lastJobId: job.id,
@@ -783,6 +895,7 @@ export function mountDrawingWorkspace({
         time: 'job',
       });
     } catch (error) {
+      if (!ownsSubmission()) return;
       model.trackedRun = {
         ...model.trackedRun,
         submitting: false,
@@ -795,8 +908,7 @@ export function mountDrawingWorkspace({
         time: 'job',
       });
     } finally {
-      reportSubmitting = false;
-      syncAll();
+      if (ownsSubmission()) syncAll();
     }
   }
 
@@ -848,13 +960,7 @@ export function mountDrawingWorkspace({
     if (target.dataset.action === 'drawing-apply-dimension') {
       const dimId = target.dataset.dimId;
       const input = dimensionsElement.querySelector(`input[data-dim-id="${CSS.escape(dimId)}"]`);
-      const valueMm = Number.parseFloat(input?.value || '');
-      if (!dimId || Number.isNaN(valueMm)) {
-        drawing.errorMessage = 'Enter a valid positive dimension value before applying.';
-        drawing.summary = drawing.errorMessage;
-        syncAll();
-        return;
-      }
+      const valueMm = Number(input?.value || '');
       updateDimension({ dimId, valueMm, historyOp: 'edit' });
     }
   }
@@ -862,6 +968,11 @@ export function mountDrawingWorkspace({
   async function handleChange(event) {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+
+    if (target === exampleSelect) {
+      state.data.examples.selectedId = exampleSelect.value;
+      return;
+    }
 
     if (target === configFileInput) {
       const [file] = [...(configFileInput.files || [])];
@@ -875,10 +986,18 @@ export function mountDrawingWorkspace({
 
     if (target.matches('[data-hook="drawing-view"], [data-hook="drawing-scale"], [data-hook="drawing-section-assist"], [data-hook="drawing-detail-assist"]')) {
       syncSettingsFromControls();
-      syncSummary();
+      syncAll();
     }
   }
 
+  function handleDraftInput(event) {
+    const target = event.target;
+    if (!target?.matches?.('input[data-dim-id]')) return;
+    drawing.dimensionDrafts[target.dataset.dimId] = target.value;
+    drawing.dimensionFocus = target.dataset.dimId;
+  }
+
+  root.addEventListener('input', handleDraftInput);
   root.addEventListener('click', handleClick);
   root.addEventListener('change', handleChange);
 
@@ -910,13 +1029,16 @@ export function mountDrawingWorkspace({
       return state.data.model.configText || '';
     },
     onDrawingStateChange({ dimensions }) {
+      if (destroyed || state.data.drawing !== drawing) return;
       viewerStore.state.dimensions.history = dimensions.history;
       viewerStore.state.dimensions.index = dimensions.index;
+      publishRendererHistory();
       syncHistory();
     },
   });
 
   root.dataset.drawingWorkspaceMounted = 'true';
+  mountedDrawingWorkspaces.set(state, syncAll);
   syncAll();
 
   return {
@@ -926,7 +1048,9 @@ export function mountDrawingWorkspace({
     destroy() {
       destroyed = true;
       delete root.dataset.drawingWorkspaceMounted;
+      if (mountedDrawingWorkspaces.get(state) === syncAll) mountedDrawingWorkspaces.delete(state);
       drawingRenderer?.destroy?.();
+      root.removeEventListener('input', handleDraftInput);
       root.removeEventListener('click', handleClick);
       root.removeEventListener('change', handleChange);
     },

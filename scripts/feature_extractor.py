@@ -168,13 +168,16 @@ def _extract_step_diameter(config, fg, step_index):
     return None, "none", f"step_{step_index}_not_found"
 
 
-def _extract_box_dimension(config, fg, dim_key):
-    """Box width/height/length from largest base box."""
+def _extract_box_dimension(config, fg, dim_key, *, base_footprint=False):
+    """Read a box dimension, using XY area for the base footprint."""
     boxes = _base_boxes(config)
     if not boxes:
         return None, "none", "no_boxes"
-    base = max(boxes, key=lambda s: (s.get("width", 0) * s.get("length", 0)
-                                      * s.get("height", 0)))
+    if base_footprint:
+        base = max(boxes, key=lambda s: s.get("width", 0) * s.get("length", 0))
+    else:
+        base = max(boxes, key=lambda s: (s.get("width", 0) * s.get("length", 0)
+                                          * s.get("height", 0)))
     val = base.get(dim_key, 0)
     if val > 0:
         return val, "high", f"shapes.{base['id']}.{dim_key}"
@@ -209,6 +212,10 @@ def _extract_keyway_width(config, fg):
 
 
 # ---- Feature ID → extractor dispatch table ----
+
+# Bracket footprint features use the box builder's X/Y dimensions, independent
+# of the display intent ID (the template calls base_length "WIDTH").
+BOX_FOOTPRINT_DIMENSIONS = {"base_length": "length", "base_width": "width"}
 
 FEATURE_RULES = {
     # Flange
@@ -265,9 +272,13 @@ def extract_values(config, feature_graph, dim_intents):
             enriched.append(di)
             continue
 
-        # Try dispatch table
+        # Prefer the footprint feature's meaning over legacy display ID aliases.
+        box_dimension = BOX_FOOTPRINT_DIMENSIONS.get(feature)
         extractor = FEATURE_RULES.get(fid)
-        if extractor:
+        if box_dimension:
+            value_mm, confidence, source = _extract_box_dimension(
+                config, feature_graph, box_dimension, base_footprint=True)
+        elif extractor:
             value_mm, confidence, source = extractor(config, feature_graph)
         else:
             value_mm, confidence, source = None, "none", "no_rule"

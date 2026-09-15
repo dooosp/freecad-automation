@@ -12,6 +12,7 @@ Usage:
 """
 
 import json
+import math
 import sys
 import os
 from pathlib import Path
@@ -22,7 +23,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 TEMPLATES_DIR = PROJECT_ROOT / "configs" / "templates"
 
-KNOWN_PART_TYPES = {"flange", "shaft", "bracket", "housing", "bushing_plate", "assembly", "generic"}
+KNOWN_PART_TYPES = {"flange", "shaft", "bracket", "plate", "housing", "bushing_plate", "assembly", "generic"}
 VALID_VIEWS = {"front", "top", "right", "iso", "back", "bottom", "left"}
 SCHEMA_VERSION = "0.1"
 
@@ -70,12 +71,14 @@ def classify_part_type(config):
 
     Rules (priority order):
     1. assembly section exists → assembly
-    2. cylinder dominant + cut holes (no multi-step) → flange
-    3. cylinder dominant + multi-step (≥3 cylinders fused) → shaft
-    4. box + cylinder holes + thin → bracket
-    5. box + cylinder holes + section view hint → housing
-    6. box + cylinder holes → bushing_plate
-    7. fallback → generic
+    2. ≥3 base cylinders fused → shaft
+    3. cylinder dominant + ≥4 cut holes → flange
+    4. multiple boxes fused + cuts → bracket
+    5. box + cuts + section view hint → housing
+    6. box + ≥6 cylinder holes → bushing_plate
+    7. single horizontal thin box + simple cylinder cuts → plate
+    8. other box + cuts → bracket (thin) or housing (thick)
+    9. fallback → generic
     """
     # Check assembly first
     if config.get("assembly") or config.get("parts"):
@@ -126,16 +129,70 @@ def classify_part_type(config):
             return "bushing_plate"
 
         # Fallback for box+holes: bracket (thin) vs housing (thick)
-        box_shapes = [s for s in shapes if s.get("type") == "box"]
+        # Cut tools describe removed material, not the body's thickness.
+        box_shapes = [
+            s for s in shapes
+            if s.get("type") == "box" and s.get("id") not in cut_tools
+        ]
+        # Match the dimensions used by the box builder; retain legacy size fallback.
+        box_dimensions = [
+            [s["length"], s["width"], s["height"]]
+            if all(key in s for key in ("length", "width", "height"))
+            else s.get("size", [999, 999, 999])
+            for s in box_shapes
+        ]
         min_thickness = min(
-            (min(s.get("size", [999, 999, 999])) for s in box_shapes),
+            (min(dimensions) for dimensions in box_dimensions),
             default=999
         )
         if min_thickness < 25:
+            if _is_flat_mounting_plate(config, box_shapes, hole_cylinders):
+                return "plate"
             return "bracket"
         return "housing"
 
     return "generic"
+
+
+def _is_flat_mounting_plate(config, boxes, holes):
+    """Recognize only a horizontal box with a sequential cylinder-cut chain.
+
+    This selects drawing requirements from the input recipe, not verified
+    geometry. Other shapes, rotations, or operations keep the existing rules.
+    """
+    shapes = config.get("shapes", [])
+    if len(boxes) != 1 or not holes or len(shapes) != len(holes) + 1:
+        return False
+    box = boxes[0]
+    # Require the runtime's canonical dimensions; legacy size stays a fallback.
+    dimensions = [box.get(key) for key in ("length", "width", "height")]
+    if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+               and math.isfinite(value) and value > 0 for value in dimensions):
+        return False
+    length, width, height = dimensions
+    if not height < min(length, width, 25):
+        return False
+    if any("rotation" in shape for shape in shapes):
+        return False
+    if any(hole.get("direction", [0, 0, 1]) != [0, 0, 1] for hole in holes):
+        return False
+
+    current = box.get("id")
+    hole_ids = {hole.get("id") for hole in holes}
+    if not current or not all(hole_ids) or current in hole_ids or len(hole_ids) != len(holes):
+        return False
+    # Match the runtime's ordered shape dictionary. Replacing an existing
+    # result in place does not make it the implicit final shape.
+    shape_ids = [shape.get("id") for shape in shapes]
+    for op in config.get("operations", []):
+        if (op.get("op") != "cut" or op.get("base") != current
+                or op.get("tool") not in hole_ids or not op.get("result")
+                or op["result"] in hole_ids):
+            return False
+        current = op["result"]
+        if current not in shape_ids:
+            shape_ids.append(current)
+    return config.get("final", shape_ids[-1]) == current
 
 
 # ---------------------------------------------------------------------------
@@ -354,7 +411,25 @@ def merge_plan(config, template):
         plan["notes"] = {}
         plan["scale"] = {"mode": "auto", "min": 0.4, "max": 2.5}
 
-    # Override with existing plan values (config explicit > template)
+    # Legacy drawing fields override template defaults. Normalize only the
+    # supported input shapes into their drawing_plan counterparts.
+    drawing = config.get("drawing", {})
+    if isinstance(drawing, dict):
+        drawing_overrides = {}
+        drawing_views = drawing.get("views")
+        if isinstance(drawing_views, list):
+            drawing_overrides["views"] = {"enabled": drawing_views}
+
+        drawing_notes = drawing.get("notes")
+        if isinstance(drawing_notes, list):
+            drawing_overrides["notes"] = {"general": drawing_notes}
+        elif (isinstance(drawing_notes, dict)
+              and isinstance(drawing_notes.get("general"), list)):
+            drawing_overrides["notes"] = {"general": drawing_notes["general"]}
+
+        _deep_merge(plan, drawing_overrides)
+
+    # Existing drawing_plan values have final priority over drawing fields.
     _deep_merge(plan, existing_plan)
 
     # Override part_type if explicitly set

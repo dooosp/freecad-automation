@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 
 import {
   buildDrawingCanvasCaption,
+  buildDrawingQaRows,
   buildDrawingPreviewReadySummary,
   buildDrawingPreviewResultSummary,
 } from '../public/js/studio/drawing-preview-copy.js';
 import en from '../public/js/i18n/en.js';
 import ko from '../public/js/i18n/ko.js';
+import { drawingWorkspaceSummary } from '../public/js/studio/workbench-presentation.js';
 
 const preview = {
   id: 'preview-1',
@@ -48,5 +50,31 @@ for (const dictionary of [en, ko]) {
   assert.equal(typeof dictionary.messages['studio.drawing.canvas.label'], 'string');
   assert.equal(dictionary.messages['studio.drawing.canvas.label'].length > 0, true);
 }
+// A retained preview must not hide an annotation error or tracked submission state.
+const readyDrawing = { status: 'ready', preview, trackedRun: { submitting: false } };
+assert.equal(drawingWorkspaceSummary(readyDrawing), 'Drawing ready. Review dimensions before saving.');
+const annotationError = 'Enter a valid positive dimension value before applying.';
+assert.equal(drawingWorkspaceSummary({ ...readyDrawing, errorMessage: annotationError }), annotationError);
+const submissionError = 'Tracked draw could not be queued: connection unavailable';
+assert.equal(drawingWorkspaceSummary({ ...readyDrawing, errorMessage: submissionError }), submissionError);
+const submitting = 'Submitting tracked draw while keeping the preview sheet available.';
+assert.equal(drawingWorkspaceSummary({
+  ...readyDrawing, summary: submitting, trackedRun: { submitting: true },
+}), submitting);
+
+const qaRows = Object.fromEntries(buildDrawingQaRows({
+  score: 89, planned_dimension_count: 7, rendered_dimension_count: 1,
+  auto_dimension_count: 10, total_rendered_dimension_count: 11,
+  conflict_count: 0, informational_conflict_count: 7,
+}));
+assert.equal(qaRows['Total rendered dimensions'], '11');
+assert.equal(qaRows['Rendered plan dimensions'], '1');
+assert.equal(qaRows['Auto dimensions'], '10');
+assert.equal(qaRows.Conflicts, '0');
+assert.equal(qaRows['Informational notices'], '7');
+const legacyQaRows = Object.fromEntries(buildDrawingQaRows({ rendered_dimension_count: 1 }));
+assert.equal(legacyQaRows['Rendered plan dimensions'], '1');
+assert.equal(legacyQaRows['Total rendered dimensions'], 'Unavailable');
+assert.equal(legacyQaRows['Informational notices'], 'Unavailable');
 
 console.log('studio-drawing-workspace.test.js: ok');

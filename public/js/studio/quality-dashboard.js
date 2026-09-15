@@ -1,3 +1,5 @@
+import { deriveArtifactContentActions } from './artifact-actions.js';
+
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
@@ -1368,10 +1370,10 @@ function buildDrawingQualityPanel({ artifacts = [], reportSummary = {}, drawingS
   const hasArtifactEvidence = Boolean(drawingArtifact || reportArtifact);
   if (!hasSurfaceEvidence && !hasRawEvidence && !hasArtifactEvidence) return null;
 
-  const available = surface.available === true || hasRawEvidence;
-  const status = available
-    ? normalizeSurfaceStatus(surface.status || raw.status || 'warning')
-    : 'not_available';
+  const resultStatus = normalizeSurfaceStatus(surface.status || raw.status);
+  const available = (surface.available === true || hasRawEvidence)
+    && !['not_available', 'not_run', 'missing', 'incomplete'].includes(resultStatus);
+  const status = available ? resultStatus : 'not_available';
   const missingRequiredDimensions = uniqueStrings([
     ...safeList(surface.missing_required_dimensions),
     ...safeList(raw.dimensions?.missing_required_intents),
@@ -1416,7 +1418,7 @@ function buildDrawingQualityPanel({ artifacts = [], reportSummary = {}, drawingS
     status,
     statusLabel: drawingStatusLabel(status, available),
     tone: drawingStatusTone(status, available),
-    score: firstFiniteNumber(surface.score, raw.score),
+    score: available ? firstFiniteNumber(surface.score, raw.score) : null,
     criticalCoverageLabel: buildDrawingCoverageLabel(surface, raw, missingRequiredDimensions),
     missingRequiredDimensions,
     missingNotesViews,
@@ -1716,8 +1718,13 @@ function buildArtifactLinks(artifacts = []) {
 
   return linkDefinitions
     .map((definition) => {
-      const artifact = artifacts.find((entry) => entry?.exists !== false && definition.match(entry)) || null;
+      const artifact = artifacts.find((entry) => (
+        entry?.exists !== false
+        && definition.match(entry)
+        && deriveArtifactContentActions(entry).preferred
+      )) || null;
       if (!artifact) return null;
+      const actions = deriveArtifactContentActions(artifact);
       return {
         id: definition.id,
         label: definition.label,
@@ -1726,8 +1733,15 @@ function buildArtifactLinks(artifacts = []) {
         status: 'available',
         statusLabel: formatQualityStatusLabel('available', definition.required !== false),
         fileName: artifact.file_name || artifact.key || artifact.id || definition.label,
-        href: artifact.links?.open || null,
-        downloadHref: artifact.links?.download || null,
+        href: actions.preferred.href,
+        actionKind: actions.preferred.kind,
+        actionLabel: actions.preferred.label,
+        target: actions.preferred.target,
+        rel: actions.preferred.rel,
+        openHref: actions.open?.href || null,
+        downloadHref: actions.download?.href || null,
+        canOpen: actions.canOpen,
+        canDownload: actions.canDownload,
         artifactId: artifact.id || null,
         artifactKey: artifact.key || null,
         sourceArtifactId: artifact.id || artifact.key || null,
@@ -1870,7 +1884,7 @@ function summarizeCreateFallback(createQuality = {}) {
   const invalidShape = createQuality.geometry?.valid_shape === false
     || blockingIssues.some((issue) => /invalid/i.test(issue));
   return {
-    status: normalizeSurfaceStatus(createQuality.status || (invalidShape ? 'fail' : 'pass')),
+    status: normalizeSurfaceStatus(createQuality.status || (invalidShape ? 'fail' : 'not_available')),
     invalidShape,
     blockers: blockingIssues,
     warnings: uniqueStrings(safeList(createQuality.warnings)),
@@ -1890,7 +1904,7 @@ function summarizeDrawingFallback(drawingQuality = {}) {
       || Number(drawingQuality.dimensions?.conflict_count || 0) > 0
       || Number(drawingQuality.views?.overlap_count || 0) > 0
         ? 'fail'
-        : 'pass'
+        : 'not_available'
     )),
     score: Number.isFinite(Number(drawingQuality.score)) ? Number(drawingQuality.score) : null,
     missingRequiredDimensions,
@@ -1945,7 +1959,9 @@ function buildFallbackModel({
         status: createSurface.status,
         summary: createSurface.invalidShape
           ? 'Generated model shape is invalid.'
-          : summaryFromIssues(createSurface.warnings, 'Create quality artifact is available.'),
+          : summaryFromIssues(createSurface.warnings, createSurface.status === 'not_available'
+            ? 'Create quality results are not available for this job.'
+            : 'Create quality artifact is available.'),
       }),
       buildSurface({
         id: 'drawing',
@@ -1956,7 +1972,9 @@ function buildFallbackModel({
           ? `Missing required dimensions: ${drawingSurface.missingRequiredDimensions.join(', ')}.`
           : drawingSurface.conflictCount > 0
             ? `Dimension conflicts detected: ${drawingSurface.conflictCount}.`
-            : summaryFromIssues(drawingSurface.warnings, 'Drawing quality artifact is available.'),
+            : summaryFromIssues(drawingSurface.warnings, drawingSurface.status === 'not_available'
+              ? 'Drawing quality results are not available for this job.'
+              : 'Drawing quality artifact is available.'),
       }),
       buildSurface({
         id: 'dfm',

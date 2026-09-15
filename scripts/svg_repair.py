@@ -9,6 +9,7 @@ Each function takes an ElementTree, mutates it in-place, and returns a
 result dict with "summary" (counts) and "changes" (per-element log).
 """
 import xml.etree.ElementTree as ET
+from _general_notes import _wrap_text
 
 from svg_common import (
     local_tag, svg_tag, elem_bbox_approx,
@@ -22,7 +23,7 @@ from svg_common import (
 # ---------------------------------------------------------------------------
 
 _NOTES_X = 19.0
-_NOTES_Y_START = 236.0
+_NOTES_Y_START = 252.0
 _NOTES_Y_MAX = 268.0
 _NOTES_LINE_H = 4.0
 _NOTES_FONT_SIZE = 2.0
@@ -59,61 +60,57 @@ def rebuild_notes(tree):
     if not texts:
         return empty
 
-    max_chars = int(_NOTES_MAX_WIDTH / (_NOTES_FONT_SIZE * _NOTES_CHAR_W))
-    texts_wrapped = 0
+    def collect_lines(width):
+        max_chars = int(width / (_NOTES_FONT_SIZE * _NOTES_CHAR_W))
+        lines = []
+        wrapped_count = 0
+        for text in texts:
+            if text.get("data-notes-overflow") == "true":
+                continue
+            content = text.text or ""
+            attrs = {k: v for k, v in text.attrib.items() if k not in ("x", "y", "text")}
+            wrapped = _wrap_text(content, max_chars)
+            wrapped_count += len(wrapped) > 1
+            for index, line in enumerate(wrapped):
+                lines.append({"text": line, "attrs": attrs if index == 0 else {}})
+        return lines, wrapped_count
 
-    # Collect all content preserving header/body distinction
-    raw_lines = []
-    for t in texts:
-        content = t.text or ""
-        is_header = t.get("font-weight") == "bold"
-        attrs = {k: v for k, v in t.attrib.items()
-                 if k not in ("x", "y", "text")}
+    # Keep short notes unchanged. Longer notes use two columns within the same
+    # title-block space, preserving the font size and four-millimeter leading.
+    raw_lines, texts_wrapped = collect_lines(_NOTES_MAX_WIDTH)
+    rows_per_column = int((_NOTES_Y_MAX - _NOTES_Y_START) / _NOTES_LINE_H) + 1
+    columns = 2 if len(raw_lines) > rows_per_column else 1
+    if columns == 2:
+        raw_lines, texts_wrapped = collect_lines(85.0)
+    previous_omitted = int(notes_group.get("data-notes-omitted-lines", "0"))
+    capacity = columns * rows_per_column
+    lines_total = len(raw_lines) + previous_omitted
+    truncated = lines_total > capacity or previous_omitted > 0
+    visible_lines = raw_lines[:capacity - 1] if truncated else raw_lines
+    lines_rendered = len(visible_lines)
+    omitted = lines_total - lines_rendered
 
-        if is_header or len(content) <= max_chars:
-            raw_lines.append({"text": content, "attrs": attrs})
-        else:
-            texts_wrapped += 1
-            words = content.split(" ")
-            current = ""
-            first = True
-            for w in words:
-                if current and len(current) + 1 + len(w) > max_chars:
-                    raw_lines.append({
-                        "text": current,
-                        "attrs": attrs if first else {},
-                    })
-                    current = "   " + w
-                    first = False
-                else:
-                    current = (current + " " + w).strip() if current else w
-            if current:
-                raw_lines.append({
-                    "text": current,
-                    "attrs": attrs if first else {},
-                })
-
-    # Remove existing text children
-    for t in texts:
-        notes_group.remove(t)
-
-    # Re-create within y bounds
-    lines_total = len(raw_lines)
-    lines_rendered = 0
-    truncated = False
-
-    for i, line_info in enumerate(raw_lines):
-        y = _NOTES_Y_START + i * _NOTES_LINE_H
-        if y > _NOTES_Y_MAX:
-            truncated = True
-            break
+    for text in texts:
+        notes_group.remove(text)
+    if truncated:
+        notes_group.set("data-notes-omitted-lines", str(omitted))
+    else:
+        notes_group.attrib.pop("data-notes-omitted-lines", None)
+    y_start = _NOTES_Y_MAX - (min(lines_rendered, rows_per_column) - 1) * _NOTES_LINE_H
+    for index, line_info in enumerate(visible_lines):
+        column, row = divmod(index, rows_per_column)
         new_t = ET.SubElement(notes_group, svg_tag("text"))
-        new_t.set("x", str(_NOTES_X))
-        new_t.set("y", f"{y:.1f}")
-        for k, v in line_info["attrs"].items():
-            new_t.set(k, v)
+        new_t.set("x", str(_NOTES_X + column * 95.0))
+        new_t.set("y", f"{y_start + row * _NOTES_LINE_H:.1f}")
+        for key, value in line_info["attrs"].items():
+            new_t.set(key, value)
         new_t.text = line_info["text"]
-        lines_rendered += 1
+    if truncated:
+        marker = ET.SubElement(notes_group, svg_tag("text"), {
+            "x": str(_NOTES_X + (columns - 1) * 95.0), "y": str(_NOTES_Y_MAX),
+            "font-size": str(_NOTES_FONT_SIZE), "fill": "#b00020", "data-notes-overflow": "true",
+        })
+        marker.text = f"{omitted} more lines — review drawing plan"
 
     changes = [{
         "pass": "rebuild_notes",
@@ -130,10 +127,10 @@ def rebuild_notes(tree):
     if truncated:
         risks.append({
             "code": "notes_reflowed",
-            "severity": "warning",
+            "severity": "error",
             "view": "page",
             "reason": f"Notes truncated: {lines_total - lines_rendered} lines "
-                      f"exceeded y_max={_NOTES_Y_MAX}mm",
+                      "exceeded the reserved title-block space; review the drawing plan",
         })
     else:
         risks.append({

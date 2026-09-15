@@ -234,6 +234,15 @@ try {
   assert.equal(compareJobRecord.manifest.artifacts.some((entry) => entry.type === 'input.review-pack.baseline' && entry.scope === 'internal'), true);
   assert.equal(compareJobRecord.manifest.artifacts.some((entry) => entry.type === 'input.review-pack.candidate' && entry.scope === 'internal'), true);
 
+  const comparisonArtifact = await assertJobFileArtifact(jobStore, compareJob.id, {
+    fileName: 'revision_comparison.json',
+    type: 'revision-comparison.json',
+  });
+  const comparisonDocument = readJson(comparisonArtifact.path);
+  assert.equal(comparisonDocument.comparison_scope.hole_positions, 'not_compared');
+  assert.equal(comparisonDocument.comparison_scope.shape_equivalence, 'not_evaluated');
+  assert.equal(comparisonDocument.warnings.some((warning) => warning.includes('Equal summary metrics do not prove identical geometry')), true);
+
   const { response: stabilizationResponse, payload: stabilizationPayload } = await postJson(`${baseUrl}/jobs`, {
     type: 'stabilization-review',
     baseline_path: READINESS_REPORT_FIXTURE_RELATIVE,

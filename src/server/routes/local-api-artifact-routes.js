@@ -137,11 +137,15 @@ export function registerArtifactRoutes(app, { jobStore, projectRoot = null }) {
         return;
       }
 
+      res.attachment(artifact.file_name);
+      if (!download) {
+        const contentDisposition = res.getHeader('Content-Disposition');
+        res.setHeader(
+          'Content-Disposition',
+          String(contentDisposition).replace(/^attachment\b/i, 'inline')
+        );
+      }
       res.type(inferArtifactContentType(artifact.path));
-      res.setHeader(
-        'Content-Disposition',
-        `${download ? 'attachment' : 'inline'}; filename="${artifact.file_name.replaceAll('"', '')}"`
-      );
       res.send(await readFile(publicAccess.path));
     } catch {
       const response = createErrorResponse('job_not_found', [`No job found for id ${jobId}.`], 404);

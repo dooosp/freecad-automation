@@ -5,10 +5,23 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { runDrawPipeline } from '../src/orchestration/draw-pipeline.js';
+import { ensureDrawSchema } from '../src/orchestration/drawing-prep.js';
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const TEST_DIR = dirname(TEST_FILE);
 const PROJECT_ROOT = dirname(TEST_DIR);
+
+for (const [input, expected] of [
+  [{ manufacturing: { material: 'AL6061' } }, 'AL6061'],
+  [{ manufacturing: { material: 'AL6061' }, material: 'SS304' }, 'AL6061'],
+  [{ drawing: { meta: { material: 'SCM435' } }, manufacturing: { material: 'AL6061' }, material: 'SS304' }, 'SCM435'],
+  [{ material: 'SS304' }, 'SS304'],
+  [{}, 'UNKNOWN'],
+]) {
+  const config = structuredClone(input);
+  ensureDrawSchema(config);
+  assert.equal(config.drawing.meta.material, expected, 'drawing must carry the selected input material');
+}
 
 const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-draw-qa-quote"-'));
 
@@ -17,6 +30,7 @@ try {
   mkdirSync(outputDir, { recursive: true });
 
   const configPath = join(tempRoot, 'qa_dfm_bridge.json');
+  const overridePath = join(tempRoot, 'material-override.json');
   const svgPath = join(outputDir, 'qa_dfm_bridge_drawing.svg');
 
   const config = {
@@ -62,8 +76,11 @@ try {
   const result = await runDrawPipeline({
     projectRoot: PROJECT_ROOT,
     configPath,
+    overridePath,
     flags: ['--raw', '--no-plan'],
-    loadConfig: async () => structuredClone(config),
+    loadConfig: async (path) => path === overridePath
+      ? { manufacturing: { process: 'machining', material: 'AL6061' } }
+      : structuredClone(config),
     deepMerge: (target, source) => Object.assign(target, source),
     generateDrawing: async () => ({
       success: true,
@@ -128,6 +145,8 @@ try {
 
   const effectiveConfig = JSON.parse(readFileSync(runLog.artifacts.effective_config, 'utf8'));
   assert.equal(effectiveConfig.manufacturing.process, 'machining');
+  assert.equal(effectiveConfig.manufacturing.material, 'AL6061');
+  assert.equal(effectiveConfig.drawing.meta.material, 'AL6061', 'material overrides must reach the drawing');
   assert.equal(effectiveConfig.operations[0].op, 'cut');
 
   const strictOutputDir = join(tempRoot, 'strict-output');

@@ -375,11 +375,14 @@ export function createDrawingRenderer({
 
   function handleDocumentKeydown(event) {
     if (!drawingOverlayElement.classList.contains('open')) return;
+    const target = event.target;
+    if (target instanceof Element && (target.matches('input, textarea, select') || target.isContentEditable)) return;
+    const key = event.key.toLowerCase();
 
-    if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+    if ((event.ctrlKey || event.metaKey) && key === 'z' && !event.shiftKey) {
       event.preventDefault();
       undoDimEdit();
-    } else if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey))) {
+    } else if ((event.ctrlKey || event.metaKey) && (key === 'y' || (key === 'z' && event.shiftKey))) {
       event.preventDefault();
       redoDimEdit();
     }

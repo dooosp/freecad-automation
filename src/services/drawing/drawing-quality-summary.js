@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
+import { resolveAutoDimensionCoverage } from './auto-dimension-coverage.js';
+import { currentTraceability } from './current-traceability.js';
 import { compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
 import { evaluateLayoutReadability, summarizeLayoutReadabilityActions } from './layout-readability.js';
 import {
@@ -248,11 +250,11 @@ function hasTextEvidence(requirement = {}, svgText = '') {
   });
 }
 
-function buildDimensionEvidence(dimensionMap = null, traceability = null) {
+function buildDimensionEvidence(dimensionMap = null, traceability = null, autoRepresentations = new Map()) {
   const renderedDimensions = new Map();
   const renderedFeatures = new Set();
   for (const entry of asArray(dimensionMap?.plan_dimensions)) {
-    if (!isMappedRequiredDimension(entry)) continue;
+    if (!isMappedRequiredDimension(entry) && !autoRepresentations.has(entry)) continue;
     const dimId = normalizeComparable(entry.dim_id ?? entry.id);
     const featureId = normalizeComparable(entry.feature ?? entry.feature_id);
     if (dimId) renderedDimensions.set(dimId, entry);
@@ -319,6 +321,7 @@ function buildSemanticDrawingQualityReport({
   featureCatalog = null,
   planner = null,
   dimensionMap = null,
+  autoRepresentations = new Map(),
   traceability = null,
   producedViews = [],
   svgContent = null,
@@ -331,7 +334,7 @@ function buildSemanticDrawingQualityReport({
   const dimensions = collectDrawingIntentDimensions(intent);
   const notes = collectIntentNotes(intent);
   const views = collectIntentViews(intent);
-  const evidence = buildDimensionEvidence(dimensionMap, traceability);
+  const evidence = buildDimensionEvidence(dimensionMap, traceability, autoRepresentations);
   const producedViewSet = new Set(producedViews.map(normalizeComparable).filter(Boolean));
   const svgText = extractSvgText(svgContent);
 
@@ -545,13 +548,15 @@ function collectTraceabilityGaps(requiredDimensions = [], traceability = null) {
   }
 
   const unresolved = new Set(uniqueStrings(traceability?.summary?.unresolved_dimensions || []));
+  const linked = new Set();
   for (const link of asArray(traceability?.links)) {
     const dimId = typeof link?.dim_id === 'string' ? link.dim_id : null;
     if (!dimId) continue;
     if (!link?.feature_id) unresolved.add(dimId);
+    else linked.add(dimId);
   }
 
-  return requiredIds.filter((id) => unresolved.has(id));
+  return requiredIds.filter((id) => unresolved.has(id) || !linked.has(id));
 }
 
 export function applyReviewerFeedbackToDrawingQualitySummary(summary, reviewerFeedbackSummary = null) {
@@ -748,16 +753,27 @@ export function buildDrawingQualitySummary({
 
   const planDimensions = asArray(dimensionMap?.plan_dimensions);
   const requiredDimensions = planDimensions.filter((entry) => entry?.required === true);
-  const mappedRequiredDimensions = requiredDimensions.filter(isMappedRequiredDimension);
+  const autoRepresentations = resolveAutoDimensionCoverage(dimensionMap, svgContent);
+  traceability = currentTraceability(traceability, dimensionMap, svgContent, autoRepresentations);
+  const isCovered = (entry) => isMappedRequiredDimension(entry) || autoRepresentations.has(entry);
+  const mappedRequiredDimensions = requiredDimensions.filter(isCovered);
+  const autoRepresentedDimensions = requiredDimensions
+    .filter((entry) => autoRepresentations.has(entry))
+    .map((entry) => autoRepresentations.get(entry));
   const missingRequiredIntents = uniqueStrings(
     requiredDimensions
-      .filter((entry) => !isMappedRequiredDimension(entry))
+      .filter((entry) => !isCovered(entry))
       .map((entry) => entry?.dim_id)
   );
   const conflictCount = Number(dimConflicts?.summary?.count);
-  const normalizedConflictCount = Number.isFinite(conflictCount)
-    ? conflictCount
-    : asArray(dimConflicts?.conflicts).length;
+  const informationalConflictCount = asArray(dimConflicts?.conflicts).filter((entry) => (
+    entry?.severity === 'info'
+      && ['cross_view_redundant', 'plan_dim_skipped_due_to_auto_match'].includes(entry?.reason)
+  )).length;
+  const normalizedConflictCount = Math.max(
+    Number.isFinite(conflictCount) ? conflictCount : 0,
+    asArray(dimConflicts?.conflicts).length,
+  ) - informationalConflictCount;
   const duplicateCount = inferDuplicateCount(dimensionMap, dimConflicts);
 
   const expectedItems = asArray(bomEntries).length;
@@ -783,6 +799,7 @@ export function buildDrawingQualitySummary({
     featureCatalog,
     planner,
     dimensionMap,
+    autoRepresentations,
     traceability,
     producedViews,
     svgContent,
@@ -826,6 +843,21 @@ export function buildDrawingQualitySummary({
     issue?.severity === 'high' || issue?.severity === 'critical'
   ));
   const plannerSuggestedActions = uniqueStrings(planner?.suggested_actions || []);
+
+  const scale = layoutReport?.scale || null;
+  if (scale?.mode === 'explicit'
+      && Number.isFinite(scale.requested_factor) && scale.requested_factor > 0
+      && Number.isFinite(scale.effective_factor)
+      && Math.abs(scale.effective_factor - scale.requested_factor)
+        > Math.max(1e-12, 1e-9 * Math.abs(scale.requested_factor))) {
+    const message = `Requested drawing scale ${scale.requested} was adjusted to ${scale.label} to fit the views.`;
+    pushIssue(blockingIssues, 'explicit-scale-unmet', message, {
+      requested_factor: scale.requested_factor,
+      effective_factor: scale.effective_factor,
+    });
+    warnings.push(message);
+    recommendedActions.push('Choose a fitting explicit scale or automatic scale, or revise the view layout.');
+  }
 
   if (missingViews.length > 0) {
     pushIssue(
@@ -926,6 +958,7 @@ export function buildDrawingQualitySummary({
     bom_file: resolveMaybe(bomPath),
     score: qaReport?.score ?? null,
     status: blockingIssues.length > 0 ? 'fail' : warnings.length > 0 ? 'warning' : 'pass',
+    ...(scale ? { scale } : {}),
     views: {
       required_count: requiredViews.length,
       generated_count: producedViews.length,
@@ -935,9 +968,14 @@ export function buildDrawingQualitySummary({
     dimensions: {
       required_count: requiredDimensions.length,
       mapped_count: mappedRequiredDimensions.length,
+      ...(autoRepresentedDimensions.length ? {
+        auto_represented_count: autoRepresentedDimensions.length,
+        auto_represented_dimensions: autoRepresentedDimensions,
+      } : {}),
       coverage_percent: dimensionCoveragePercent,
       missing_required_intents: missingRequiredIntents,
       conflict_count: normalizedConflictCount,
+      ...(informationalConflictCount > 0 ? { informational_conflict_count: informationalConflictCount } : {}),
       duplicate_count: duplicateCount,
     },
     bom: {

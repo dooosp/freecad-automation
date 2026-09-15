@@ -286,6 +286,40 @@ select {
   border-left: 2px solid var(--accent);
 }
 
+.part-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.part-visibility {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.part-select:focus-visible,
+.part-visibility input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.part-hidden .part-swatch,
+.part-hidden .part-label {
+  opacity: 0.5;
+}
+
 .part-swatch {
   display: inline-block;
   width: 10px;

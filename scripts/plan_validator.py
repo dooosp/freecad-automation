@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 SUPPORTED_VERSIONS = {"0.1"}
-KNOWN_PART_TYPES = {"flange", "shaft", "bracket", "housing", "bushing_plate", "assembly", "generic"}
+KNOWN_PART_TYPES = {"flange", "shaft", "bracket", "plate", "housing", "bushing_plate", "assembly", "generic"}
 VALID_VIEWS = {"front", "top", "right", "iso", "back", "bottom", "left"}
 VALID_DIM_STYLES = {"diameter", "linear", "radius", "callout", "note", "angular"}
 VALID_DATUM_KINDS = {"plane", "axis", "point"}
@@ -24,6 +24,7 @@ REQUIRED_INTENTS = {
     "flange": {"OD", "ID", "PCD", "BOLT_DIA", "THK"},
     "shaft": {"TOTAL_LENGTH", "STEP_DIAMETERS", "OD1", "OD2", "KEYWAY_W", "CHAMFER"},
     "bracket": {"WIDTH", "HEIGHT", "THK", "WEB_H", "HOLE_DIA", "BASE_W"},
+    "plate": {"WIDTH", "HEIGHT", "THK", "HOLE_DIA", "BASE_W"},
     "housing": {"WIDTH", "HEIGHT", "DEPTH", "BORE_ID", "BEARING_SEAT", "WALL_THK"},
     "bushing_plate": {"WIDTH", "HEIGHT", "THK", "BUSHING_DIA"},
     "assembly": set(),  # assembly has no fixed required dims

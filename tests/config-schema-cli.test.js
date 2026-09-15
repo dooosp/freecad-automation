@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { loadConfigWithDiagnostics } from '../lib/config-schema.js';
+import { loadConfigWithDiagnostics, validateConfigDocument } from '../lib/config-schema.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const CLI = join(ROOT, 'bin', 'fcad.js');
@@ -18,6 +18,29 @@ function runCli(args) {
 }
 
 try {
+  // The assembly runtime accepts Euler angles and axis-angle placements.
+  const fourBar = await loadConfigWithDiagnostics(resolve(ROOT, 'configs/examples/four_bar_linkage.toml'));
+  assert.deepEqual(fourBar.config.assembly.parts[2].rotation.length, 4);
+  for (const rotation of [[10, 20, 30], [0, 0, 1, 90]]) {
+    const raw = { config_version: 1, name: 'placement', assembly: { parts: [{ ref: 'link', rotation }] } };
+    const result = validateConfigDocument(raw);
+    assert.equal(result.valid, true, result.summary.errors.join('\n'));
+    assert.deepEqual(result.config.assembly.parts[0].rotation, rotation, 'keep runtime transform unchanged');
+  }
+  for (const rotation of [[], [0, 1], [0, 0, 1, 90, 5], [0, 0, 1, '90']]) {
+    const result = validateConfigDocument({ config_version: 1, assembly: { parts: [{ ref: 'link', rotation }] } });
+    assert.equal(result.valid, false, `reject invalid rotation ${JSON.stringify(rotation)}`);
+    assert.ok(result.summary.errors.some((error) => error.includes('assembly.parts[0].rotation')));
+  }
+  for (const raw of [
+    { assembly: { parts: [{ ref: 'link', position: [0, 0, 0, 1] }] } },
+    { parts: [{ id: 'link', position: [0, 0, 0, 1] }] },
+    { parts: [{ id: 'link', rotation: [0, 0, 1, 90] }] },
+  ]) {
+    assert.equal(validateConfigDocument({ config_version: 1, ...raw }).valid, false,
+      'axis-angle support is limited to consumed assembly placements; other vectors stay three-dimensional');
+  }
+
   const checkedInStrictPath = resolve(ROOT, 'configs', 'examples', 'controller_housing_eol.toml');
   const validConfigPath = join(TMP_DIR, 'valid-config.toml');
   writeFileSync(validConfigPath, `

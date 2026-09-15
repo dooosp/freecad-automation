@@ -13,6 +13,8 @@ function makeArtifact({
   file_name,
   extension,
   exists = true,
+  canOpen = true,
+  canDownload = true,
 }) {
   return {
     id,
@@ -21,11 +23,59 @@ function makeArtifact({
     file_name,
     extension,
     exists,
+    capabilities: {
+      can_open: canOpen,
+      can_download: canDownload,
+    },
     links: {
       open: `/artifacts/job-1/${id}`,
       download: `/artifacts/job-1/${id}/download`,
     },
   };
+}
+
+{
+  const model = buildQualityDashboardModel({
+    artifacts: [
+      makeArtifact({
+        id: 'download-only-svg',
+        key: 'drawing_svg',
+        type: 'drawing.svg',
+        file_name: 'capability_probe_drawing.svg',
+        extension: '.svg',
+        canOpen: false,
+      }),
+      makeArtifact({
+        id: 'openable-step',
+        key: 'model_step',
+        type: 'model.step',
+        file_name: 'capability_probe.step',
+        extension: '.step',
+      }),
+      makeArtifact({
+        id: 'private-pdf',
+        key: 'report_pdf',
+        type: 'report.pdf',
+        file_name: 'capability_probe_report.pdf',
+        extension: '.pdf',
+        canOpen: false,
+        canDownload: false,
+      }),
+    ],
+  });
+
+  const drawingLink = model.artifactLinks.find((artifact) => artifact.id === 'drawing_svg');
+  assert.equal(drawingLink.actionLabel, 'Download');
+  assert.equal(drawingLink.href, '/artifacts/job-1/download-only-svg/download');
+  assert.equal(drawingLink.canOpen, false);
+  assert.equal(drawingLink.canDownload, true);
+  assert.equal(drawingLink.target, null);
+
+  const stepLink = model.artifactLinks.find((artifact) => artifact.id === 'model_step');
+  assert.equal(stepLink.actionLabel, 'Open');
+  assert.equal(stepLink.href, '/artifacts/job-1/openable-step');
+  assert.equal(stepLink.target, '_blank');
+  assert.equal(model.artifactLinks.some((artifact) => artifact.id === 'report_pdf'), false);
 }
 
 function makeEngineeringMeasurement({
@@ -1274,6 +1324,84 @@ assert.equal(formatQualityStatusLabel('not_available', false), 'Optional missing
 assert.equal(formatQualityStatusLabel('missing', false), 'Optional missing');
 assert.equal(formatQualityStatusLabel('not_available', true), 'Required missing');
 assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
+
+{
+  const model = buildQualityDashboardModel({
+    artifacts: [makeArtifact({
+      id: 'step', key: 'step', type: 'model.step',
+      file_name: 'mount.step', extension: '.step',
+    })],
+  });
+
+  assert.equal(model.source, 'quality_artifact_fallback');
+  assert.equal(model.surfaces.find((surface) => surface.id === 'geometry').status, 'not_available');
+  assert.equal(model.surfaces.find((surface) => surface.id === 'drawing').status, 'not_available');
+  assert.deepEqual(model.checks.passed, []);
+  assert.deepEqual(model.passedRequiredGateChecks, []);
+  assert.equal(model.drawingQuality.criticalCoverageLabel, 'Unknown');
+}
+
+{
+  const artifacts = [
+    makeArtifact({
+      id: 'create-quality', key: 'create_quality', type: 'model.quality-summary',
+      file_name: 'mount_create_quality.json', extension: '.json',
+    }),
+    makeArtifact({
+      id: 'drawing-quality', key: 'drawing_quality', type: 'drawing.quality-summary',
+      file_name: 'mount_drawing_quality.json', extension: '.json',
+    }),
+  ];
+
+  for (const payload of [undefined, null, {}, { schema_version: '1.0' }]) {
+    const model = buildQualityDashboardModel({
+      artifacts,
+      artifactPayloads: { 'create-quality': payload, 'drawing-quality': payload },
+    });
+
+    for (const label of ['Geometry', 'Drawing']) {
+      const surface = model.surfaces.find((entry) => entry.title === label);
+      assert.equal(surface.status, 'not_available');
+      assert.match(surface.summary, /not available/i);
+      assert.equal(model.checks.unavailable.some((entry) => entry.label === label), true);
+    }
+    assert.deepEqual(model.checks.passed, []);
+    assert.deepEqual(model.passedRequiredGateChecks, []);
+    assert.equal(model.drawingQuality.available, false);
+    assert.equal(model.drawingQuality.statusLabel, 'Unknown');
+    assert.equal(model.drawingQuality.score, null);
+    assert.equal(model.drawingQuality.criticalCoverageLabel, 'Unknown');
+    assert.equal(model.drawingQuality.decisionImpact, 'Unknown - drawing semantic QA not available for this job');
+    assert.deepEqual(model.drawingQuality.suggestedActions, ['Run drawing semantic QA to produce drawing_quality output.']);
+  }
+
+  for (const status of ['pass', 'warning', 'fail']) {
+    for (const [artifactId, surfaceId, missingId] of [
+      ['create-quality', 'geometry', 'drawing'],
+      ['drawing-quality', 'drawing', 'geometry'],
+    ]) {
+      const model = buildQualityDashboardModel({
+        artifacts,
+        artifactPayloads: { [artifactId]: { status } },
+      });
+
+      assert.equal(model.surfaces.find((surface) => surface.id === surfaceId).status, status);
+      assert.equal(model.surfaces.find((surface) => surface.id === missingId).status, 'not_available');
+      assert.equal(model.checks.passed.length, status === 'pass' ? 1 : 0);
+    }
+  }
+
+  const failedModel = buildQualityDashboardModel({
+    artifacts,
+    artifactPayloads: {
+      'create-quality': { geometry: { valid_shape: false } },
+      'drawing-quality': { dimensions: { conflict_count: 1 } },
+    },
+  });
+  assert.equal(failedModel.surfaces.find((surface) => surface.id === 'geometry').status, 'fail');
+  assert.equal(failedModel.surfaces.find((surface) => surface.id === 'drawing').status, 'fail');
+  assert.equal(failedModel.drawingQuality.decisionImpact, 'Blocks manufacturing review');
+}
 
 {
   const artifacts = [

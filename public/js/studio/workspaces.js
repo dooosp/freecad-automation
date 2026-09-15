@@ -51,6 +51,7 @@ import {
   STUDIO_SURFACE_ROUTES,
   getStudioSurfaceMetadata,
 } from './studio-surfaces.js';
+import { drawingWorkspaceBadges, modelWorkspaceBadges, workingConfigRows } from './workbench-presentation.js';
 import { renderReviewWorkspace } from './review-workspace.js';
 import { renderArtifactsWorkspace } from './artifacts-workspace.js';
 import { deriveLocalFirstWorkflowGuidance } from './local-first-workflows.js';
@@ -1235,12 +1236,7 @@ function createModelSourceSummary(state) {
     });
   }
 
-  return createInfoGrid([
-    { label: 'Source', value: model.sourceType || 'manual' },
-    { label: 'Name', value: model.sourceName || 'Untitled config' },
-    { label: 'Reference', value: model.sourcePath || 'In-memory draft' },
-    { label: 'Editing', value: model.editingEnabled ? 'Enabled' : 'Disabled' },
-  ]);
+  return createInfoGrid(workingConfigRows(model).map(([label, value]) => ({ label, value })));
 }
 
 function createModelExampleSelect(state) {
@@ -1248,7 +1244,8 @@ function createModelExampleSelect(state) {
   return el('select', {
     className: 'studio-select',
     attrs: {
-      disabled: examples.items.length === 0,
+      ...(examples.items.length === 0 ? { disabled: true } : {}),
+      'aria-label': 'Select example',
     },
     dataset: {
       hook: 'example-select',
@@ -1271,6 +1268,23 @@ function createModelExampleSelect(state) {
             attrs: { value: '' },
           }),
         ],
+  });
+}
+
+function createWorkbenchDetails({ title, body = [] }) {
+  return el('details', {
+    className: 'studio-card disclosure workbench-details',
+    children: [
+      el('summary', { className: 'disclosure-summary', text: title }),
+      el('div', { className: 'card-body', children: body }),
+    ],
+  });
+}
+
+function createWorkbenchStatusDetails({ className, children }) {
+  return createDisclosure({
+    summary: 'Runtime and run details',
+    body: [el('div', { className, children })],
   });
 }
 
@@ -1413,12 +1427,13 @@ function createModelWorkspace(state) {
       : aiDraft.phase === 'validated';
 
   return el('section', {
-    className: 'workspace-shell model-workbench',
+    className: 'workspace-shell cad-workbench model-workbench',
     children: [
       createSectionHeader({
         kicker: t('studio.model.guided.kicker'),
         title: t('studio.model.guided.title'),
         description: t('studio.model.guided.description'),
+        badges: modelWorkspaceBadges(state),
       }),
       createTaskStepper({
         label: t('studio.model.guided.progress'),
@@ -1946,7 +1961,6 @@ function createModelWorkspace(state) {
               createCard({
                 kicker: 'Input',
                 title: 'Choose the model source',
-                copy: 'Examples and local configs stay close to Build, while editing remains available but no longer defines the whole screen.',
                 body: [
                   el('div', {
                     className: 'action-controls',
@@ -1982,44 +1996,25 @@ function createModelWorkspace(state) {
                   el('div', { dataset: { hook: 'source-summary' }, children: [createModelSourceSummary(state)] }),
                 ],
               }),
-              createCard({
-                kicker: 'Config and parameters',
-                title: 'Review the working config',
-                copy: 'Parameters are summarized first, while the full TOML stays available in a collapsible editor instead of dominating the page.',
+              createWorkbenchDetails({
+                title: 'Edit TOML',
                 body: [
-                  el('div', { className: 'studio-mini-grid', dataset: { hook: 'validation-summary' } }),
-                  el('details', {
-                    className: 'disclosure',
-                    attrs: { open: true },
-                    children: [
-                      el('summary', { className: 'disclosure-summary', text: 'Edit TOML' }),
-                      el('div', {
-                        className: 'disclosure-body',
-                        children: [
-                          el('textarea', {
-                            className: 'studio-textarea studio-textarea-code studio-textarea-model',
-                            text: model.configText || '',
-                            dataset: {
-                              hook: 'config-textarea',
-                              field: 'config-text',
-                            },
-                            attrs: {
-                              placeholder: 'Load an example or open a local config to start editing here.',
-                              spellcheck: 'false',
-                              rows: 18,
-                            },
-                          }),
-                        ],
-                      }),
-                    ],
+                  el('textarea', {
+                    className: 'studio-textarea studio-textarea-code studio-textarea-model',
+                    text: model.configText || '',
+                    dataset: { hook: 'config-textarea', field: 'config-text' },
+                    attrs: {
+                      placeholder: 'Load an example or open a local config to start editing here.',
+                      spellcheck: 'false',
+                      rows: 18,
+                    },
                   }),
+                  el('div', { className: 'studio-mini-grid', dataset: { hook: 'validation-summary' } }),
                   el('div', { className: 'studio-note-stack', dataset: { hook: 'validation-warnings' } }),
                 ],
               }),
-              createCard({
-                kicker: 'Preview vs tracked run',
-                title: 'Choose scratch preview or tracked execution',
-                copy: 'Preview stays scratch-safe and viewport-first. Tracked create and report send the current TOML into the job timeline for provenance, downstream artifacts, and re-entry.',
+              createWorkbenchDetails({
+                title: 'Build and tracked run options',
                 body: [
                   el('section', {
                     className: 'execution-lane',
@@ -2212,7 +2207,6 @@ function createModelWorkspace(state) {
               createCard({
                 kicker: 'Model metadata',
                 title: 'Operational model facts',
-                copy: 'Metadata is presented as build feedback, not a random textbox dump.',
                 body: [
                   el('div', { className: 'model-info studio-side-panel', dataset: { hook: 'model-info' } }),
                 ],
@@ -2220,15 +2214,12 @@ function createModelWorkspace(state) {
               createCard({
                 kicker: 'Parts',
                 title: 'Assembly structure',
-                copy: 'Part selection, material swatches, and per-part inspection stay next to the viewport rather than inside the input stack.',
                 body: [
                   el('div', { className: 'parts-list studio-side-panel', dataset: { hook: 'parts-list' } }),
                 ],
               }),
-              createCard({
-                kicker: 'Build log',
-                title: 'Build pipeline output',
-                copy: 'Logs are framed as operational feedback from the pipeline instead of generic console noise.',
+              createWorkbenchDetails({
+                title: 'Build log',
                 body: [
                   el('div', { className: 'build-log studio-side-panel', dataset: { hook: 'build-log' } }),
                 ],
@@ -2236,7 +2227,6 @@ function createModelWorkspace(state) {
               createCard({
                 kicker: 'Motion controls',
                 title: 'Preserve animation when motion data exists',
-                copy: 'If the model carries motion data, the same playback behavior remains available here.',
                 body: [
                   el('div', {
                     className: 'animation-controls studio-side-panel',
@@ -2296,19 +2286,14 @@ function createDrawingWorkspace(state) {
   const tone = drawingStatus === 'ready' ? 'ok' : drawingStatus === 'error' ? 'bad' : drawingStatus === 'generating' ? 'warn' : 'info';
 
   return el('section', {
-    className: 'workspace-shell',
+    className: 'workspace-shell cad-workbench drawing-workbench',
     children: [
       createSectionHeader({
         kicker: 'Drawing workspace',
-        title: 'FreeCAD drawing stays sheet-first',
-        description: 'Generate, inspect, and revise manufacturing-facing sheets in a dedicated workbench instead of dropping into the old overlay flow.',
-        badges: [
-          { label: hasConfig ? 'Config loaded' : 'Config needed', tone: hasConfig ? 'ok' : 'warn' },
-          { label: `Drawing ${drawingStatus === 'ready' ? 'ready' : drawingStatus === 'error' ? 'error' : drawingStatus === 'generating' ? 'generating' : 'pending'}`, tone },
-          { label: 'BOM and QA sidecars', tone: 'info' },
-        ],
+        title: 'Drawing',
+        badges: drawingWorkspaceBadges(state),
       }),
-      el('div', {
+      createWorkbenchStatusDetails({
         className: 'drawing-status-grid',
         children: [
           el('article', {
@@ -2354,7 +2339,6 @@ function createDrawingWorkspace(state) {
               createCard({
                 kicker: 'Source',
                 title: 'Choose what feeds the sheet',
-                copy: 'Stay in Drawing to load an example or config, then jump to Model only when you actually want to revise geometry or full TOML.',
                 body: [
                   el('div', {
                     className: 'action-controls',
@@ -2395,8 +2379,7 @@ function createDrawingWorkspace(state) {
               }),
               createCard({
                 kicker: 'Preview vs tracked run',
-                title: 'Set up the sheet, then choose the execution lane',
-                copy: 'Preview Drawing keeps the fast sheet-first loop in place. Run Tracked Draw Job submits the current TOML plus drawing settings into the normal job pipeline and Artifacts timeline.',
+                title: 'Drawing settings',
                 body: [
                   el('div', {
                     className: 'drawing-preset-group',
@@ -2463,6 +2446,22 @@ function createDrawingWorkspace(state) {
                       }),
                     ],
                   }),
+                  createDisclosure({
+                    summary: 'Tracked run details',
+                    body: [el('div', { className: 'studio-mini-grid', dataset: { hook: 'drawing-tracked-status' } })],
+                  }),
+                ],
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'drawing-column drawing-column-center',
+            children: [
+              createCard({
+                kicker: 'Drawing canvas',
+                title: 'Sheet view',
+                surface: 'canvas',
+                body: [
                   el('p', {
                     className: 'inline-note',
                     dataset: { hook: 'drawing-summary' },
@@ -2537,20 +2536,6 @@ function createDrawingWorkspace(state) {
                       }),
                     ],
                   }),
-                  el('div', { className: 'studio-mini-grid', dataset: { hook: 'drawing-tracked-status' } }),
-                ],
-              }),
-            ],
-          }),
-          el('div', {
-            className: 'drawing-column drawing-column-center',
-            children: [
-              createCard({
-                kicker: 'Drawing canvas',
-                title: 'Sheet view',
-                copy: 'The sheet is the primary surface here, with just the controls that matter for drawing inspection.',
-                surface: 'canvas',
-                body: [
                   el('div', {
                     className: 'drawing-toolbar',
                     children: [
@@ -2616,7 +2601,6 @@ function createDrawingWorkspace(state) {
               createCard({
                 kicker: 'BOM',
                 title: 'BOM',
-                copy: 'Manufacturing-facing part structure stays beside the sheet instead of below it.',
                 body: [
                   el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-bom' } }),
                 ],
@@ -2624,7 +2608,6 @@ function createDrawingWorkspace(state) {
               createCard({
                 kicker: 'Annotations',
                 title: 'Notes and callouts',
-                copy: 'General notes and drawing-plan callouts stay visible as documentation sidecars.',
                 body: [
                   el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-annotations' } }),
                 ],
@@ -2632,7 +2615,6 @@ function createDrawingWorkspace(state) {
               createCard({
                 kicker: 'QA summary',
                 title: 'Sheet readiness',
-                copy: 'Keep the drawing score and dimension posture visible while you iterate.',
                 body: [
                   el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-qa' } }),
                 ],
@@ -2640,7 +2622,6 @@ function createDrawingWorkspace(state) {
               createCard({
                 kicker: 'Dimension loop',
                 title: 'Editable dimensions and history',
-                copy: 'The existing edit loop stays attached to the sheet, with a right-side register for current values and change history.',
                 body: [
                   createDisclosure({
                     summary: 'Current editable dimensions',

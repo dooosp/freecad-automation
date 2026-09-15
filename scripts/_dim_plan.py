@@ -20,13 +20,16 @@ DIM_EXT_OVERSHOOT = 1.5
 REVIEW_COLOR = "#D00"  # red for review markers
 
 
-def _style_bucket(di):
+def _style_bucket(di, vname=None):
     """Map plan dim_intent to a coarse style bucket for dedupe matching."""
     style = (di.get("style") or "linear").lower()
     fid = (di.get("id") or "").upper()
     if style == "diameter" or fid in DIA_FEATURES:
         return "diameter"
-    if style == "linear" and fid in V_FEATURES:
+    # In the top view, box width (model Y) is vertical, not model X.
+    top_base_width = ((vname or di.get("view")) == "top"
+                      and (di.get("feature") == "base_width" or fid == "BASE_W"))
+    if style == "linear" and (fid in V_FEATURES or top_base_width):
         return "linear_v"
     if style == "linear":
         return "linear_h"
@@ -48,7 +51,7 @@ def _auto_categories_for_bucket(bucket):
 
 
 def _find_auto_dedupe_match(di, existing_auto_dims, existing_values=None,
-                            dedupe_policy="smart", tol=0.5):
+                            dedupe_policy="smart", tol=0.5, vname=None):
     """Return dedupe match details if this plan dim duplicates auto dims.
 
     dedupe_policy:
@@ -76,7 +79,7 @@ def _find_auto_dedupe_match(di, existing_auto_dims, existing_values=None,
                     "auto_category": None,
                     "auto_value_mm": ev,
                     "delta_mm": round(delta, 4),
-                    "bucket": _style_bucket(di),
+                    "bucket": _style_bucket(di, vname),
                     "policy": policy,
                     "source": "legacy_values",
                 }
@@ -84,7 +87,7 @@ def _find_auto_dedupe_match(di, existing_auto_dims, existing_values=None,
     if not existing_auto_dims:
         return None
 
-    bucket = _style_bucket(di)
+    bucket = _style_bucket(di, vname)
     allowed = _auto_categories_for_bucket(bucket)
 
     best = None
@@ -176,7 +179,8 @@ def _placement_cfg(di):
 
 # ---- Dimension renderers ----
 
-def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
+def _render_diameter(di, circles, cx, cy, scale, bcx, bcy,
+                     svg_element_id=None, anchor_evidence=None):
     """Render a diameter dimension for a plan intent."""
     value_mm = di.get("value_mm")
     if value_mm is None:
@@ -187,6 +191,8 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
         return []
 
     cu, cv, cr = circle
+    if anchor_evidence is not None:
+        anchor_evidence.update(center_uv=[cu, cv], svg_element_id=svg_element_id)
     px = cx + (cu - bcx) * scale
     py = cy - (cv - bcy) * scale
     r_scaled = cr * scale
@@ -226,7 +232,9 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
     tx = shx + 0.5 * shelf_dir
     ty = ey - 0.5
     dim_id = di.get("id", "")
-    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
+    identity = (f'id="{svg_element_id}" data-center-u="{cu}" data-center-v="{cv}" '
+                if svg_element_id else '')
+    out.append(f'<text {identity}x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
                f'data-value-mm="{value_mm}">{text}</text>')
@@ -444,7 +452,7 @@ def render_plan_dimensions_svg(
     # D4 manufacturing: track process group for inter-group gap
     _prev_process_step = None
 
-    for di in dim_intents:
+    for intent_index, di in enumerate(dim_intents, 1):
         if not _intent_matches_view(di, vname):
             continue
 
@@ -473,6 +481,7 @@ def render_plan_dimensions_svg(
             existing_values=existing_dim_values,
             dedupe_policy=dedupe_policy,
             tol=dedupe_tol_mm if isinstance(dedupe_tol_mm, (int, float)) else 0.5,
+            vname=vname,
         )
         if dedupe_match:
             _record(
@@ -503,16 +512,20 @@ def render_plan_dimensions_svg(
         # Route by style
         if style == "diameter" or (style == "linear" and fid in DIA_FEATURES):
             if circles:
-                elems = _render_diameter(di, circles, cx, cy, scale, bcx, bcy)
+                anchor_evidence = {}
+                elems = _render_diameter(
+                    di, circles, cx, cy, scale, bcx, bcy,
+                    svg_element_id=f"plan_{vname}_{intent_index:03d}",
+                    anchor_evidence=anchor_evidence)
                 out.extend(elems)
                 if elems:
-                    _record(di, "rendered", rendered=True)
+                    _record(di, "rendered", rendered=True, extra=anchor_evidence)
                 else:
                     _record(di, "skipped_no_anchor", reason="no_matching_circle")
             else:
                 _record(di, "skipped_view", reason="diameter_intent_requires_circular_view")
         elif style == "linear":
-            if fid in V_FEATURES:
+            if _style_bucket(di, vname) == "linear_v":
                 elems, v_stack = _render_linear_v(
                     di, bounds, cx, cy, scale, bcx, bcy, v_stack,
                     gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
