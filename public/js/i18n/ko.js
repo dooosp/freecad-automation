@@ -716,6 +716,8 @@ const ko = {
     'Compared': '비교됨',
     'Active': '활성',
     'Latest': '최신',
+    'Applied': '적용됨',
+    'Undone': '실행 취소됨',
     'Recent': '최근',
     'Loading examples...': '예제 불러오는 중...',
     'Select example': '예제 선택',
