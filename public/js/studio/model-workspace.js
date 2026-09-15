@@ -535,8 +535,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
       && !modelBusy
       && !model.trackedRun.submitting;
 
-    if (validateButton) validateButton.disabled = !apiReady || !Boolean((model.configText || '').trim()) || modelBusy;
-    if (buildButton) buildButton.disabled = !canBuild;
+    if (validateButton) validateButton.disabled = !apiReady || !Boolean((model.configText || '').trim()) || modelBusy || model.trackedRun.submitting;
+    if (buildButton) buildButton.disabled = !canBuild || model.trackedRun.submitting;
     if (trackedCreateButton) trackedCreateButton.disabled = !canTrack || aiReviewRequired;
     if (trackedReportButton) trackedReportButton.disabled = !canTrack || aiReviewRequired;
     if (aiCreateDraftButton) {
@@ -961,7 +961,15 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     return state.data.model === model && model.activePreviewRequest === request;
   }
 
-  async function validateConfig(request = beginPreviewRequest()) {
+  function submissionPending() {
+    return ['validating', 'building'].includes(model.buildState) || model.trackedRun.submitting;
+  }
+
+  async function validateConfig(request) {
+    if (!request) {
+      if (submissionPending()) return false;
+      request = beginPreviewRequest();
+    }
     if (!(model.configText || '').trim()) {
       model.buildState = 'error';
       model.errorMessage = 'Config TOML is empty.';
@@ -1060,6 +1068,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   }
 
   async function buildPreview() {
+    if (submissionPending()) return;
     if (aiDraftRequiresReview(model)) {
       model.errorMessage = t('studio.model.ai.review.required');
       model.buildSummary = t('studio.model.ai.review.required');
@@ -1077,7 +1086,6 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     }
 
     model.buildState = 'building';
-    model.preview = null;
     model.errorMessage = '';
     model.buildSummary = 'Running preview export and preparing the viewport assets...';
     syncUi();
@@ -1133,9 +1141,21 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
       syncUi();
       return;
     }
-    const valid = await validateConfig();
-    if (!valid) return;
+    if (submissionPending()) return;
+    const request = beginPreviewRequest();
+    const submission = {};
+    model.activeTrackedSubmission = submission;
+    const ownsSubmission = () => state.data.model === model && model.activeTrackedSubmission === submission;
+    model.trackedRun.submitting = true;
+    const valid = await validateConfig(request);
+    if (!ownsSubmission()) return;
+    if (!valid) {
+      model.trackedRun.submitting = false;
+      syncUi();
+      return;
+    }
     if (aiDraftRequiresReview(model)) {
+      model.trackedRun.submitting = false;
       model.trackedRun.error = t('studio.model.ai.review.changed-during-validation');
       syncUi();
       return;
@@ -1150,6 +1170,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
         type: 'create',
         configToml: model.configText,
       });
+      if (!ownsSubmission()) return;
       model.trackedRun = {
         type: 'create',
         lastJobId: job.id,
@@ -1165,6 +1186,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
         time: 'job',
       });
     } catch (error) {
+      if (!ownsSubmission()) return;
       model.trackedRun.submitting = false;
       model.trackedRun.error = error instanceof Error ? error.message : String(error);
       syncUi();
@@ -1183,9 +1205,21 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
       syncUi();
       return;
     }
-    const valid = await validateConfig();
-    if (!valid) return;
+    if (submissionPending()) return;
+    const request = beginPreviewRequest();
+    const submission = {};
+    model.activeTrackedSubmission = submission;
+    const ownsSubmission = () => state.data.model === model && model.activeTrackedSubmission === submission;
+    model.trackedRun.submitting = true;
+    const valid = await validateConfig(request);
+    if (!ownsSubmission()) return;
+    if (!valid) {
+      model.trackedRun.submitting = false;
+      syncUi();
+      return;
+    }
     if (aiDraftRequiresReview(model)) {
+      model.trackedRun.submitting = false;
       model.trackedRun.error = t('studio.model.ai.review.changed-during-validation');
       syncUi();
       return;
@@ -1201,6 +1235,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
         configToml: model.configText,
         options: buildTrackedReportJobOptions(model.reportOptions),
       });
+      if (!ownsSubmission()) return;
       model.trackedRun = {
         type: 'report',
         lastJobId: job.id,
@@ -1216,6 +1251,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
         time: 'job',
       });
     } catch (error) {
+      if (!ownsSubmission()) return;
       model.trackedRun.submitting = false;
       model.trackedRun.error = error instanceof Error ? error.message : String(error);
       syncUi();
@@ -1277,6 +1313,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
         throw new Error(t('studio.model.ai.error.no-draft'));
       }
       model.activePreviewRequest = null;
+      model.activeTrackedSubmission = null;
+      resetModelTrackedRunState(model);
+      model.buildSummary = 'Input changed. Validate the current config before building.';
       markAiDraftForReview(model, {
         toml: payload.toml,
         report: payload.report || null,
@@ -1310,6 +1349,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     if (!example) return;
 
     model.activePreviewRequest = null;
+    model.activeTrackedSubmission = null;
     model.recoveredDraft = false;
     model.sourceType = 'example';
     model.sourceName = example.name;
@@ -1340,6 +1380,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   async function openConfigFile(file) {
     if (!file) return;
     model.activePreviewRequest = null;
+    model.activeTrackedSubmission = null;
     model.recoveredDraft = false;
     model.sourceType = 'local file';
     model.sourceName = file.name;
@@ -1368,6 +1409,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   }
 
   function clearResult() {
+    // Tracked POST ownership is separate from the viewport request being cleared.
     model.activePreviewRequest = null;
     model.preview = null;
     model.buildLog = [];

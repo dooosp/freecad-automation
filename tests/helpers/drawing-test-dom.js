@@ -8,7 +8,7 @@ export class TestElement {
     this.listeners = new Map();
     this.attrs = new Map();
     const classes = new Set();
-    this.classList = { add: (...values) => values.forEach((v) => classes.add(v)), remove: (v) => classes.delete(v), contains: (v) => classes.has(v) };
+    this.classList = { add: (...values) => values.forEach((v) => classes.add(v)), remove: (v) => classes.delete(v), contains: (v) => classes.has(v), toggle: (v, force) => { const add = force ?? !classes.has(v); if (add) classes.add(v); else classes.delete(v); return add; } };
     this.clientWidth = 400;
     this.clientHeight = 300;
   }
