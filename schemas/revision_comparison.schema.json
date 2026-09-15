@@ -83,6 +83,30 @@
     "comparison_type": {
       "const": "evidence_driven_review_pack_diff"
     },
+    "comparison_scope": {
+      "type": "object",
+      "required": [
+        "compared_metrics",
+        "unavailable_metrics",
+        "hole_positions",
+        "shape_equivalence"
+      ],
+      "properties": {
+        "compared_metrics": {
+          "$ref": "#/$defs/metricNames"
+        },
+        "unavailable_metrics": {
+          "$ref": "#/$defs/metricNames"
+        },
+        "hole_positions": {
+          "const": "not_compared"
+        },
+        "shape_equivalence": {
+          "const": "not_evaluated"
+        }
+      },
+      "additionalProperties": false
+    },
     "metrics": {
       "type": "object",
       "required": [
@@ -149,6 +173,13 @@
     }
   },
   "$defs": {
+    "metricNames": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["volume_mm3", "face_count", "edge_count"]
+      }
+    },
     "diffMetric": {
       "type": [
         "object",

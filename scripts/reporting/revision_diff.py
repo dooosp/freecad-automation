@@ -11,6 +11,13 @@ if PARENT_DIR not in sys.path:
 from _bootstrap import read_input, respond, respond_error
 
 
+COMPARISON_SCOPE_NOTE = (
+    "Review-pack summary and review-evidence comparison only. "
+    "Hole positions are not compared; shape equivalence is not evaluated. "
+    "Equal summary metrics do not prove identical geometry."
+)
+
+
 def _safe_list(value):
     return value if isinstance(value, list) else []
 
@@ -46,9 +53,14 @@ def _extract_report(document):
     evidence_ledger = summary.get("evidence_ledger") or document.get("evidence_ledger") or {"records": []}
     actions = _safe_list(summary.get("recommended_actions")) or _safe_list((document.get("review_priorities") or {}).get("recommended_actions"))
     uncertainty = summary.get("uncertainty_coverage_report") or document.get("uncertainty_coverage_report") or {}
+    warnings = []
+    for warning in _safe_list(document.get("warnings")) + _safe_list(summary.get("warnings")):
+        if isinstance(warning, str) and warning.strip() and warning not in warnings:
+            warnings.append(warning)
 
     return {
         "part": summary.get("part") or document.get("part") or {},
+        "warnings": warnings,
         "geometry_summary": geometry_summary,
         "prioritized_hotspots": prioritized_hotspots,
         "geometry_hotspots": geometry_hotspots,
@@ -317,6 +329,20 @@ def main():
             candidate_hotspots,
         )
         confidence_changes = _compare_confidence(baseline_report, candidate_report)
+        metrics = {
+            "volume_mm3": _diff_numbers(
+                baseline_metrics.get("volume_mm3") or baseline_metrics.get("volume"),
+                candidate_metrics.get("volume_mm3") or candidate_metrics.get("volume"),
+            ),
+            "face_count": _diff_numbers(
+                baseline_metrics.get("face_count") or baseline_metrics.get("faces"),
+                candidate_metrics.get("face_count") or candidate_metrics.get("faces"),
+            ),
+            "edge_count": _diff_numbers(
+                baseline_metrics.get("edge_count") or baseline_metrics.get("edges"),
+                candidate_metrics.get("edge_count") or candidate_metrics.get("edges"),
+            ),
+        }
 
         comparison = {
             "baseline": baseline_path,
@@ -330,20 +356,18 @@ def main():
                 "candidate": candidate_report.get("part", {}).get("revision"),
             },
             "comparison_type": "evidence_driven_review_pack_diff",
-            "metrics": {
-                "volume_mm3": _diff_numbers(
-                    baseline_metrics.get("volume_mm3") or baseline_metrics.get("volume"),
-                    candidate_metrics.get("volume_mm3") or candidate_metrics.get("volume"),
-                ),
-                "face_count": _diff_numbers(
-                    baseline_metrics.get("face_count") or baseline_metrics.get("faces"),
-                    candidate_metrics.get("face_count") or candidate_metrics.get("faces"),
-                ),
-                "edge_count": _diff_numbers(
-                    baseline_metrics.get("edge_count") or baseline_metrics.get("edges"),
-                    candidate_metrics.get("edge_count") or candidate_metrics.get("edges"),
-                ),
+            "comparison_scope": {
+                "compared_metrics": [key for key, value in metrics.items() if value is not None],
+                "unavailable_metrics": [key for key, value in metrics.items() if value is None],
+                "hole_positions": "not_compared",
+                "shape_equivalence": "not_evaluated",
             },
+            "warnings": [
+                COMPARISON_SCOPE_NOTE,
+                *[f"Baseline review pack: {warning}" for warning in baseline_report["warnings"]],
+                *[f"Candidate review pack: {warning}" for warning in candidate_report["warnings"]],
+            ],
+            "metrics": metrics,
             "new_hotspots": new_hotspots,
             "resolved_hotspots": resolved_hotspots,
             "shifted_hotspots": shifted_hotspots,
@@ -352,6 +376,7 @@ def main():
             "action_changes": action_changes,
             "confidence_changes": confidence_changes,
             "revision_story": [
+                COMPARISON_SCOPE_NOTE,
                 f"{len(new_hotspots)} new hotspot categories surfaced in the candidate revision.",
                 f"{len(resolved_hotspots)} baseline hotspot categories resolved or disappeared.",
                 f"{len(shifted_hotspots)} shared hotspot categories changed supporting evidence or priority.",

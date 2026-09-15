@@ -131,6 +131,49 @@ try {
   assert.equal(compareRun.status, 0, compareRun.stderr || compareRun.stdout);
   const comparison = readJson(comparisonPath);
   assertArtifact('revision_comparison', comparison);
+  assert.ok(comparison.comparison_scope, 'Comparison must state its unchecked geometry scope');
+  assert.equal(comparison.comparison_scope.hole_positions, 'not_compared');
+  assert.equal(comparison.comparison_scope.shape_equivalence, 'not_evaluated');
+  assert.deepEqual(comparison.comparison_scope.compared_metrics, ['volume_mm3', 'face_count', 'edge_count']);
+  assert.deepEqual(comparison.comparison_scope.unavailable_metrics, []);
+  assert.match(comparison.revision_story[0], /Equal summary metrics do not prove identical geometry/);
+  const legacyComparison = { ...comparison };
+  delete legacyComparison.comparison_scope;
+  assertArtifact('revision_comparison', legacyComparison);
+  assert.equal(validateDArtifact('revision_comparison', {
+    ...comparison,
+    comparison_scope: { ...comparison.comparison_scope, shape_equivalence: 'identical' },
+  }).ok, false);
+
+  const warningBaselinePath = join(TMP_DIR, 'baseline_with_warnings.json');
+  const warningCandidatePath = join(TMP_DIR, 'candidate_with_warnings.json');
+  writeFileSync(warningBaselinePath, JSON.stringify({
+    ...review.summary,
+    warnings: ['STEP feature detection failed.', 'STEP feature detection failed.'],
+  }));
+  writeFileSync(warningCandidatePath, JSON.stringify({
+    ...review.summary,
+    warnings: ['Continuing without STEP-derived feature hints.'],
+  }));
+  const warningCompareRun = runCli([
+    'compare-rev', warningBaselinePath, warningCandidatePath, '--out', comparisonPath,
+  ]);
+  assert.equal(warningCompareRun.status, 0, warningCompareRun.stderr || warningCompareRun.stdout);
+  const warningComparison = readJson(comparisonPath);
+  assertArtifact('revision_comparison', warningComparison);
+  assert.equal(warningComparison.metrics.volume_mm3.delta, 0);
+  assert.equal(warningComparison.warnings.filter((warning) => warning === 'Baseline review pack: STEP feature detection failed.').length, 1);
+  assert.equal(warningComparison.warnings.includes('Candidate review pack: Continuing without STEP-derived feature hints.'), true);
+  assert.equal(warningComparison.warnings.some((warning) => warning.includes('Hole positions are not compared')), true);
+
+  const partialComparison = runPython('scripts/reporting/revision_diff.py', {
+    baseline: { summary: { warnings: ['Wrapped baseline warning.'], geometry_summary: { face_count: 2 } } },
+    candidate: { geometry_summary: { face_count: 2 } },
+  }).comparison;
+  assert.deepEqual(partialComparison.comparison_scope.compared_metrics, ['face_count']);
+  assert.deepEqual(partialComparison.comparison_scope.unavailable_metrics, ['volume_mm3', 'edge_count']);
+  assert.equal(partialComparison.warnings.includes('Baseline review pack: Wrapped baseline warning.'), true);
+  assert.equal(partialComparison.metrics.volume_mm3, null);
 
   const invalidGeometryPath = join(TMP_DIR, 'invalid_geometry.json');
   writeFileSync(invalidGeometryPath, JSON.stringify({

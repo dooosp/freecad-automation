@@ -306,6 +306,8 @@ fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv]
 fcad compare-rev <baseline.json> <candidate.json>
 ```
 
+`compare-rev` compares review-pack summary metrics, hotspot categories, evidence records, actions, and confidence summaries. Its `comparison_scope` lists metrics compared and metrics unavailable in one or both inputs, and explicitly marks hole positions as `not_compared` and shape equivalence as `not_evaluated`. Equal volume, face count, or edge count does not prove identical geometry. Baseline and candidate warnings are preserved with their source labels; the scope limitation also appears first in `revision_story` for Studio's compare viewer. Older comparison artifacts without `comparison_scope` remain readable, but do not establish geometric equivalence.
+
 `review-context` accepts explicit package-side quality/design inputs as before.
 For `--inspection-evidence`, it now requires the canonical checksum-bound
 authorization and immutable attachment record created by the onboarding flow,
