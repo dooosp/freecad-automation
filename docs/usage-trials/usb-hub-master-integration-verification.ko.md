@@ -1,6 +1,6 @@
 # USB 허브 수정 사항의 master 통합 검증
 
-2026-09-15. [실행 계획](../exec-plans/usb-hub-master-integration.md)에 따라 분리 작업 트리의 `codex/usb-hub-master-integration`에서 검증했다. 기준은 master `57264a196b2f3ac5272aa8b78f0c35096a7925a0`, 소스는 `25fc0562fb67374ee5d2c4a1a932a4d8cd66bd40`이다. 아래 제품 검증 HEAD는 `1a0954fc1dfb092993a34d92a7924541c6d47066`이며 이후 이 보고서와 과거 시험 문서만 추가했다.
+2026-09-15. [실행 계획](../exec-plans/usb-hub-master-integration.md)에 따라 분리 작업 트리의 `codex/usb-hub-master-integration`에서 검증했다. 기준은 master `57264a196b2f3ac5272aa8b78f0c35096a7925a0`, 소스는 `25fc0562fb67374ee5d2c4a1a932a4d8cd66bd40`이다. 아래 제품 검증 HEAD는 `1a0954fc1dfb092993a34d92a7924541c6d47066`이며 이후 검증 문서와 hosted 브라우저 검사의 문구 기대값을 보완했다.
 
 ## 통합 범위
 
@@ -26,7 +26,7 @@
 
 첫 작업 트리가 `tmp/codex` 아래에 있을 때 기존 intake 분류기가 절대 경로의 상위 폴더까지 generated/control로 분류해 기준 검사 한 건이 실패했다. 제품 코드를 바꾸지 않고 자신의 작업 트리를 ignored `.codex` 아래로 옮겼다. 동일 master 기준 contract/integration/snapshots와 해당 검사가 통과한 뒤 구현했다.
 
-로컬 `npm run test:studio-browser-smoke`는 Chrome/CDP를 사용하는 별도 경로이므로 실행하지 않았다. 이번 실제 UI 검증에는 설치된 in-app browser 도구를 사용했다. 저장소의 hosted browser smoke 검사는 그대로 유지했다.
+로컬 `npm run test:studio-browser-smoke`는 Chrome/CDP를 사용하는 별도 경로이므로 실행하지 않았다. 이번 실제 UI 검증에는 설치된 in-app browser 도구를 사용했다. 저장소의 hosted browser smoke 검사는 유지했다. 첫 PR 실행은 artifact 링크의 예전 `Open output - ...` 문구를 기대해 실패했다. A1의 명시적인 Open/Download 표시와 맞도록 기대값 세 곳을 수정했으며 제품 코드는 변경하지 않았다. 최신 hosted 결과는 PR checks에서 확인한다.
 
 ## 1~8 실제 재현 결과
 
