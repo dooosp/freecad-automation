@@ -8,7 +8,6 @@ import {
   updateDrawingTrackedRunFromJob,
 } from './drawing-tracked-runs.js';
 import {
-  buildDrawingCanvasCaption,
   buildDrawingPreviewReadySummary,
   buildDrawingPreviewResultSummary,
   previewReference,
@@ -19,6 +18,8 @@ import {
   ensureModelTrackedRunState,
 } from './model-tracked-runs.js';
 import { applyTranslations, t } from '../i18n/index.js';
+import { syncSectionBadges } from './renderers.js';
+import { drawingWorkspaceBadges, drawingWorkspaceSummary, workingConfigRows } from './workbench-presentation.js';
 
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
@@ -320,15 +321,11 @@ export function mountDrawingWorkspace({
   }
 
   function syncSourceSummary() {
-    renderInfoRows(sourceSummaryElement, [
-      ['Source', state.data.model.sourceType || 'Not loaded'],
-      ['Name', state.data.model.sourceName || 'Untitled config'],
-      ['Reference', state.data.model.sourcePath || 'In-memory draft'],
-      ['Config', state.data.model.configText?.trim() ? 'Ready for drawing' : 'Load or generate a config first'],
-    ]);
+    renderInfoRows(sourceSummaryElement, workingConfigRows(state.data.model));
   }
 
   function syncStatusSurfaces() {
+    syncSectionBadges(root, drawingWorkspaceBadges(state));
     const runtimeAvailable = state.data.health.status === 'ready' && state.data.health.available;
     const hasConfig = Boolean(state.data.model.configText?.trim());
     const ready = drawing.status === 'ready' && drawing.preview?.svg;
@@ -382,6 +379,7 @@ export function mountDrawingWorkspace({
   function syncCanvas() {
     const preview = drawing.preview;
     const showPreview = Boolean(preview?.svg);
+    bomElement.closest('.studio-card').hidden = !preview?.bom?.length;
     const nextSignature = showPreview ? `${preview.id}:${preview.drawn_at}` : '';
 
     if (!showPreview) {
@@ -397,7 +395,9 @@ export function mountDrawingWorkspace({
     }
 
     if (canvasCaptionElement) {
-      canvasCaptionElement.textContent = buildDrawingCanvasCaption(preview);
+      canvasCaptionElement.textContent = preview.editable_plan_available
+        ? 'Drag to pan. Scroll to zoom. Click a dimension to edit its annotation.'
+        : 'Drag to pan. Scroll to zoom.';
     }
 
     if (drawingRenderer && renderedSignature !== nextSignature) {
@@ -557,7 +557,7 @@ export function mountDrawingWorkspace({
   }
 
   function syncSummary() {
-    summaryElement.textContent = drawing.summary || 'Iterate quickly with Preview Drawing, or publish results with a tracked drawing run.';
+    summaryElement.textContent = drawingWorkspaceSummary(drawing);
   }
 
   function syncTrackedStatus() {
@@ -660,6 +660,9 @@ export function mountDrawingWorkspace({
       });
       drawing.status = 'ready';
       drawing.preview = payload.preview;
+      if (state.data.model.configText.trim() === configToml) {
+        state.data.model.overview = payload.preview.overview || state.data.model.overview;
+      }
       drawing.summary = buildDrawingPreviewReadySummary(payload.preview, drawing.settings);
       addLog({
         status: 'Drawing',

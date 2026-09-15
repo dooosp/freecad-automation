@@ -480,6 +480,9 @@ export function createStudioShellDomController(app) {
           && !target.contains(activeElement)
           && !focusStayedInWorkspace
         ) {
+          for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+            if (parent.tagName === 'DETAILS') parent.open = true;
+          }
           target.focus();
         }
       }

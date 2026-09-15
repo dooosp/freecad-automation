@@ -28,6 +28,8 @@ import {
   markAiDraftValidated,
 } from './ai-guided-flow.js';
 import { applyTranslations, t } from '../i18n/index.js';
+import { syncSectionBadges } from './renderers.js';
+import { isModelPreviewStale, modelWorkspaceBadges, workingConfigRows } from './workbench-presentation.js';
 
 function ensureModelState(model = {}) {
   model.validation = model.validation || {
@@ -81,21 +83,6 @@ async function postJson(url, body) {
   }
 
   return response.json();
-}
-
-function textForState(buildState) {
-  switch (buildState) {
-    case 'validating':
-      return { label: 'Validating', tone: 'info' };
-    case 'building':
-      return { label: 'Building', tone: 'warn' };
-    case 'success':
-      return { label: 'Ready', tone: 'ok' };
-    case 'error':
-      return { label: 'Needs attention', tone: 'bad' };
-    default:
-      return { label: 'Idle', tone: 'info' };
-  }
 }
 
 function connectionTone(connectionState) {
@@ -407,9 +394,10 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   function syncStatusSurfaces() {
+    const badges = modelWorkspaceBadges(state);
+    syncSectionBadges(root, badges);
     const runtime = runtimeTone(state.data.health);
     const connection = connectionTone(state.connectionState);
-    const buildState = textForState(model.buildState);
     const trackedRun = deriveModelTrackedRunPresentation({
       model,
       recentJobs: state.data.recentJobs.items || [],
@@ -427,13 +415,13 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     );
     setSurface(
       buildSurface,
-      model.buildState === 'success' ? 'Preview ready' : buildState.label,
+      badges[1].label,
       model.buildState === 'building'
         ? 'Preview export is running with FreeCAD-backed model creation.'
         : model.buildState === 'validating'
           ? 'Checking TOML shape, migration state, and readiness before build.'
           : 'Preview stays the fast loop here. Use it for rapid model iteration without creating tracked job history.',
-      buildState.tone,
+      badges[1].tone,
     );
     setSurface(
       resultSurface,
@@ -473,12 +461,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   function syncSourceSummary() {
-    renderInfoRows(sourceSummaryElement, [
-      ['Source', model.sourceType || 'Not loaded'],
-      ['Name', model.sourceName || 'Untitled config'],
-      ['Reference', model.sourcePath || 'In-memory draft'],
-      ['Editing', model.editingEnabled ? 'Enabled' : 'Disabled'],
-    ]);
+    renderInfoRows(sourceSummaryElement, workingConfigRows(model));
   }
 
   function syncValidationSummary() {
@@ -504,6 +487,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   function syncMetadata() {
+    partsListElement.closest('.studio-card').hidden = !model.preview?.assembly?.part_files?.length;
+    animationControlsElement.closest('.studio-card').hidden = !model.preview?.motion_data;
     if (!model.preview?.model) {
       modelInfoElement.replaceChildren();
       modelInfoElement.classList.remove('open');
@@ -526,10 +511,12 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   function syncSummaryText() {
-    statusSummaryElement.textContent = model.buildSummary;
-    viewportCaptionElement.textContent = model.preview
-      ? 'Inspect the latest preview directly in the viewport. Saved create and report workflows remain available in Advanced for history and follow-on results.'
-      : 'The viewport stays dominant so the workflow reads as source selection -> preview -> result review.';
+    statusSummaryElement.textContent = isModelPreviewStale(model) && !['validating', 'building', 'error'].includes(model.buildState)
+      ? 'Input changed. Build preview to update the model.'
+      : model.buildSummary;
+    viewportCaptionElement.textContent = isModelPreviewStale(model)
+      ? 'Input changed. Build preview to update the model.'
+      : model.preview ? 'Drag to orbit. Scroll to zoom.' : 'Load a config, then build a preview.';
   }
 
   function syncButtons() {
@@ -977,9 +964,16 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     syncUi();
 
     try {
+      const configText = model.configText;
       const payload = await postJson('/api/studio/validate-config', {
-        config_toml: model.configText,
+        config_toml: configText,
       });
+      if (model.configText !== configText) {
+        model.buildState = 'idle';
+        model.buildSummary = 'Input changed. Validate the current config before building.';
+        syncUi();
+        return false;
+      }
       model.validation = payload.validation || model.validation;
       model.overview = payload.overview || model.overview;
       model.buildLog = [];
@@ -1074,13 +1068,15 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     syncUi();
 
     try {
+      const configText = model.configText;
       const payload = await postJson('/api/studio/model-preview', {
-        config_toml: model.configText,
+        config_toml: configText,
         build_settings: model.buildSettings,
       });
       model.preview = payload.preview || null;
+      model.previewConfigText = configText;
       model.validation = payload.preview?.validation || model.validation;
-      model.overview = payload.preview?.overview || model.overview;
+      model.overview = model.configText === configText ? (payload.preview?.overview || model.overview) : null;
       model.buildLog = payload.preview?.logs || [];
       model.buildState = 'success';
       model.buildSummary = payload.preview?.assembly
@@ -1442,6 +1438,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   configTextarea?.addEventListener('input', () => {
     model.configText = configTextarea.value;
     model.editingEnabled = true;
+    model.overview = null;
     invalidateAiDraftValidation(model);
     syncUi();
   });

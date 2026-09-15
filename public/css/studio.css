@@ -1285,7 +1285,7 @@ textarea {
 
 .model-grid {
   display: grid;
-  grid-template-columns: minmax(21rem, 24rem) minmax(0, 1fr) minmax(18rem, 22rem);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
   min-height: 0;
 }
@@ -1589,7 +1589,7 @@ textarea {
 
 .drawing-grid {
   display: grid;
-  grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr) minmax(18rem, 22rem);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
   min-height: 0;
 }
@@ -2031,25 +2031,7 @@ textarea {
     justify-content: flex-start;
   }
 
-  .model-grid {
-    grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
-  }
-
-  .model-column-right {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .model-status-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .drawing-grid {
-    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
-  }
-
-  .drawing-column-right {
-    grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2081,10 +2063,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .model-grid,
-  .model-column-right,
-  .drawing-grid,
-  .drawing-column-right,
   .review-layout,
   .artifacts-layout {
     grid-template-columns: 1fr;
@@ -4438,5 +4416,181 @@ body::after {
   .guided-import-step-actions,
   .guided-import-step-actions > .action-button {
     width: 100%;
+  }
+}
+
+/* CAD inspection layouts respond to the workspace left after navigation. */
+.cad-workbench {
+  container: cad-workbench / inline-size;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.cad-workbench .studio-card[hidden] {
+  display: none;
+}
+
+.cad-workbench .studio-card {
+  padding: 1rem;
+  gap: 0.75rem;
+}
+
+.cad-workbench .workbench-details {
+  display: block;
+}
+
+.cad-workbench .workbench-details[open] > .card-body {
+  margin-top: 1rem;
+}
+
+.cad-workbench .section-title {
+  font-size: 1.6rem;
+}
+
+.cad-workbench .section-kicker {
+  display: none;
+}
+
+.cad-workbench :is(.studio-mini-row, .info-row) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+  padding: 0.45rem 0;
+  border: 0;
+  background: transparent;
+}
+
+.cad-workbench .canvas-stack {
+  gap: 0.6rem;
+}
+
+.cad-workbench .viewport-toolbar {
+  justify-content: flex-start;
+  gap: 0.7rem;
+}
+
+.cad-workbench :is(.model-grid, .drawing-grid) {
+  grid-template-areas: "canvas" "controls" "details";
+}
+
+.cad-workbench :is(.model-column, .drawing-column, .studio-card, .canvas-stack, .card-body) {
+  min-width: 0;
+}
+
+.cad-workbench :is(.model-column-center, .drawing-column-center) {
+  grid-area: canvas;
+}
+
+.cad-workbench :is(.model-column-left, .drawing-column-left) {
+  grid-area: controls;
+}
+
+.cad-workbench :is(.model-column-right, .drawing-column-right) {
+  grid-area: details;
+}
+
+.cad-workbench :is(.model-column-left, .drawing-column-left, .model-column-right, .drawing-column-right) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+
+.cad-workbench :is(.model-column-center, .drawing-column-center) .studio-card[data-surface="canvas"] {
+  min-height: 0;
+}
+
+.cad-workbench .studio-viewport-shell,
+.cad-workbench .drawing-stage-shell {
+  min-height: 0;
+  height: clamp(24rem, 58vh, 42rem);
+}
+
+.cad-workbench .studio-viewport {
+  min-height: 0;
+  height: 100%;
+}
+
+.cad-workbench :is(.studio-toggle, .studio-range-row) {
+  white-space: nowrap;
+}
+
+.cad-workbench .studio-range-row input {
+  width: 7rem;
+  min-width: 0;
+}
+
+.cad-workbench .drawing-stage-shell::after {
+  content: none;
+}
+
+.cad-workbench :is(.studio-side-panel, .drawing-side-panel) {
+  min-height: 0;
+}
+
+@container cad-workbench (min-width: 56rem) {
+  .cad-workbench :is(.model-grid, .drawing-grid) {
+    grid-template-columns: 16rem minmax(0, 1fr);
+    grid-template-areas: "controls canvas" "details details";
+  }
+
+  .cad-workbench :is(.model-column-left, .drawing-column-left) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container cad-workbench (min-width: 84rem) {
+  .cad-workbench :is(.model-grid, .drawing-grid) {
+    grid-template-columns: 16rem minmax(0, 1fr) 18rem;
+    grid-template-areas: "controls canvas details";
+  }
+
+  .cad-workbench :is(.model-column-right, .drawing-column-right) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.studio-shell:has(.cad-workbench) :is(.brand-summary, .brand-kicker, .nav-copy, .sidebar-note p, .app-kicker, .workspace-summary) {
+  display: none;
+}
+
+.studio-shell:has(.cad-workbench) .app-bar {
+  padding-block: 1rem;
+  gap: 0.75rem;
+}
+
+.studio-shell:has(.cad-workbench) .app-title {
+  font-size: 1.1rem;
+}
+
+.studio-shell:has(.cad-workbench) .nav-link {
+  padding: 0.8rem 1rem;
+}
+
+@media (min-width: 921px) {
+  .studio-shell:has(.cad-workbench) {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 920px) {
+  .studio-shell:has(.cad-workbench) .studio-sidebar {
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+
+  .studio-shell:has(.cad-workbench) .brand-lockup {
+    padding: 0;
+    border: 0;
+    align-items: center;
+  }
+
+  .studio-shell:has(.cad-workbench) .sidebar-footer {
+    display: none;
+  }
+
+  .studio-shell:has(.cad-workbench) .workspace-nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .studio-shell:has(.cad-workbench) .nav-link {
+    padding: 0.5rem 0.7rem;
   }
 }

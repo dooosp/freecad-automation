@@ -43,6 +43,11 @@ export function createBadgeRow(labels = []) {
   });
 }
 
+export function syncSectionBadges(root, badges) {
+  const row = root.querySelector('.section-header .badge-row');
+  if (row) row.replaceChildren(...badges.map(({ label, tone }) => createPill(label, tone)));
+}
+
 export function createSectionHeader({ kicker, title, description, badges = [] }) {
   const textGroup = el('div', {
     children: [
