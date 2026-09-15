@@ -639,6 +639,13 @@ def place_gdt_on_view(gdt_entries, view_data, scale, planner=None):
     return placements
 
 
+def format_scale(scale):
+    """Retain fractional fit scales instead of rounding them to a false ratio."""
+    value = 1 / scale if scale < 1 else scale
+    ratio = f"{value:.6f}".rstrip("0").rstrip(".")
+    return f"1:{ratio}" if scale < 1 else f"{ratio}:1"
+
+
 def compose_drawing(views_svg, name, bom, scale, bbox,
                     mates=None, tol_specs=None, meta=None, style_cfg=None,
                     extra_svg="", revisions=None, notes_list=None,
@@ -695,7 +702,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
     row_h = tb_h / 4
     col_w = rz_w / 2
 
-    sl = f"1:{round(1/scale)}" if scale < 1 else f"{round(scale)}:1"
+    sl = format_scale(scale)
     dt = _date.today().isoformat()
 
     fields = [
@@ -1374,7 +1381,7 @@ def extract_bom(config, parts_metadata):
     return bom
 
 
-def build_layout_report(view_data, scale):
+def build_layout_report(view_data, scale, requested_scale=None, initial_scale=None):
     """Build per-view layout diagnostics for demo/reporting."""
     view_fit_margin = 0.88
     dim_reserve = 12
@@ -1418,6 +1425,9 @@ def build_layout_report(view_data, scale):
             },
         }
 
+    initial_scale = scale if initial_scale is None else initial_scale
+    explicit = bool(requested_scale)
+    adjusted = not math.isclose(scale, initial_scale, rel_tol=1e-9, abs_tol=1e-12)
     return {
         "page": {
             "width_mm": PAGE_W,
@@ -1427,6 +1437,17 @@ def build_layout_report(view_data, scale):
             "cell_mm": {"width": CELL_W, "height": CELL_H},
         },
         "scale_factor": round(scale, 6),
+        "scale": {
+            "mode": "explicit" if explicit else "auto",
+            "requested": requested_scale if explicit else None,
+            "requested_factor": initial_scale if explicit else None,
+            "initial_factor": initial_scale,
+            "effective_factor": scale,
+            "label": format_scale(scale),
+            "fit_adjusted": adjusted,
+            "explicit_scale_satisfied": not adjusted if explicit else None,
+            "adjustment_reason": "view_fit" if adjusted else None,
+        },
         "views": views,
         "summary": {
             "view_count": len(views),
@@ -2125,7 +2146,7 @@ try:
         log(f"  BOM CSV: {bom_csv_path}")
 
     # -- Telemetry Artifacts (M1/M2/M3 skeleton) --
-    layout_report = build_layout_report(view_data, scale)
+    layout_report = build_layout_report(view_data, scale, scale_hint, original_scale)
     auto_dims = dim_telemetry.get("auto_dimensions", [])
     plan_dims = dim_telemetry.get("plan_dimensions", [])
     dim_conflicts = dim_telemetry.get("conflicts", [])
@@ -2150,7 +2171,7 @@ try:
                                       view_data, dim_telemetry, traceability)
 
     # -- Response --
-    scale_label = f"1:{round(1/scale)}" if scale < 1 else f"{round(scale)}:1"
+    scale_label = format_scale(scale)
     response = {
         "success": True,
         "drawing_paths": [

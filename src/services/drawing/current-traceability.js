@@ -10,7 +10,15 @@ function hidden(attrs) {
     || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\.0+)?)\s*(?:!important\s*)?(?:;|$)/i.test(attrs.style || '');
 }
 
-function currentPlanLabel(entry, svgContent) {
+function sameCenter(actual, expected) {
+  return Array.isArray(actual) && Array.isArray(expected)
+    && actual.length === 2 && expected.length === 2
+    && actual.every((value, i) => typeof value === 'number' && Number.isFinite(value)
+      && typeof expected[i] === 'number' && Number.isFinite(expected[i])
+      && Math.abs(value - expected[i]) <= 1e-6);
+}
+
+function currentPlanLabel(entry, svgContent, link) {
   if (typeof svgContent !== 'string' || !['front', 'top', 'right'].includes(entry.view)) return false;
   const svg = svgContent.replace(/<!--[\s\S]*?-->/g, '');
   const candidates = [];
@@ -20,6 +28,14 @@ function currentPlanLabel(entry, svgContent) {
     for (const text of group[4].matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)) {
       const attrs = attributes(text[1]);
       if (attrs['data-dim-id'] !== entry.dim_id || hidden(attrs)) continue;
+      if (link.evidence?.measurement === 'cylindrical_faces') {
+        const center = link.evidence.center_uv;
+        if (!entry.svg_element_id || attrs.id !== entry.svg_element_id
+            || link.svg_element_id !== entry.svg_element_id
+            || !sameCenter(entry.center_uv, center)
+            || !['data-center-u', 'data-center-v'].every((key) => attrs[key]?.trim())
+            || !sameCenter([Number(attrs['data-center-u']), Number(attrs['data-center-v'])], center)) continue;
+      }
       const numeric = entry.style === 'linear' ? /^\d+(?:\.\d+)?$/ : /^[⌀Ø]\d+(?:\.\d+)?$/;
       if (!numeric.test(text[2].trim())) continue;
       candidates.push(Number(text[2].trim().replace(/^[⌀Ø]/, '')));
@@ -42,7 +58,7 @@ export function currentTraceability(traceability, dimensionMap, svgContent, auto
       && Math.abs(entry.value_mm - value) <= 1e-6;
     const present = consistent && (representation
       ? representation.svg_element_id === link.svg_element_id && representation.auto_dim_id === link.represented_by
-      : entry.rendered === true && link.represented_by === entry.dim_id && currentPlanLabel(entry, svgContent));
+      : entry.rendered === true && link.represented_by === entry.dim_id && currentPlanLabel(entry, svgContent, link));
     return present ? link : { ...link, feature_id: null, reason: 'final_svg_evidence_missing_or_changed' };
   });
   return { ...traceability, links };

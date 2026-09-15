@@ -844,6 +844,21 @@ export function buildDrawingQualitySummary({
   ));
   const plannerSuggestedActions = uniqueStrings(planner?.suggested_actions || []);
 
+  const scale = layoutReport?.scale || null;
+  if (scale?.mode === 'explicit'
+      && Number.isFinite(scale.requested_factor) && scale.requested_factor > 0
+      && Number.isFinite(scale.effective_factor)
+      && Math.abs(scale.effective_factor - scale.requested_factor)
+        > Math.max(1e-12, 1e-9 * Math.abs(scale.requested_factor))) {
+    const message = `Requested drawing scale ${scale.requested} was adjusted to ${scale.label} to fit the views.`;
+    pushIssue(blockingIssues, 'explicit-scale-unmet', message, {
+      requested_factor: scale.requested_factor,
+      effective_factor: scale.effective_factor,
+    });
+    warnings.push(message);
+    recommendedActions.push('Choose a fitting explicit scale or automatic scale, or revise the view layout.');
+  }
+
   if (missingViews.length > 0) {
     pushIssue(
       blockingIssues,
@@ -943,6 +958,7 @@ export function buildDrawingQualitySummary({
     bom_file: resolveMaybe(bomPath),
     score: qaReport?.score ?? null,
     status: blockingIssues.length > 0 ? 'fail' : warnings.length > 0 ? 'warning' : 'pass',
+    ...(scale ? { scale } : {}),
     views: {
       required_count: requiredViews.length,
       generated_count: producedViews.length,

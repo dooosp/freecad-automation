@@ -178,6 +178,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Parameter sweep', args: Object.freeze(['tests/sweep.test.js']) }),
       Object.freeze({ label: 'Drawing planner advisory foundation', args: Object.freeze(['tests/drawing-planner.test.js']) }),
       Object.freeze({ label: 'Drawing quality summary', args: Object.freeze(['tests/drawing-quality-summary.test.js']) }),
+      Object.freeze({ label: 'Drawing scale and diameter evidence', args: Object.freeze(['tests/drawing-scale-evidence.test.js']) }),
       Object.freeze({ label: 'Draw pipeline QA bridge', args: Object.freeze(['tests/draw-pipeline-qa-config.test.js']) }),
       Object.freeze({ label: 'Report summary service wiring', args: Object.freeze(['tests/report-service-summary.test.js']) }),
       Object.freeze({ label: 'Decision-ready report PDF', args: Object.freeze(['tests/report-decision-pdf.test.js']) }),
