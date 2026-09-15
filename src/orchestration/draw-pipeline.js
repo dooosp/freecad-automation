@@ -376,7 +376,6 @@ export async function runDrawPipeline({
       configPath: absPath,
       config,
     });
-    ensureDrawSchema(config);
     artifactStem = config.name || artifactStem;
     endStage(loadStage, 'ok', { model_name: artifactStem });
 
@@ -391,6 +390,8 @@ export async function runDrawPipeline({
       onInfo(`  Override: ${absOverridePath}`);
       endStage(overrideStage, 'ok');
     }
+
+    ensureDrawSchema(config);
 
     if (flags.includes('--bom')) {
       config.drawing.bom_csv = true;
