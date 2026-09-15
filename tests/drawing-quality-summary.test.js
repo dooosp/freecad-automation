@@ -88,6 +88,110 @@ function makeBaseArtifacts() {
   };
 }
 
+function makeAutoCoveredArtifacts({ feature = 'base_length', view = 'front', value = 120,
+  category = 'overall_width', bucket = 'linear_h' } = {}) {
+  const autoId = `auto_${view}_001`;
+  const artifacts = makeBaseArtifacts();
+  artifacts.dimensionMap.plan_dimensions[0] = {
+    dim_id: 'WIDTH', feature, view, value_mm: value, style: 'linear', required: true,
+    status: 'skipped_duplicate', rendered: false, reason: 'already_in_auto_dims',
+    dedupe_match: { auto_dim_id: autoId, auto_category: category, auto_value_mm: value,
+      delta_mm: 0, bucket, policy: 'smart', source: 'auto_dimensions' },
+  };
+  artifacts.dimensionMap.auto_dimensions = [{ dim_id: autoId, source: 'auto', view,
+    category, value_mm: value, status: 'rendered', svg_element_id: autoId,
+    drawing_object_id: `svg:dimensions-${view}:${autoId}` }];
+  artifacts.dimensionMap.summary.skipped_duplicate_count = 1;
+  artifacts.svgContent = `<svg><g class="dimensions-${view}"><text id="${autoId}"${
+    bucket === 'linear_v' ? ' transform="rotate(-90,10,10)"' : ''}>${value}</text></g></svg>`;
+  return artifacts;
+}
+
+// A deduplicated plan row can be covered by an identified extent label in the
+// final SVG. It must not acquire a fabricated model-feature traceability link.
+for (const variant of [
+  {},
+  { feature: 'overall_height', value: 3, category: 'overall_height', bucket: 'linear_v' },
+  { feature: 'base_width', view: 'top', value: 60, category: 'overall_height', bucket: 'linear_v' },
+]) {
+  const artifacts = makeAutoCoveredArtifacts(variant);
+  artifacts.traceability.links = artifacts.traceability.links.filter((link) => link.dim_id !== 'WIDTH');
+  artifacts.traceability.summary.unresolved_dimensions = ['WIDTH'];
+  artifacts.traceability.summary.linked_dimensions = 2;
+  const original = structuredClone(artifacts);
+  const summary = buildDrawingQualitySummary(artifacts);
+  assert.equal(summary.dimensions.mapped_count, 3, 'rendered auto extent should cover its plan dimension');
+  assert.equal(summary.dimensions.coverage_percent, 100);
+  assert.deepEqual(summary.dimensions.missing_required_intents, []);
+  assert.equal(summary.dimensions.auto_represented_count, 1);
+  assert.deepEqual(summary.dimensions.auto_represented_dimensions, [{
+    dim_id: 'WIDTH', auto_dim_id: artifacts.dimensionMap.auto_dimensions[0].dim_id,
+    feature: variant.feature || 'base_length', view: variant.view || 'front',
+    category: variant.category || 'overall_width', value_mm: variant.value || 120,
+    svg_element_id: artifacts.dimensionMap.auto_dimensions[0].svg_element_id,
+    evidence: 'current_svg_auto_extent',
+  }]);
+  assert.equal(summary.dimensions.duplicate_count, 1);
+  assert.equal(summary.traceability.coverage_percent, 66.67);
+  assert.deepEqual(summary.traceability.unmapped_required_entities, ['WIDTH']);
+  assert.equal(shouldFailDrawingQualityGate(summary, { strictQuality: true }), true);
+  assert.equal(shouldFailDrawingQualityGate(summary), false);
+  assert.deepEqual(artifacts, original, 'coverage must not rewrite canonical renderer or traceability records');
+}
+
+const invalidAutoEvidence = {
+  'no final SVG': (a) => { a.svgContent = null; },
+  'no matching SVG element': (a) => { a.svgContent = '<svg><text>120</text></svg>'; },
+  'changed final label': (a) => { a.svgContent = a.svgContent.replace('>120<', '>119<'); },
+  'wrong SVG view': (a) => { a.svgContent = a.svgContent.replace('dimensions-front', 'dimensions-top'); },
+  'wrong label orientation': (a) => { a.svgContent = a.svgContent.replace('<text ', '<text transform="rotate(-90,10,10)" '); },
+  'ambiguous SVG id': (a) => { a.svgContent = a.svgContent.replace('</svg>', '<text id="auto_front_001">120</text></svg>'); },
+  'commented SVG label': (a) => { a.svgContent = `<!--${a.svgContent}--><svg/>`; },
+  'hidden SVG group': (a) => { a.svgContent = a.svgContent.replace('<g ', '<g display="none" '); },
+  'hidden SVG label': (a) => { a.svgContent = a.svgContent.replace('<text ', '<text style="display:none" '); },
+  'missing auto entry': (a) => { a.dimensionMap.auto_dimensions = []; },
+  'ambiguous auto id': (a) => { a.dimensionMap.auto_dimensions.push({ ...a.dimensionMap.auto_dimensions[0] }); },
+  'legacy entry without SVG identity': (a) => { delete a.dimensionMap.auto_dimensions[0].svg_element_id; },
+  'auto was not rendered': (a) => { a.dimensionMap.auto_dimensions[0].status = 'skipped_layout'; },
+  'different view': (a) => { a.dimensionMap.auto_dimensions[0].view = 'top'; },
+  'chain segment is not an extent': (a) => { a.dimensionMap.auto_dimensions[0].category = 'chain_horizontal'; },
+  'nearby value is insufficient': (a) => { a.dimensionMap.plan_dimensions[0].value_mm = 119.8; },
+  'missing numeric value': (a) => { a.dimensionMap.plan_dimensions[0].value_mm = null; },
+  'value-only policy': (a) => { a.dimensionMap.plan_dimensions[0].dedupe_match.policy = 'value_only'; },
+  'legacy numeric match': (a) => { a.dimensionMap.plan_dimensions[0].dedupe_match.source = 'legacy_values'; },
+  'stale dedupe reference': (a) => { a.dimensionMap.plan_dimensions[0].dedupe_match.auto_dim_id = 'other'; },
+  'stale dedupe category': (a) => { a.dimensionMap.plan_dimensions[0].dedupe_match.auto_category = 'chain_horizontal'; },
+  'stale dedupe value': (a) => { a.dimensionMap.plan_dimensions[0].dedupe_match.auto_value_mm = 119.8; },
+  'wrong dimension style': (a) => { a.dimensionMap.plan_dimensions[0].style = 'diameter'; },
+  'not skipped as duplicate': (a) => { a.dimensionMap.plan_dimensions[0].status = 'skipped_no_anchor'; },
+};
+for (const [name, invalidate] of Object.entries(invalidAutoEvidence)) {
+  const artifacts = makeAutoCoveredArtifacts();
+  invalidate(artifacts);
+  const summary = buildDrawingQualitySummary(artifacts);
+  assert.equal(summary.dimensions.mapped_count, 2, name);
+  assert.deepEqual(summary.dimensions.missing_required_intents, ['WIDTH'], name);
+  assert.equal(summary.dimensions.auto_represented_count, undefined, name);
+  assert.equal(summary.dimensions.auto_represented_dimensions, undefined, name);
+}
+
+for (const feature of ['web_height', 'mounting_hole_diameter', 'unknown_feature']) {
+  const summary = buildDrawingQualitySummary(makeAutoCoveredArtifacts({
+    feature, value: 3, category: 'overall_height', bucket: 'linear_v',
+  }));
+  assert.equal(summary.dimensions.mapped_count, 2, `equal value cannot prove ${feature}`);
+}
+
+{
+  const artifacts = makeAutoCoveredArtifacts();
+  artifacts.traceability = null;
+  artifacts.drawingIntent = { required_dimensions: [{ id: 'WIDTH', feature: 'base_length' }] };
+  const summary = buildDrawingQualitySummary(artifacts);
+  assert.equal(summary.semantic_quality.required_dimensions_present, 1);
+  assert.deepEqual(summary.semantic_quality.missing_required_dimensions, []);
+  assert.deepEqual(summary.semantic_quality.traceability.unknown_required_dimensions, ['WIDTH']);
+}
+
 {
   const summary = buildDrawingQualitySummary(makeBaseArtifacts());
   assert.equal(summary.command, 'draw');
