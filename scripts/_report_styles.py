@@ -4,7 +4,24 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
+from matplotlib.ft2font import FT2Font
 import os
+
+
+def contains_korean_text(value):
+    """Return True when nested report input contains Hangul user text."""
+    if isinstance(value, str):
+        return any(
+            '\u1100' <= char <= '\u11ff'
+            or '\u3130' <= char <= '\u318f'
+            or '\uac00' <= char <= '\ud7a3'
+            for char in value
+        )
+    if isinstance(value, dict):
+        return any(contains_korean_text(child) for child in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(contains_korean_text(child) for child in value)
+    return False
 
 # Register user-installed fonts (Windows user fonts dir is not scanned by default)
 _USER_FONT_DIR = os.path.join(os.path.expanduser('~'), 'AppData', 'Local',
@@ -78,16 +95,58 @@ def get_font(language='en'):
         return 'sans-serif'
     return 'sans-serif'
 
-def apply_style(template=None):
+
+def _font_supports_korean_text(font_family, *values):
+    """Return True when an installed family covers the requested Hangul glyphs."""
+    korean_codepoints = {
+        ord(char)
+        for value in values
+        for char in _iter_text(value)
+        if contains_korean_text(char)
+    }
+    if not korean_codepoints:
+        return True
+    try:
+        font_path = font_manager.findfont(
+            font_manager.FontProperties(family=[font_family]),
+            fallback_to_default=False,
+        )
+        face = FT2Font(font_path)
+        return all(face.get_char_index(codepoint) for codepoint in korean_codepoints)
+    except Exception:
+        return False
+
+
+def _iter_text(value):
+    if isinstance(value, str):
+        yield from value
+    elif isinstance(value, dict):
+        for key, child in value.items():
+            yield from _iter_text(key)
+            yield from _iter_text(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            yield from _iter_text(child)
+
+def apply_style(template=None, content=None):
     """Apply report style from template or defaults."""
     style = template.get('style', {}) if template else {}
     available = {f.name for f in font_manager.fontManager.ttflist}
     preferred_font = style.get('font')
-
-    font_family = preferred_font if preferred_font in available else get_font(template.get('language', 'en') if template else 'en')
+    configured_language = str(template.get('language', 'en') if template else 'en').lower()
+    font_language = 'ko' if configured_language.startswith('ko') or contains_korean_text(content) else 'en'
+    font_family = (
+        preferred_font
+        if preferred_font in available and (
+            font_language != 'ko'
+            or _font_supports_korean_text(preferred_font, template, content)
+        )
+        else get_font(font_language)
+    )
 
     plt.rcParams.update({
         'font.family': font_family,
+        'pdf.fonttype': 42 if font_language == 'ko' else matplotlib.rcParamsDefault['pdf.fonttype'],
         'font.size': 9,
         'axes.titlesize': 11,
         'axes.labelsize': 9,
@@ -100,6 +159,14 @@ def apply_style(template=None):
         'header_color': style.get('header_color', STYLE_PROFESSIONAL['header_bg']),
         'accent_color': style.get('accent_color', STYLE_PROFESSIONAL['accent']),
         'font_family': font_family,
+        'font_language': font_language,
+        'font_support': (
+            'fallback'
+            if font_language == 'ko' and font_family == 'sans-serif'
+            else 'native'
+            if font_language == 'ko'
+            else 'default'
+        ),
         'page_size': style.get('page_size', 'A4'),
         'orientation': style.get('orientation', 'landscape'),
     }

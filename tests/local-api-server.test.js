@@ -1098,6 +1098,152 @@ try {
   assert.equal(artifactApiResponse.status, 200);
   assert.match(artifactApiResponse.headers.get('content-disposition') || '', /^inline;/);
 
+  const internationalArtifactJob = await jobStore.createJob({
+    type: 'report',
+    config: {
+      name: 'international_artifact_filename_test',
+      shapes: [{ id: 'body', type: 'box', length: 10, width: 10, height: 10 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const koreanStepName = 'USB 허브 판 150.step';
+  const quotedControlPdfName = 'USB 허브 "판"\n150.pdf';
+  const koreanTomlName = 'USB 허브 설정.toml';
+  const stlName = 'USB-hub-mesh.stl';
+  const koreanStepBytes = Buffer.from('ISO-10303-21;\n/* USB hub plate */\nEND-ISO-10303-21;\n', 'utf8');
+  const quotedControlPdfBytes = Buffer.from('%PDF-1.4\n% filename header fixture\n%%EOF\n', 'utf8');
+  const koreanTomlBytes = Buffer.from('name = "USB 허브 판 150"\n', 'utf8');
+  const stlBytes = Buffer.from('solid usb_hub\nendsolid usb_hub\n', 'utf8');
+  const koreanStepPath = await jobStore.writeJobFile(
+    internationalArtifactJob.id,
+    `artifacts/${koreanStepName}`,
+    koreanStepBytes
+  );
+  const quotedControlPdfPath = await jobStore.writeJobFile(
+    internationalArtifactJob.id,
+    `artifacts/${quotedControlPdfName}`,
+    quotedControlPdfBytes
+  );
+  const koreanTomlPath = await jobStore.writeJobFile(
+    internationalArtifactJob.id,
+    `artifacts/${koreanTomlName}`,
+    koreanTomlBytes
+  );
+  const stlPath = await jobStore.writeJobFile(
+    internationalArtifactJob.id,
+    `artifacts/${stlName}`,
+    stlBytes
+  );
+  const internationalArtifactManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api',
+    command: 'report',
+    jobType: 'report',
+    status: 'succeeded',
+    requestId: internationalArtifactJob.id,
+    artifacts: [
+      {
+        type: 'model.step',
+        path: koreanStepPath,
+        label: 'Korean STEP',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'report.pdf',
+        path: quotedControlPdfPath,
+        label: 'Quoted control PDF',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'config.toml',
+        path: koreanTomlPath,
+        label: 'Korean TOML',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'model.stl',
+        path: stlPath,
+        label: 'STL mesh',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+    ],
+    timestamps: {
+      created_at: internationalArtifactJob.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  await jobStore.completeJob(
+    internationalArtifactJob.id,
+    { success: true },
+    { step: koreanStepPath, pdf: quotedControlPdfPath, toml: koreanTomlPath, stl: stlPath },
+    {},
+    internationalArtifactManifest
+  );
+
+  const internationalArtifactsResponse = await fetch(`${baseUrl}/jobs/${internationalArtifactJob.id}/artifacts`);
+  assert.equal(internationalArtifactsResponse.status, 200);
+  const internationalArtifactsPayload = await internationalArtifactsResponse.json();
+  const internationalArtifactCases = [
+    {
+      artifact: internationalArtifactsPayload.artifacts.find((artifact) => artifact.file_name === koreanStepName),
+      fileName: koreanStepName,
+      expectedBytes: koreanStepBytes,
+      expectedContentType: 'text/plain; charset=utf-8',
+      canOpen: true,
+    },
+    {
+      artifact: internationalArtifactsPayload.artifacts.find((artifact) => artifact.file_name === quotedControlPdfName),
+      fileName: quotedControlPdfName,
+      expectedBytes: quotedControlPdfBytes,
+      expectedContentType: 'application/pdf',
+      canOpen: true,
+    },
+    {
+      artifact: internationalArtifactsPayload.artifacts.find((artifact) => artifact.file_name === koreanTomlName),
+      fileName: koreanTomlName,
+      expectedBytes: koreanTomlBytes,
+      expectedContentType: 'application/toml; charset=utf-8',
+      canOpen: true,
+    },
+    {
+      artifact: internationalArtifactsPayload.artifacts.find((artifact) => artifact.file_name === stlName),
+      fileName: stlName,
+      expectedBytes: stlBytes,
+      expectedContentType: 'application/octet-stream',
+      canOpen: false,
+    },
+  ];
+
+  for (const { artifact, fileName, expectedBytes, expectedContentType, canOpen } of internationalArtifactCases) {
+    assert.ok(artifact, `Expected indexed artifact ${JSON.stringify(fileName)}`);
+    const routes = [
+      ['download', artifact.links.download, 'attachment'],
+    ];
+    if (canOpen) routes.unshift(['open', artifact.links.open, 'inline']);
+    for (const [routeKind, route, dispositionType] of routes) {
+      const response = await fetch(`${baseUrl}${route}`);
+      assert.equal(response.status, 200, `${routeKind} should serve ${JSON.stringify(fileName)}`);
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), expectedBytes);
+      assert.equal(response.headers.get('content-type'), expectedContentType);
+      const disposition = response.headers.get('content-disposition') || '';
+      assert.match(disposition, new RegExp(`^${dispositionType};`));
+      assert.match(disposition, /filename="[\x20-\x7e]+"/);
+      assert.equal(/[\r\n]/.test(disposition), false);
+      const extendedName = disposition.match(/filename\*=UTF-8''([^;]+)$/)?.[1] || '';
+      if (/[^\x20-\x7e]|["\r\n]/.test(fileName)) {
+        assert.notEqual(extendedName, '');
+        assert.equal(decodeURIComponent(extendedName), fileName);
+      } else {
+        assert.equal(extendedName, '');
+        assert.equal(disposition.includes(`filename="${fileName}"`), true);
+      }
+    }
+  }
+
   const htmlJob = await jobStore.createJob({
     type: 'report',
     config: {
