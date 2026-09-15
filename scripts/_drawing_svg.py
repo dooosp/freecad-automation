@@ -258,7 +258,7 @@ def _dim_vertical(y1, y2, x_base, x_dim, value_mm, tol_text="", *, svg_element_i
 
 
 def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text="",
-                  cell_bounds=None):
+                  cell_bounds=None, svg_element_id=None, center_uv=None):
     """Diameter dimension: leader line from circle + diameter text.
 
     cell_bounds: (x_min, y_min, x_max, y_max) — if provided, selects best
@@ -319,7 +319,11 @@ def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text="",
         text += f" {tol_text}"
     tx = (ex + shx) / 2
     ty = ey - 1.2
-    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+    identity = ''
+    if svg_element_id and center_uv is not None:
+        identity = (f'id="{svg_element_id}" data-center-u="{center_uv[0]}" '
+                    f'data-center-v="{center_uv[1]}" ')
+    out.append(f'<text {identity}x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}">{text}</text>')
     return out
@@ -421,7 +425,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             rec.update(detail)
         # Only these labels have stable SVG identities. A telemetry status alone
         # cannot prove that a label survived downstream SVG processing.
-        if kind in ("overall_width", "overall_height"):
+        if kind in ("overall_width", "overall_height", "hole_diameter"):
             rec["svg_element_id"] = dim_id
         telemetry["auto_dimensions"].append(rec)
         return rec
@@ -540,10 +544,13 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             _record_conflict("hole_diameter", "cross_view_redundant",
                              severity="info", detail={"value_mm": round(dia_mm, 3)})
             continue
+        center_uv = [round(cu, 3), round(cv, 3)]
+        record = _record_dim("hole_diameter", dia_mm, detail={"center_uv": center_uv})
         out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
                                  tol_text=hole_tol,
-                                 cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom)))
-        _record_dim("hole_diameter", dia_mm, detail={"center_uv": [round(cu, 3), round(cv, 3)]})
+                                 cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom),
+                                 svg_element_id=record['svg_element_id'] if record else None,
+                                 center_uv=center_uv))
         leader_angle += 30  # stagger angles for multiple holes
 
     # -- Feature chain dimensions (hole positions from edges) --

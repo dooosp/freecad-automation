@@ -59,11 +59,21 @@ The migration/validation layer currently applies these safe defaults when the re
 
 ## Automatic Drawing Plans
 
-Without an explicit `drawing_plan.part_type`, the intent compiler selects a drawing template from the input shapes and operations. A single horizontal box with canonical `length`, `width`, and `height`, where `0 < height < min(length, width, 25)` mm, uses the `plate` template when its only operations are a sequential chain of cylinder cuts ending at `final` (or the last operation when `final` is omitted). The body and holes must have no rotation, and the cylinders must use the default positive Z direction. Existing assembly, section-view, fused-bracket, and six-or-more-hole bushing-plate rules take precedence.
+Without an explicit `drawing_plan.part_type`, the intent compiler selects a drawing template from the input shapes and operations. A single horizontal box with canonical `length`, `width`, and `height`, where `0 < height < min(length, width, 25)` mm, uses the `plate` template when its only operations are a sequential chain of cylinder cuts ending at `final`. When `final` is omitted, the runtime selects the last inserted shape/result; replacing a shape in place does not move it to the end. In-place plate cuts therefore need an explicit `final` pointing to that plate. The body and holes must have no rotation, and the cylinders must use the default positive Z direction. Existing assembly, section-view, fused-bracket, and six-or-more-hole bushing-plate rules take precedence.
 
-The flat-plate plan requires `WIDTH`, `HEIGHT`, `THK`, `HOLE_DIA`, and `BASE_W`. It does not invent a `WEB_H` requirement. It reuses the previous bracket QA weight preset; the remaining quality gates still apply. Other geometry and legacy `size` inputs retain the existing classification rules. This is input-based template selection, not proof of valid geometry or manufacturing suitability.
+The flat-plate plan requires `WIDTH`, `HEIGHT`, `THK`, `HOLE_DIA`, and `BASE_W`. It does not invent a `WEB_H` requirement. Its thickness label sits to the right of the side view, clear of datum C on the left. It reuses the previous bracket QA weight preset; the remaining quality gates still apply. Other geometry and legacy `size` inputs retain the existing classification rules. This is input-based template selection, not proof of valid geometry or manufacturing suitability.
 
 An explicit `drawing_plan.part_type = "bracket"` continues to select the bracket template with its required `WEB_H`. User `dim_intents` still patch the selected template by ID, including additional requirements and explicit values; automatic classification does not remove them.
+
+### Flat-plate drawing evidence
+
+For this supported plate recipe, `fcad draw` links the required linear dimensions to the final FreeCAD body's measured bounds. The top-view mounting-hole diameter also requires every configured hole to match one complete, full-height cylindrical face, with a common diameter and the expected center. Mixed sizes, missing holes, open edge notches, and ambiguous geometry remain unverified. Face references in `<name>_traceability.json` identify this run's topology; they are not stable revision identifiers.
+
+A deduplicated automatic label counts as displayed only when its unique ID, value, view, and category match the final SVG; hole labels also need matching projected centers. Runtime links require that current annotation evidence as well. Unknown features and unsupported geometry do not gain links from equal numeric values. Metadata rounding can leave high-precision dimensions unverified.
+
+The quality summary separates successful duplicate suppression and cross-view redundancy (`informational_conflict_count`) from actionable `conflict_count`. The original conflict sidecar remains intact. Repeated baseline coordinates with the same tolerance produce one label; different coordinates and tolerances remain separate.
+
+Short notes retain their existing placement. Longer notes use two columns inside the title block. If the available space is exceeded, the SVG shows an omission count and drawing quality fails; the full notes remain in the drawing plan. Default draw still writes artifacts with warnings, while `--strict-quality` returns a nonzero exit code for blocking failures. A drawing-quality pass covers the configured checks, not manufacturing approval or every advisory planner recommendation.
 
 ## Drawing Intent
 

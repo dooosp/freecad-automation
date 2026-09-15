@@ -181,13 +181,18 @@ def _is_flat_mounting_plate(config, boxes, holes):
     hole_ids = {hole.get("id") for hole in holes}
     if not current or not all(hole_ids) or current in hole_ids or len(hole_ids) != len(holes):
         return False
+    # Match the runtime's ordered shape dictionary. Replacing an existing
+    # result in place does not make it the implicit final shape.
+    shape_ids = [shape.get("id") for shape in shapes]
     for op in config.get("operations", []):
         if (op.get("op") != "cut" or op.get("base") != current
                 or op.get("tool") not in hole_ids or not op.get("result")
                 or op["result"] in hole_ids):
             return False
         current = op["result"]
-    return config.get("final", current) == current
+        if current not in shape_ids:
+            shape_ids.append(current)
+    return config.get("final", shape_ids[-1]) == current
 
 
 # ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
-// Extent annotation coverage only; this does not establish model-feature
-// traceability. Local features (webs, holes, thicknesses, chain segments) need
-// their own anchors and must not inherit coverage from equal-valued extents.
+// Annotation coverage only; this does not establish model-feature traceability.
+// Diameter labels require their own projected centers, never equal-valued extents.
 const EXTENT_CATEGORIES = {
   base_length: { front: 'overall_width', top: 'overall_width' },
   base_width: { top: 'overall_height', right: 'overall_width' },
   overall_height: { front: 'overall_height', right: 'overall_height' },
+  mounting_hole_diameter: { front: 'hole_diameter', top: 'hole_diameter', right: 'hole_diameter' },
 };
 
 function attributes(text) {
@@ -40,6 +40,16 @@ function extentLabels(svgContent) {
       const attrs = attributes(text[1]);
       if (!attrs.id || idCounts.get(attrs.id) !== 1 || isHidden(attrs)) continue;
       const value = text[2].trim();
+      const diameter = value.match(/^[⌀Ø](\d+(?:\.\d+)?)$/);
+      if (diameter) {
+        const center = ['data-center-u', 'data-center-v'].map((key) => (
+          attrs[key]?.trim() ? Number(attrs[key]) : NaN
+        ));
+        if (center.every(Number.isFinite)) {
+          labels.set(attrs.id, { view: group[3], category: 'hole_diameter', value: Number(diameter[1]), center });
+        }
+        continue;
+      }
       if (!/^\d+(?:\.\d+)?$/.test(value)) continue;
       const transform = (attrs.transform || '').trim();
       const category = !transform ? 'overall_width'
@@ -58,10 +68,12 @@ export function resolveAutoDimensionCoverage(dimensionMap, svgContent) {
   for (const entry of planDimensions) {
     const match = entry?.dedupe_match;
     const category = EXTENT_CATEGORIES[entry?.feature]?.[entry?.view];
-    if (!category || entry.style !== 'linear' || entry.status !== 'skipped_duplicate'
+    const isDiameter = category === 'hole_diameter';
+    const bucket = isDiameter ? 'diameter' : category === 'overall_width' ? 'linear_h' : 'linear_v';
+    if (!category || entry.style !== (isDiameter ? 'diameter' : 'linear') || entry.status !== 'skipped_duplicate'
         || entry.reason !== 'already_in_auto_dims' || match?.policy !== 'smart'
         || match.source !== 'auto_dimensions' || match.auto_category !== category
-        || match.bucket !== (category === 'overall_width' ? 'linear_h' : 'linear_v')) continue;
+        || match.bucket !== bucket) continue;
     const candidates = autoDimensions.filter((auto) => auto?.dim_id === match.auto_dim_id);
     if (candidates.length !== 1) continue;
     const auto = candidates[0];
@@ -74,10 +86,13 @@ export function resolveAutoDimensionCoverage(dimensionMap, svgContent) {
         || !sameValue(entry.value_mm, auto.value_mm)
         || !sameValue(entry.value_mm, match.auto_value_mm)
         || !sameValue(entry.value_mm, label.value)) continue;
+    if (isDiameter && (!Array.isArray(auto.center_uv) || auto.center_uv.length !== 2
+        || !auto.center_uv.every((value, index) => sameValue(value, label.center?.[index])))) continue;
     represented.set(entry, {
       dim_id: entry.dim_id, auto_dim_id: auto.dim_id, feature: entry.feature,
       view: entry.view, category, value_mm: entry.value_mm,
-      svg_element_id: auto.svg_element_id, evidence: 'current_svg_auto_extent',
+      svg_element_id: auto.svg_element_id,
+      evidence: isDiameter ? 'current_svg_auto_diameter' : 'current_svg_auto_extent',
     });
   }
   return represented;

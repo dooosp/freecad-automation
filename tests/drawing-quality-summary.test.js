@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { resolveAutoDimensionCoverage } from '../src/services/drawing/auto-dimension-coverage.js';
+import { currentTraceability } from '../src/services/drawing/current-traceability.js';
 
 import {
   buildDrawingQualitySummary,
@@ -105,6 +107,91 @@ function makeAutoCoveredArtifacts({ feature = 'base_length', view = 'front', val
   artifacts.svgContent = `<svg><g class="dimensions-${view}"><text id="${autoId}"${
     bucket === 'linear_v' ? ' transform="rotate(-90,10,10)"' : ''}>${value}</text></g></svg>`;
   return artifacts;
+}
+
+{
+  const trace = { links: [{ dim_id: 'THK', feature_id: 'plate', source: 'freecad_runtime',
+    represented_by: 'THK', evidence: { model_value_mm: 3 } }] };
+  const map = { plan_dimensions: [{ dim_id: 'THK', view: 'right', style: 'linear', value_mm: 3, rendered: true }] };
+  const svg = '<svg><g class="dimensions-right plan-dimensions-right"><text data-dim-id="THK">3</text></g></svg>';
+  const linked = (drawing) => currentTraceability(trace, map, drawing, new Map()).links[0].feature_id;
+  assert.equal(linked(svg), 'plate');
+  assert.equal(linked(svg.replace('<text ', '<text style="opacity:0.5" ')), 'plate');
+  for (const invalid of [svg.replace('>3<', '>4<'), svg.replace('>3<', '>Ø3<'),
+    svg.replace('<text ', '<text opacity="0" '), svg.replace('<g ', '<g display="none" '),
+    svg.replace('data-dim-id="THK"', 'data-dim-id="OTHER"')]) {
+    assert.equal(linked(invalid), null, 'the visible label must retain the measured dimension');
+  }
+}
+
+{
+  const artifacts = makeBaseArtifacts();
+  artifacts.dimConflicts = { summary: { count: 2 }, conflicts: [
+    { category: 'dedupe', reason: 'plan_dim_skipped_due_to_auto_match', severity: 'info' },
+    { category: 'overall_width', reason: 'cross_view_redundant', severity: 'info' },
+  ] };
+  const summary = buildDrawingQualitySummary(artifacts);
+  assert.equal(summary.dimensions.conflict_count, 0, 'successful duplicate suppression is not a layout failure');
+  assert.equal(summary.dimensions.informational_conflict_count, 2);
+  assert.equal(summary.status, 'pass');
+  artifacts.dimConflicts.conflicts.push({ category: 'layout', reason: 'cell_bottom_limit', severity: 'warning' });
+  artifacts.dimConflicts.summary.count = 3;
+  assert.equal(buildDrawingQualitySummary(artifacts).dimensions.conflict_count, 1);
+  assert.equal(buildDrawingQualitySummary(artifacts).status, 'fail');
+  artifacts.dimConflicts.summary.count = 4;
+  assert.equal(buildDrawingQualitySummary(artifacts).dimensions.conflict_count, 2,
+    'unexplained summary conflicts must remain blocking');
+  artifacts.dimConflicts.summary.count = 0;
+  assert.equal(buildDrawingQualitySummary(artifacts).dimensions.conflict_count, 1,
+    'a stale summary must not hide a listed warning');
+}
+
+{
+  const artifacts = makeAutoCoveredArtifacts();
+  artifacts.traceability.links[0] = {
+    dim_id: 'WIDTH', feature_id: 'plate', source: 'freecad_runtime', represented_by: 'auto_front_001',
+    svg_element_id: 'auto_front_001',
+    evidence: { source: 'freecad_runtime', model_object_id: 'cut4', model_value_mm: 120 },
+  };
+  assert.equal(buildDrawingQualitySummary(artifacts).traceability.coverage_percent, 100);
+  const stale = structuredClone(artifacts);
+  stale.svgContent = stale.svgContent.replace('>120<', '>119<');
+  assert.deepEqual(buildDrawingQualitySummary(stale).traceability.unmapped_required_entities, ['WIDTH'],
+    'a runtime link must also match the final drawing label');
+  const empty = makeBaseArtifacts();
+  empty.traceability.links = [];
+  assert.equal(buildDrawingQualitySummary(empty).traceability.coverage_percent, 0,
+    'an empty unresolved list is not positive traceability evidence');
+}
+
+{
+  const map = {
+    auto_dimensions: [{ dim_id: 'auto_top_004', source: 'auto', view: 'top', category: 'hole_diameter',
+      value_mm: 4.5, status: 'rendered', svg_element_id: 'auto_top_004', center_uv: [12, 12],
+      drawing_object_id: 'svg:dimensions-top:auto_top_004' }],
+    plan_dimensions: [{ dim_id: 'HOLE_DIA', feature: 'mounting_hole_diameter', view: 'top', style: 'diameter',
+      required: true, value_mm: 4.5, status: 'skipped_duplicate', reason: 'already_in_auto_dims',
+      dedupe_match: { auto_dim_id: 'auto_top_004', auto_category: 'hole_diameter', auto_value_mm: 4.5,
+        bucket: 'diameter', policy: 'smart', source: 'auto_dimensions' } }],
+  };
+  const svg = '<svg><g class="dimensions-top"><text id="auto_top_004" data-center-u="12" data-center-v="12">⌀4.5</text></g></svg>';
+  assert.equal(resolveAutoDimensionCoverage(map, svg).size, 1, 'identified diameter label should count as displayed');
+  for (const invalid of [
+    svg.replace('⌀4.5', '4.5'), svg.replace('⌀4.5', '⌀4.6'),
+    svg.replace('data-center-u="12"', 'data-center-u="108"'),
+    svg.replace('data-center-v="12"', ''), svg.replace('<g ', '<g display="none" '),
+    svg.replace('id="auto_top_004"', 'id="different"'),
+  ]) assert.equal(resolveAutoDimensionCoverage(map, invalid).size, 0);
+  for (const invalidate of [
+    (m) => { m.auto_dimensions[0].center_uv = [108, 12]; },
+    (m) => { m.plan_dimensions[0].value_mm = 4.4; },
+    (m) => { m.plan_dimensions[0].dedupe_match.policy = 'value_only'; },
+    (m) => { m.plan_dimensions[0].feature = 'web_height'; },
+  ]) {
+    const invalid = structuredClone(map);
+    invalidate(invalid);
+    assert.equal(resolveAutoDimensionCoverage(invalid, svg).size, 0);
+  }
 }
 
 // A deduplicated plan row can be covered by an identified extent label in the
