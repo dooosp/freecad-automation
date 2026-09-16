@@ -5,6 +5,8 @@ const DRAW_CLI_ENTRIES = Object.freeze([
   Object.freeze({ key: 'qa', type: 'drawing.qa-report', label: 'Drawing QA', scope: 'user-facing', stability: 'best-effort' }),
   Object.freeze({ key: 'qa_issues', type: 'drawing.qa-issues', label: 'Drawing QA issues', scope: 'user-facing', stability: 'best-effort' }),
   Object.freeze({ key: 'drawing_quality', type: 'drawing.quality-summary', label: 'Drawing quality summary', scope: 'user-facing', stability: 'stable' }),
+  Object.freeze({ key: 'mounting_comparison', type: 'drawing.mounting-comparison-json', label: 'Nominal mounting center comparison', scope: 'user-facing', stability: 'stable' }),
+  Object.freeze({ key: 'mounting_comparison_html', type: 'drawing.mounting-comparison-html', label: 'Mounting center comparison review', scope: 'user-facing', stability: 'stable' }),
   Object.freeze({ key: 'drawing_planner', type: 'drawing.planner', label: 'Drawing planner advisory JSON', scope: 'user-facing', stability: 'best-effort' }),
   Object.freeze({ key: 'repair_report', type: 'drawing.repair-report', label: 'Repair report', scope: 'user-facing', stability: 'best-effort' }),
   Object.freeze({ key: 'run_log', type: 'draw.run-log', label: 'Draw run log', scope: 'internal', stability: 'internal' }),
@@ -23,6 +25,8 @@ const DRAW_TRACKED_JOB_ENTRIES = Object.freeze([
   Object.freeze({ key: 'qa', type: 'drawing.qa-report', stability: 'best-effort', scope: 'user-facing' }),
   Object.freeze({ key: 'qa_issues', type: 'drawing.qa-issues', stability: 'best-effort', scope: 'user-facing' }),
   Object.freeze({ key: 'drawing_quality', type: 'drawing.quality-summary', stability: 'stable', scope: 'user-facing' }),
+  Object.freeze({ key: 'mounting_comparison', type: 'drawing.mounting-comparison-json', stability: 'stable', scope: 'user-facing' }),
+  Object.freeze({ key: 'mounting_comparison_html', type: 'drawing.mounting-comparison-html', stability: 'stable', scope: 'user-facing' }),
   Object.freeze({ key: 'drawing_intent', type: 'drawing-intent.json', stability: 'stable', scope: 'user-facing' }),
   Object.freeze({ key: 'feature_catalog', type: 'feature-catalog.json', stability: 'best-effort', scope: 'user-facing' }),
   Object.freeze({ key: 'extracted_drawing_semantics', type: 'drawing.extracted-semantics', stability: 'best-effort', scope: 'user-facing' }),
@@ -147,6 +151,8 @@ export function inferDrawArtifactPaths(result) {
   const dir = dirname(normalizedPath);
   return {
     drawing: normalizedPath,
+    ...(result?.mounting_comparison_path ? { mounting_comparison: result.mounting_comparison_path } : {}),
+    ...(result?.mounting_comparison_html_path ? { mounting_comparison_html: result.mounting_comparison_html_path } : {}),
     qa: normalizedPath.replace(/\.svg$/i, '_qa.json'),
     qa_issues: normalizedPath.replace(/\.svg$/i, '_qa_issues.json'),
     drawing_quality: normalizedPath.replace(/\.svg$/i, '_quality.json'),

@@ -29,6 +29,7 @@ The schema stays compatibility-first at the top level, but canonical v1 coverage
 | `manufacturing`, `standards`, `batch_size` | Manufacturing assumptions plus rule-profile selection used by DFM/cost/readiness flows. |
 | `product`, `production`, `quality` | Product/program context for production-engineering outputs, including typed `production.sites`, automation candidates, traceability, critical dimensions, quality gates, and functional test points. |
 | `drawing`, `drawing_plan`, `drawing_intent` | Drawing metadata, views, notes, tolerances, revisions, feature tolerances, datums, compiled plan inputs, and optional semantic drawing intent used for report metadata. |
+| `mounting_reference` | Optional manufacturer-reference XY pattern comparison against actual flat-plate CAD measurements during draw. |
 | `fem`, `tolerance` | Analysis-specific sections for FEM and tolerance workflows. |
 | `export`, `import` | Artifact output controls and STEP-import templates. |
 
@@ -92,6 +93,31 @@ A deduplicated automatic label counts as displayed only when its unique ID, valu
 The quality summary separates successful duplicate suppression and cross-view redundancy (`informational_conflict_count`) from actionable `conflict_count`. The original conflict sidecar remains intact. Repeated baseline coordinates with the same tolerance produce one label; different coordinates and tolerances remain separate.
 
 Short notes retain their existing placement. Longer notes use two columns inside the title block. If the available space is exceeded, the SVG shows an omission count and drawing quality fails; the full notes remain in the drawing plan. Default draw still writes artifacts with warnings, while `--strict-quality` returns a nonzero exit code for blocking failures. A drawing-quality pass covers the configured checks, not manufacturing approval or every advisory planner recommendation.
+
+## Nominal Mounting Center Comparison
+
+An optional `mounting_reference` asks `fcad draw` to compare explicitly mapped reference centers with the current FreeCAD body's complete measured cylindrical faces. It supports the same bounded flat-plate recipe described above; assembly, partial holes, edge notches, or unproven geometry produce an unknown comparison.
+
+```json
+{
+  "mounting_reference": {
+    "source": {"kind":"manufacturer_reference", "product_id":"Reference hub", "evidence_ref":"manufacturer-drawing.pdf"},
+    "units": "mm",
+    "coordinate_frame": "model_xy",
+    "coordinate_basis": "Plate lower-left origin; X right, Y up",
+    "center_tolerance_mm": 0.1,
+    "holes": [{"id":"H1", "target_feature_id":"hole_H1", "center_mm":[29,24.4]}]
+  }
+}
+```
+
+Only `mm` and `model_xy` are supported. Express the reference coordinates in the model's XY frame and record their origin/basis explicitly. The comparison never aligns, rotates, rescales, matches by diameter, or chooses the nearest hole. The [USB example](../configs/examples/usb_hub_reference_mount.json) records a manufacturer pattern centered at `[71,37]`; only its four hub holes belong to this reference, while panel attachment holes remain design choices.
+
+The finite nonnegative `center_tolerance_mm` is a Euclidean XY distance threshold, with 1e-9 mm numerical allowance. It is a software comparison setting, not proof of manufacturing capability. Missing source identity/evidence, invalid coordinates, duplicate IDs/centers/face references, unsupported units/frame, or unavailable runtime measurements produce `unknown`. A named feature absent from a complete measured set produces `fail`/`missing_feature`; a distance above the threshold produces `fail`/`center_out_of_tolerance`. Any known failure makes the overall result fail; otherwise unknown evidence prevents pass.
+
+The pipeline adds `<name>_mounting_comparison.json` (canonical) and `<name>_mounting_comparison.html` (Korean review). Each JSON row includes expected and measured XY, delta XY, distance, current face reference, status and stable reason codes. Missing values are `null`. Both files are registered in the existing artifact and output manifests; the output manifest hashes the files. Runs without the input do not register stale comparison files left by earlier runs.
+
+Comparison results are advisory and separate from drawing QA. `--strict-quality` continues to gate drawing QA only: a command may exit successfully while mounting comparison is `fail` or `unknown`, so automation must read the comparison JSON status. Every report retains `physical_fit_result: "not_tested"`, `user_hardware_identity: "unknown"`, and `manufacturing_release: false`. Coordinate agreement does not test diameter clearance, threads, fastening, load, or heat.
 
 ## Drawing Intent
 

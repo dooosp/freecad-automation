@@ -170,4 +170,4 @@ Commit the verified implementation and this record, then push `codex/usb-hub-ref
 3. Cover matching, shifted, missing, duplicate, wrong-unit, and unsupported-frame cases. Missing identity or evidence must remain `unknown`/unverified.
 4. Add a compact review view and auditable evidence references using the existing artifact contracts. Keep physical fit `not_tested`; the result describes nominal CAD pattern agreement only.
 
-This follow-up is planned, not implemented by the group-anchor change.
+This follow-up is implemented separately under [the mounting-center comparison plan](mounting-center-comparison.md); it is not part of the group-anchor change.

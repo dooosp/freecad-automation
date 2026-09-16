@@ -8,6 +8,7 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { stringify as tomlStringify } from 'smol-toml';
+import { compareMountingCenters, renderMountingComparisonHtml } from '../services/drawing/mounting-comparison.js';
 import {
   applyOverrideConfig,
   compileDrawingPlan,
@@ -452,6 +453,26 @@ export async function runDrawPipeline({
     artifactDir = resolveArtifactDir(config, result, projectRoot);
     artifactStem = resolveArtifactStem(config, result);
     mkdirSync(artifactDir, { recursive: true });
+
+    if (Object.hasOwn(config, 'mounting_reference')) {
+      const comparisonStage = beginStage(runLog, 'mounting_center_comparison');
+      const comparison = compareMountingCenters(config.mounting_reference, result.mounting_measurements, {
+        modelName, inputConfigPath: absPath,
+      });
+      const jsonFileName = `${artifactStem}_mounting_comparison.json`;
+      const jsonPath = join(artifactDir, jsonFileName);
+      const htmlPath = join(artifactDir, `${artifactStem}_mounting_comparison.html`);
+      writeJson(jsonPath, comparison);
+      writeFileSync(htmlPath, renderMountingComparisonHtml(comparison, { jsonFileName }));
+      result.mounting_comparison = comparison;
+      result.mounting_comparison_path = jsonPath;
+      result.mounting_comparison_html_path = htmlPath;
+      runLog.artifacts.mounting_comparison = jsonPath;
+      runLog.artifacts.mounting_comparison_html = htmlPath;
+      endStage(comparisonStage, comparison.status === 'pass' ? 'ok' : 'warning', { comparison_status: comparison.status });
+      onInfo(`  Mounting center comparison: ${comparison.status} (nominal CAD only)`);
+      onInfo(`  Mounting comparison review: ${htmlPath}`);
+    }
 
     onInfo('\nDrawing generated!');
     onInfo(`  Scale: ${result.scale}`);

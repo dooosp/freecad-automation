@@ -58,12 +58,18 @@ STEP 외함 깊이는 46.66으로 도면과 0.01 차이가 있다. 커넥터 등
 
 ## 실행과 결과
 
+`mounting_reference`는 제조사 기준 H1–H4의 좌표를 같은 실행에서 측정한 CAD 구멍 중심과 자동 비교한다. 기준 배열 84×25.2 mm를 장착판 중심 `[71,37]`에 놓은 좌표를 입력에 별도로 기록한다. 0.10 mm는 XY 거리의 소프트웨어 비교 허용값이며 가공 능력이나 실물 공차 검증값이 아니다. P1–P4는 별도 설계값이므로 제조사 기준 비교에 포함하지 않는다.
+
+`*_mounting_comparison.json`에는 각 구멍의 기준·측정 좌표, 편차, 거리와 실제 면 참조를 기록하고, `*_mounting_comparison.html`에서 한국어 표로 확인한다. 단위·좌표계·출처·완전한 측정 근거가 없으면 `unknown`, 지정 구멍 누락이나 허용값 초과는 `fail`이다. 이 비교 결과는 도면 QA와 별도로 읽어야 하며 `--strict-quality`의 종료 조건을 바꾸지 않는다. [구현 및 검증 계획](exec-plans/mounting-center-comparison.md).
+
 저장소 루트, Node.js 의존성 설치 및 FreeCAD 런타임이 있는 환경에서 실행한다.
 
 ```sh
 node bin/fcad.js create configs/examples/usb_hub_reference_mount.json --strict-quality
 node bin/fcad.js draw configs/examples/usb_hub_reference_mount.json --strict-quality
 node tests/config-schema-cli.test.js
+node tests/mounting-comparison.test.js
+node scripts/run-pytest.js -q tests/test_mounting_comparison_runtime.py
 node scripts/run-pytest.js -q tests/test_intent_compiler.py tests/test_plate_dimension_consistency.py tests/test_plate_runtime_traceability.py tests/test_diameter_group_anchors.py
 npm test
 ```

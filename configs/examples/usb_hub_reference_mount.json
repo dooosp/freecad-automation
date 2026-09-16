@@ -249,5 +249,50 @@
       "brep"
     ],
     "directory": "output/usb-hub-reference-mount/cad"
+  },
+  "mounting_reference": {
+    "source": {
+      "kind": "manufacturer_reference",
+      "product_id": "Coolgear CG-U3MINI4PH-G2",
+      "evidence_ref": "https://www.coolgear.com/wp-content/uploads/CG-U3MINI4PH-G2_Drawing_JWV1-1.pdf"
+    },
+    "units": "mm",
+    "coordinate_frame": "model_xy",
+    "coordinate_basis": "84 x 25.2 mm manufacturer pattern centered at model XY (71,37); lower-left plate origin; X right, Y up",
+    "center_tolerance_mm": 0.1,
+    "holes": [
+      {
+        "id": "H1",
+        "target_feature_id": "hole_H1",
+        "center_mm": [
+          29,
+          24.4
+        ]
+      },
+      {
+        "id": "H2",
+        "target_feature_id": "hole_H2",
+        "center_mm": [
+          29,
+          49.6
+        ]
+      },
+      {
+        "id": "H3",
+        "target_feature_id": "hole_H3",
+        "center_mm": [
+          113,
+          24.4
+        ]
+      },
+      {
+        "id": "H4",
+        "target_feature_id": "hole_H4",
+        "center_mm": [
+          113,
+          49.6
+        ]
+      }
+    ]
   }
 }

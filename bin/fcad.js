@@ -3896,6 +3896,8 @@ async function cmdDraw(rawArgs = []) {
       outputs: (result.drawing_paths || [])
         .map((entry) => createOutputEntry(`drawing.${String(entry.format).toLowerCase()}`, entry.path))
         .concat(result.drawing_quality_path ? [createOutputEntry('drawing.quality-json', result.drawing_quality_path)] : [])
+        .concat(result.mounting_comparison_path ? [createOutputEntry('drawing.mounting-comparison-json', result.mounting_comparison_path)] : [])
+        .concat(result.mounting_comparison_html_path ? [createOutputEntry('drawing.mounting-comparison-html', result.mounting_comparison_html_path)] : [])
         .concat(result.extracted_drawing_semantics_path ? [createOutputEntry('drawing.extracted-semantics-json', result.extracted_drawing_semantics_path)] : [])
         .concat(result.drawing_intent_json ? [createOutputEntry('drawing.intent-json', result.drawing_intent_json)] : [])
         .concat(result.feature_catalog_json ? [createOutputEntry('drawing.feature-catalog-json', result.feature_catalog_json)] : [])
@@ -3941,7 +3943,9 @@ async function cmdDraw(rawArgs = []) {
       inputPath: absPath,
       primaryOutputPath: predicted.primaryOutputPath,
       outputDir: configDocument?.config?.export?.directory || null,
-      outputs: predicted.outputs,
+      outputs: predicted.outputs
+        .concat(error.result?.mounting_comparison_path ? [createOutputEntry('drawing.mounting-comparison-json', error.result.mounting_comparison_path)] : [])
+        .concat(error.result?.mounting_comparison_html_path ? [createOutputEntry('drawing.mounting-comparison-html', error.result.mounting_comparison_html_path)] : []),
       linkedArtifacts: predicted.linkedArtifacts,
       warnings: configDocument?.summary?.warnings || [],
       errors: [error.message],

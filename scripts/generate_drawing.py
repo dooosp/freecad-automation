@@ -2200,6 +2200,21 @@ try:
         },
         "traceability": traceability,
     }
+    if "mounting_reference" in config:
+        from _drawing_traceability import measure_plate_holes
+        measured_holes = (measure_plate_holes(config, parts_metadata[final_name])
+                          if not is_assembly else None)
+        response["mounting_measurements"] = {
+            "source": "freecad_runtime",
+            "status": "available" if measured_holes is not None else "unavailable",
+            "reason": None if measured_holes is not None else "unsupported_or_unproven_plate_holes",
+            "units": "mm", "coordinate_frame": "model_xy",
+            "model_object_id": final_name if not is_assembly else None,
+            "holes": [{"feature_id": hole["id"], "center_mm": face["center_mm"][:2],
+                       "diameter_mm": face["diameter_mm"],
+                       "face_ref": f'{final_name}:Face{face["face_index"]}'}
+                      for hole, face in (measured_holes or [])],
+        }
     if dxf_path:
         response["drawing_paths"].append({
             "format": "dxf", "path": dxf_path,
