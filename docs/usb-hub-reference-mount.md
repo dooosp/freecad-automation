@@ -54,7 +54,7 @@ STEP 외함 깊이는 46.66으로 도면과 0.01 차이가 있다. 커넥터 등
 
 분류 결과와 QA 기준은 유지한다. 실제 측정값 연결은 동일한 수평 박스/원통 절삭 규칙을 만족하는 다공 판에도 적용하고, 지름별로 명시한 `member_feature_ids`만 증거에 포함한다. 각 그룹의 모든 구멍, 실제 표시된 지시선 중심과 지름이 일치해야 연결된다.
 
-예제는 `plate` 템플릿을 명시적으로 선택한다. `HOLE_DIA`는 H1–H4, `PANEL_HOLE_DIA`는 P1–P4를 요구한다. 같은 지름의 별도 하위 그룹으로 지시선을 옮기는 기능은 [다음 계획](exec-plans/usb-hub-reference-next.md)으로 남겼다.
+예제는 `plate` 템플릿을 명시적으로 선택한다. `HOLE_DIA`는 H1–H4, `PANEL_HOLE_DIA`는 P1–P4를 요구한다. [그룹 지시선 구현 계획](exec-plans/usb-hub-reference-next.md)에 따라, 같은 지름의 별도 하위 그룹에도 해당 그룹 안의 실제 구멍으로 지시선을 연결한다. 측정된 중심을 렌더링과 추적에 함께 사용하고, 다른 그룹의 같은 숫자나 다른 종류의 치수로 지시선을 생략하지 않는다.
 
 ## 실행과 결과
 
@@ -64,11 +64,13 @@ STEP 외함 깊이는 46.66으로 도면과 0.01 차이가 있다. 커넥터 등
 node bin/fcad.js create configs/examples/usb_hub_reference_mount.json --strict-quality
 node bin/fcad.js draw configs/examples/usb_hub_reference_mount.json --strict-quality
 node tests/config-schema-cli.test.js
-node scripts/run-pytest.js -q tests/test_intent_compiler.py tests/test_plate_dimension_consistency.py tests/test_plate_runtime_traceability.py
+node scripts/run-pytest.js -q tests/test_intent_compiler.py tests/test_plate_dimension_consistency.py tests/test_plate_runtime_traceability.py tests/test_diameter_group_anchors.py
 npm test
 ```
 
-FreeCAD 1.1.3에서 기준 입력의 create quality는 `pass`, drawing quality는 `pass`/91점, 필수 치수 추적률은 100%를 확인했다. 지름 그룹별로 4개의 서로 다른 면 참조와 올바른 중심 좌표가 연결된다. 다른 지름을 섞은 그룹, 없는 구멍 ID, 잘못된 공칭값, 사라진 구멍, 가장자리 노치와 그룹 밖 지시선은 실패 상태를 유지한다.
+FreeCAD 1.1.3에서 기준 입력의 create quality는 `pass`, drawing quality는 `pass`/91점, 필수 치수 추적률은 100%를 확인했다. 지름 그룹별로 4개의 서로 다른 면 참조와 올바른 중심 좌표가 연결된다. 다른 지름을 섞은 그룹, 없는 구멍 ID, 잘못된 공칭값, 사라진 구멍과 가장자리 노치는 실패 상태를 유지한다.
+
+다음 두 경우도 실제 FreeCAD 엄격 도면 검사로 검증한다. P4만 선택하면 지시선 중심은 `[130,62]`이고 P4의 면 하나만 참조한다. Ø5.5를 P1/P2와 P3/P4로 나누면 각 그룹 안의 서로 다른 지시선과 겹치지 않는 면 참조가 생성된다. 원본 JSON의 `PANEL_HOLE_DIA.member_feature_ids`를 바꾸거나 같은 지름의 필수 intent를 추가하여 재현할 수 있다. 구멍의 위치나 모델 형상을 바꾸는 기능은 아니다.
 
 생성 결과는 `output/usb-hub-reference-mount/cad/`에 기록된다. 기존 create/draw manifest와 품질 JSON 계약을 사용하며 생성 CAD와 다운로드 자료는 Git에 포함하지 않는다.
 

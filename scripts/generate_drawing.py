@@ -1752,6 +1752,10 @@ try:
     for dim_id, src_view, dst_view in plan_view_reroutes:
         log(f"  Plan intent '{dim_id}': rerouted {src_view} -> {dst_view} for circular anchor")
 
+    from _drawing_traceability import diameter_group_centers
+    group_centers = diameter_group_centers(
+        config, parts_metadata[final_name] if not is_assembly else {})
+
     # -- P0-2: View Fit Hard Clamp (2-pass) --
     # Pass 1: check if any view overflows its cell, reduce scale to tightest fit.
     # Pass 2: verify with reduced scale; apply safety factor if still overflowing.
@@ -1857,7 +1861,9 @@ try:
                         existing_auto_dims=auto_dims_for_view,
                         dedupe_policy=plan_dedupe_policy,
                         dedupe_tol_mm=plan_dedupe_tol,
-                        process_groups=_pgroups)
+                        process_groups=_pgroups,
+                        diameter_group_centers=(group_centers if vname == 'top'
+                                                else {key: [] for key in group_centers}))
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:

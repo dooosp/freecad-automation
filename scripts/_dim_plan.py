@@ -141,6 +141,17 @@ def _find_closest_circle(value_mm, circles, scale):
     return None
 
 
+def _same_model_value(a, b):
+    return (all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                and math.isfinite(v) for v in (a, b)) and abs(a - b) <= 1e-6)
+
+
+def _same_center(a, b):
+    return (isinstance(a, (list, tuple)) and isinstance(b, (list, tuple))
+            and len(a) == len(b) == 2
+            and all(_same_model_value(x, y) for x, y in zip(a, b)))
+
+
 # ---- Placement hints ----
 
 _SIDE_TO_ANGLE = {
@@ -397,7 +408,7 @@ def render_plan_dimensions_svg(
     existing_dim_values=None, required_only=False,
     style_cfg=None, telemetry=None,
     existing_auto_dims=None, dedupe_policy="smart", dedupe_tol_mm=0.5,
-    process_groups=None,
+    process_groups=None, diameter_group_centers=None,
 ):
     """Render plan-driven dimensions for a specific view.
 
@@ -406,6 +417,8 @@ def render_plan_dimensions_svg(
     style_cfg: optional dict with dim_offset/dim_gap/dim_ext_overshoot overrides.
 
     telemetry: optional dict sink to collect traceability records.
+    diameter_group_centers: verified XY centers for explicit diameter groups.
+    Explicit groups without matching top-view evidence never use other circles.
 
     Returns: (svg_string, new_h_stack, new_v_stack)
     """
@@ -474,11 +487,31 @@ def render_plan_dimensions_svg(
         value_mm = di.get("value_mm")
         fid = di.get("id", "")
 
+        circles_for_intent = circles
+        auto_for_intent = existing_auto_dims
+        values_for_intent = existing_dim_values
+        group_map = diameter_group_centers or {}
+        grouped = ((style == "diameter" or (style == "linear" and fid in DIA_FEATURES))
+                   and ('member_feature_ids' in di or fid in group_map))
+        if grouped:
+            # These centers are measured in the plate's XY plane. Missing or
+            # unsupported evidence must not restore the unscoped fallback.
+            centers = (group_map.get(fid) or []) if vname == 'top' else []
+            circles_for_intent = [circle for circle in circles
+                                  if _same_model_value(2 * circle[2], value_mm)
+                                  and any(_same_center(circle[:2], c) for c in centers)]
+            auto_for_intent = [ad for ad in (existing_auto_dims or [])
+                               if ad.get('category') == 'hole_diameter'
+                               and _same_model_value(ad.get('value_mm'), value_mm)
+                               and any(_same_center(ad.get('center_uv'), circle[:2])
+                                       for circle in circles_for_intent)]
+            values_for_intent = []
+
         # Skip if already placed by auto-dims (policy-driven)
         dedupe_match = _find_auto_dedupe_match(
             di,
-            existing_auto_dims=existing_auto_dims,
-            existing_values=existing_dim_values,
+            existing_auto_dims=auto_for_intent,
+            existing_values=values_for_intent,
             dedupe_policy=dedupe_policy,
             tol=dedupe_tol_mm if isinstance(dedupe_tol_mm, (int, float)) else 0.5,
             vname=vname,
@@ -511,10 +544,10 @@ def render_plan_dimensions_svg(
 
         # Route by style
         if style == "diameter" or (style == "linear" and fid in DIA_FEATURES):
-            if circles:
+            if circles_for_intent:
                 anchor_evidence = {}
                 elems = _render_diameter(
-                    di, circles, cx, cy, scale, bcx, bcy,
+                    di, circles_for_intent, cx, cy, scale, bcx, bcy,
                     svg_element_id=f"plan_{vname}_{intent_index:03d}",
                     anchor_evidence=anchor_evidence)
                 out.extend(elems)
@@ -523,7 +556,10 @@ def render_plan_dimensions_svg(
                 else:
                     _record(di, "skipped_no_anchor", reason="no_matching_circle")
             else:
-                _record(di, "skipped_view", reason="diameter_intent_requires_circular_view")
+                if grouped:
+                    _record(di, "skipped_no_anchor", reason="no_verified_group_anchor")
+                else:
+                    _record(di, "skipped_view", reason="diameter_intent_requires_circular_view")
         elif style == "linear":
             if _style_bucket(di, vname) == "linear_v":
                 elems, v_stack = _render_linear_v(

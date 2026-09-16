@@ -64,14 +64,8 @@ def _dimension_holes(intent, measured_holes):
     return [(hole, face) for hole, face in measured_holes if hole['id'] in selected]
 
 
-def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, telemetry, traceability):
-    """Add measured links only for the supported single-box plate recipe.
-
-    Unmatched dimensions retain their unresolved state. Explicit hole groups
-    must have equal diameters; unscoped intents still cover the whole pattern.
-    Every configured hole must match one full-height cylindrical face.
-    Face references are local to this run, not stable across model revisions.
-    """
+def _plate_body(config, metadata):
+    """Qualify the bounded recipe and measured body independently of its holes."""
     # Inline boolean tools are supported by the runtime, but are outside this
     # classifier's named-shape recipe. Preserve drawing generation for them.
     if any(not isinstance(op.get('tool'), str) for op in config.get('operations', [])
@@ -93,6 +87,15 @@ def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, 
     if (not _vector_equal(bbox.get('size'), sizes)
             or not _vector_equal(bbox.get('min'), box.get('position', [0, 0, 0]))):
         return
+    return box
+
+
+def measure_plate_holes(config, metadata):
+    """Return complete, uniquely measured holes, or None for unsupported input."""
+    if _plate_body(config, metadata) is None:
+        return None
+    holes = [s for s in config['shapes'] if s.get('type') == 'cylinder']
+    bbox = metadata['bbox']
 
     # Validate each configured cylindrical cut against the final shape, not the
     # cut tool. Missing, partial, split, or ambiguous faces remain unproven.
@@ -122,11 +125,42 @@ def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, 
                     and _same((face_bbox.get('max') or [None] * 3)[2], bbox['max'][2])):
                 candidates.append(face)
         if len(candidates) != 1:
-            measured_holes = []
-            break
+            return None
         measured_holes.append((hole, candidates[0]))
     if len({f['face_index'] for _, f in measured_holes}) != len(measured_holes):
-        measured_holes = []
+        return None
+    return measured_holes
+
+
+def diameter_group_centers(config, metadata):
+    """Map explicit diameter intents to verified XY centers; invalid groups to []."""
+    measured = measure_plate_holes(config, metadata)
+    result = {}
+    for intent in config.get('drawing_plan', {}).get('dim_intents', []):
+        if 'member_feature_ids' not in intent:
+            continue
+        group = _dimension_holes(intent, measured or [])
+        centers = []
+        if (intent.get('feature') == 'mounting_hole_diameter'
+                and intent.get('style') == 'diameter' and group
+                and all(_same(intent.get('value_mm'), face['diameter_mm']) for _, face in group)):
+            centers = [face['center_mm'][:2] for _, face in group]
+        result[intent.get('id', '')] = centers
+    return result
+
+
+def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, telemetry, traceability):
+    """Link measured body and hole dimensions to their current SVG annotations.
+
+    Invalid holes do not discard independent evidence for the body bounds.
+    Explicit diameter groups remain bounded by complete measured faces and
+    their rendered anchors. Face references are local to this run.
+    """
+    box = _plate_body(config, metadata)
+    if box is None:
+        return
+    bbox = metadata['bbox']
+    measured_holes = measure_plate_holes(config, metadata) or []
 
     links = {link['dim_id']: link for link in traceability['links']}
     intents = {intent.get('id'): intent for intent in config.get('drawing_plan', {}).get('dim_intents', [])}
