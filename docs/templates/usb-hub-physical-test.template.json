@@ -27,6 +27,16 @@
     "material_design_choice": "6061-T6",
     "assumed_spacer_height_mm": 10,
     "assumed_panel_thickness_mm": 2,
+    "design_target_tolerances": {
+      "source": "../../configs/examples/usb_hub_reference_mount.json#/drawing/notes/general",
+      "hole_each_axis_plus_minus_mm": 0.1,
+      "hole_diameter_lower_deviation_mm": 0,
+      "hole_diameter_upper_deviation_mm": 0.1,
+      "overall_each_axis_plus_minus_mm": 0.2,
+      "plate_thickness_plus_minus_mm": 0.1,
+      "flatness_mm": null,
+      "physical_acceptance_confirmed": false
+    },
     "coordinate_frame": "plate lower-left XY datum; Z=0 at hub contact face; +Z toward hub; record actual datums and CAD transform",
     "physical_fit_result": "not_tested"
   },
