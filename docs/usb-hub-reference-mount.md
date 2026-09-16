@@ -83,3 +83,5 @@ FreeCAD 1.1.3에서 기준 입력의 create quality는 `pass`, drawing quality�
 ## 판정 경계
 
 위 통과는 구성한 도면의 소프트웨어 QA 결과다. 실제 사용자 제품 적합성, 나사산/좌면 공차, 케이블 여유, 발열, 실제 받침면, 하중·충격·피로·풀림 및 제조 승인은 미검증이다. 업체 연락·발주·실물 시험은 수행하지 않았다.
+
+다음 물리 검토 단계는 [장착·조작 하중·열 시험 계획](usb-hub-physical-test-plan.md)에 정리했다. 실제 ChatGPT 6 Pro 자문과 1차 자료 대조를 반영했으며, [빈 계획용 기록 양식](templates/usb-hub-physical-test.template.json)의 시험하중·토크·측정값은 실물 입력이 확보될 때 채운다. 현재 실물 시험 상태는 `not_tested`다.

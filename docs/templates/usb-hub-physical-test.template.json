@@ -1,0 +1,191 @@
+{
+  "record_kind": "physical_test_planning_template",
+  "template_version": 1,
+  "procedure": "../usb-hub-physical-test-plan.md",
+  "is_inspection_evidence": false,
+  "physical_execution_status": "not_started",
+  "overall_result": "not_tested",
+  "manufacturing_release": false,
+  "instructions": [
+    "This inert template has no runtime consumer or actuator commands.",
+    "Reference values and proposals are not physical measurements or authorized test limits.",
+    "Keep absent readings null; do not substitute zero or CAD values. Empty arrays mean no records, not zero errors.",
+    "Copy to a private run directory, preserve raw logs, and use the existing inspection-evidence workflow for later genuine records."
+  ],
+  "consultation": {
+    "surface": "ChatGPT",
+    "observed_mode": "6 Pro",
+    "date": "2026-09-16",
+    "response_status": "received_and_reviewed",
+    "physical_testing_performed": false
+  },
+  "reference_design": {
+    "product_model": "Coolgear CG-U3MINI4PH-G2",
+    "adapter_revision": "R1",
+    "config": "../../configs/examples/usb_hub_reference_mount.json",
+    "plate_dimensions_mm": [142, 74, 4],
+    "material_design_choice": "6061-T6",
+    "assumed_spacer_height_mm": 10,
+    "assumed_panel_thickness_mm": 2,
+    "coordinate_frame": "plate lower-left XY datum; Z=0 at hub contact face; +Z toward hub; record actual datums and CAD transform",
+    "physical_fit_result": "not_tested"
+  },
+  "actual_configuration": {
+    "run_id": null,
+    "plan_revision": null,
+    "criteria_frozen_at": null,
+    "operator": null,
+    "specimen_id": null,
+    "product_model_and_revision": null,
+    "adapter_revision_and_material_evidence": null,
+    "panel_material_and_support": null,
+    "panel_thickness_mm": null,
+    "assembly_mass_kg": null,
+    "center_of_mass_mm": null,
+    "installation_orientation": null,
+    "actual_datums_and_cad_transform": null,
+    "support_locations_mm": [],
+    "moment_reference_point_mm": null,
+    "gravity_direction_in_plate_frame": null,
+    "fastener_stack_and_grade": null,
+    "torque_Nm": { "M3": null, "M5": null },
+    "torque_source_refs": [],
+    "assembly_torque_records": [],
+    "actual_connector_and_cable_inventory": [],
+    "cable_routing_and_strain_relief": null,
+    "power_supply_identity_and_ratings": null,
+    "host_and_usb_workload": null,
+    "photos_and_revision_refs": []
+  },
+  "stage_readiness": {
+    "unpowered_fit": "not_ready",
+    "final_fastening": "not_ready",
+    "mechanical_loading": "not_ready",
+    "powered_thermal_test": "not_ready",
+    "unresolved_inputs": [
+      "Actual product, plate, panel and fastener identity and condition",
+      "Fastener seating and torque basis for the complete joint",
+      "Service loads, application points, component limits and fixture capacity",
+      "Displacement, residual movement, clearance and temperature criteria",
+      "Electrical load envelope, instrumentation and local operator"
+    ]
+  },
+  "instrumentation": {
+    "force": { "id": null, "range_N": null, "resolution_N": null, "expanded_uncertainty_N": null, "coverage_factor": null, "calibration_ref": null },
+    "displacement": { "id": null, "resolution_mm": null, "expanded_uncertainty_mm": null, "coverage_factor": null, "independent_datum": null, "calibration_ref": null },
+    "sensor_record_fields": ["id", "location_and_photo_ref", "unit", "range", "resolution", "expanded_uncertainty", "coverage_factor_and_basis", "calibration_ref", "sample_rate_Hz"],
+    "temperature_sensors": [],
+    "voltage_current_instruments": [],
+    "clock_synchronization": null,
+    "tare_and_zero_checks": [],
+    "sampling_rates_Hz": { "operation_force": null, "static_loading": null, "temperature": null },
+    "connected_device_interface": null,
+    "automated_actuation_enabled": false
+  },
+  "pretest_checks": {
+    "fixture_capacity_and_restraint": null,
+    "independent_fall_protection": null,
+    "all_power_paths_and_local_disconnect": null,
+    "logger_independent_of_test_hub": null,
+    "sensor_alignment_and_zero": null,
+    "fastener_seating_and_clearance": null
+  },
+  "criteria_to_establish": {
+    "basis_and_revision_refs": [],
+    "fabrication_dimension_position_flatness_tolerances": null,
+    "mechanical_by_load_case": [],
+    "minimum_clearance_mm": null,
+    "maximum_deflection_mm": null,
+    "maximum_residual_movement_mm": null,
+    "maximum_joint_slip_mm": null,
+    "ambient_range_C": null,
+    "component_temperature_limits_C": [],
+    "baseline_temperature_comparison_rule": null,
+    "electrical_input_and_output_limits": null,
+    "usb_integrity_and_connection_rule": null,
+    "uncertainty_decision_rule": "Project proposal: use measurement interval against an established limit; overlap or missing basis is unknown.",
+    "decision_rule_adopted_by": null
+  },
+  "stop_limits_to_establish": {
+    "force_and_moment_caps_by_case": [],
+    "maximum_displacement_mm": null,
+    "minimum_clearance_mm": null,
+    "maximum_fixture_movement_mm": null,
+    "maximum_zero_drift": null,
+    "temperature_by_sensor_including_uncertainty_and_shutdown_delay": [],
+    "voltage_and_current_ranges": null,
+    "loss_of_signal_action": null
+  },
+  "load_case_fields": [
+    "case_id", "purpose", "connector_or_attachment_id", "service_scenario", "coordinate_frame", "application_point_mm", "moment_reference_point_mm", "force_vector_N", "moment_vector_Nm", "gravity_already_applied", "service_load_basis", "component_limit_refs", "fixture_configuration", "ramp_duration_s", "hold_duration_s", "repetitions", "unload_duration_s", "residual_read_times_s", "stop_criteria", "parameters_adopted_by"
+  ],
+  "planned_load_cases": [],
+  "thermal_comparison": {
+    "baseline_configuration": null,
+    "installed_configuration": null,
+    "orientation_and_airflow": null,
+    "matched_ambient_rule": null,
+    "matched_workload_and_duration": null,
+    "sensor_location_map": [],
+    "stability_window_s": null,
+    "stability_drift_limit_C": null,
+    "maximum_run_duration_s": null,
+    "stop_and_cooldown_conditions": null
+  },
+  "proposed_protocol_parameters_not_adopted": [
+    {
+      "id": "initial_mechanical_characterization",
+      "source": "ChatGPT 6 Pro consultation, 2026-09-16, sections 3 and 4",
+      "status": "proposal_only",
+      "requires": "Identified assembly, joint torque basis, service target and component/fixture limits, local operator, capable instruments",
+      "normal_operation_repetitions_each_direction": 3,
+      "additional_force_target_N": null,
+      "additional_force_ramp_percent": [0, 25, 50, 75, 100],
+      "ramp_step_minimum_s": 10,
+      "intermediate_hold_s": 30,
+      "target_hold_s": 60,
+      "unload_percent": [100, 75, 50, 25, 0],
+      "unload_duration_s": null,
+      "residual_read_times_s": [60, 600],
+      "static_repetitions": 3,
+      "operation_force_sample_rate_candidate_Hz": 100,
+      "limitations": "Not proof loading, fatigue qualification or a connector rating; installed gravity remains present and is not added again."
+    },
+    {
+      "id": "initial_thermal_comparison",
+      "source": "ChatGPT 6 Pro consultation, 2026-09-16, section 5",
+      "status": "proposal_only",
+      "requires": "Same specimen/workload/environment, electrical and component temperature limits, sufficient sensor stability, local disconnect and supervision",
+      "configuration_order": ["A1_unmounted", "B1_mounted", "A2_unmounted"],
+      "temperature_sample_interval_s": 1,
+      "maximum_comparison_ambient_difference_C": 1,
+      "maximum_absolute_slope_C_per_min": 0.1,
+      "slope_applies_to": ["absolute_temperature", "temperature_rise_above_ambient"],
+      "stability_window_s": 600,
+      "consecutive_stable_windows": 2,
+      "additional_stable_hold_s": 1800,
+      "supervised_run_time_limit_example_s": 7200,
+      "limitations": "Adopt a time cap per run before execution; incomplete stabilization remains unknown. No extrapolation to 55 C ambient or untested loads."
+    }
+  ],
+  "excluded_default_suggestions": [
+    {
+      "suggestion": "40 C exploratory surface early-stop candidate",
+      "reason": "No common default adopted: actual component limits, contact conditions, uncertainty and shutdown delay are unknown."
+    }
+  ],
+  "observation_fields": {
+    "common": ["run_id", "case_id", "timestamp_utc", "elapsed_s", "phase", "validity", "raw_file_ref", "operator_event"],
+    "mechanical": ["force_vector_N", "application_point_mm", "moment_reference_point_mm", "moment_vector_Nm", "plate_displacement_mm", "panel_displacement_mm", "fixture_displacement_mm", "relative_displacement_mm", "joint_slip_mm", "clearance_mm", "residual_movement_mm"],
+    "thermal": ["configuration_id", "sensor_id", "sensor_location", "ambient_C", "surface_C", "temperature_rise_C", "input_V", "input_A", "port_voltage_current", "workload_id", "throughput", "disconnect_count", "error_count", "data_checksum_result"]
+  },
+  "observations": [],
+  "raw_files": [],
+  "raw_file_fields": ["path", "sha256", "instrument_or_source", "start_time_utc", "end_time_utc"],
+  "missing_data_intervals": [],
+  "plan_change_events": [],
+  "results_by_criterion": [],
+  "stop_events": [],
+  "post_test_inspection": null,
+  "review": { "reviewer": null, "reviewed_at": null, "limitations": [], "result": "not_tested" }
+}
