@@ -2,9 +2,11 @@
 
 2026-09-17. 대상은 **Coolgear CG-U3MINI4PH-G2의 R1 기준 설계**다. 공개 제조사 자료 대조, 형상·계산 검토와 실물 시험 문서 준비를 마무리했다. M3×10은 형상 검토 후보이며, 원본 R1의 M3×12 구성은 보존한다.
 
+**현재 범위 확정:** 사용자는 실물이 없으며 기준 설계로 진행한다고 확인했다. 현재 자료의 시작점은 [통합 기준 설계 패키지](usb-hub-reference-design-package.md)다. M3×10 후보·장착판·도면·부품표를 연결하며, 이 문서의 물리 시험 재개 조건은 향후 실물 단계에만 적용한다. 실물 준비나 측정값은 현재 기준 설계 자료의 완료 조건이 아니다.
+
 **같은 날의 추가 검토:** [공칭 편심 검토](usb-hub-reference-eccentricity.md)에서 볼트·와셔 중심 이동을 비교했다. 넓은 NBK 비교 와셔는 일부 배치에서 실제 지지 평면 경계에 의해 아래 면적이 줄었다. 아래의 동심 결과와 후속 편심 결과는 각각의 입력 조건으로 읽는다.
 
-실제 보유 허브·패널·체결품·계측기·현장 수행자는 확인되지 않았다. 따라서 `physical_test=not_tested`, `physical_suitability=indeterminate`, `manufacturing_release=false`이며, 체결력·허용 하중·체결 토크는 `null`이다. 검색이나 Pro 자문은 실제 장착·시험 기록을 만들지 않는다.
+실물 허브·받침면은 아직 없고, 실제 체결품·계측기·현장 수행자도 확인되지 않았다. 따라서 `physical_test=not_tested`, `physical_suitability=indeterminate`, `manufacturing_release=false`이며, 체결력·허용 하중·체결 토크는 `null`이다. 검색이나 Pro 자문은 실제 장착·시험 기록을 만들지 않는다.
 
 ## 1. 결과와 종료 범위
 
@@ -17,7 +19,7 @@
 | CAD 재현 | FreeCAD 형상·간섭 반례·FCStd/STEP 재읽기 검증 | 공칭 단순 체결품 형상 |
 | ChatGPT 자문 | 기존 6 Pro 대화의 최종 후속 답변 반영 | 공개자료·산술 검토; 로컬 CAD·Git 검증은 별도 수행 |
 | 시험 준비 문서 | 절차·착수 조건·빈 기록 양식 완성 | 시험 장비·실물·한계값이 갖춰졌다는 뜻은 아님 |
-| 실제 장착·하중·열 시험 | 미수행 | 아래 재개 조건 필요 |
+| 실제 장착·하중·열 시험 | 미수행, 현재 범위 밖 | 향후 실물 단계에서 아래 재개 조건 적용 |
 
 최종 자료의 `verification.json`은 검증 대상 커밋과 원격 반영 SHA, 실행 결과를 기록한다. `closeout-summary.json`이 계산 결과의 기계 판독 원본이며, 이 문서와 검토 화면은 그 결과를 설명한다.
 
@@ -68,7 +70,7 @@ M3×10, 머리 원통 외경 5.5 mm, 허브 접시형 구멍 상부 지름 5.2 m
 - **토크:** 필요한 잔류 체결력과 허용 최대 체결력을 먼저 정해야 한다. 접촉/분리·미끄럼·지렛대 효과, 볼트/나사산·와셔·플랜지·패널 강도, 마찰·체결 공구 산포와 축력 손실이 빠져 있으므로 8.8/8급만으로 토크를 정하지 않는다. [Bossard 체결력·토크 자료](https://assets.eu.ctfassets.net/0vp0u5uh75zd/3S40LEUM235Qk3rJk2phR1/c715f9f45232756c12b59aa681c7fede/060_074_Preload_tightening_torques_Fastening_EN_01_2025.pdf).
 - **열:** 정상상태에서 모든 전기 유입·유출 경로를 포함한 전력 차가 열 방출량의 근거가 된다. 실제 손실·열저항·접촉·대류 조건이 없어 온도를 예측하지 않았다. 12 V×4 A 어댑터 정격을 허브 발열 48 W로 쓰지 않으며, 포트별 2 A를 네 포트 동시 허용 총량으로 확대하지 않는다. 0–55 °C 동작환경도 케이스 표면 허용온도가 아니다. [Coolgear 사양](https://www.coolgear.com/wp-content/uploads/CG-U3MINI4PH-G2-Technical-Data-Sheet-06-241119.pdf), [제품 페이지](https://www.coolgear.com/product/4-port-usb-3-2-gen-2-mini-powered-hub-w-esd-surge-protection-power-adapter).
 
-## 5. 실물 판단을 재개하는 조건
+## 5. 향후 실물 판단을 재개하는 조건
 
 | 부족한 입력 | 필요한 근거 | 열리는 판단 |
 |---|---|---|

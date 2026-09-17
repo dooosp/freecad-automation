@@ -1,0 +1,193 @@
+{
+  "record_kind": "reference_design_baseline",
+  "configuration_id": "USB-REF-R1-M3x10-reference-candidate",
+  "decision_date_local": "2026-09-17",
+  "scope": {
+    "mode": "reference_design_only",
+    "decision_source": "user_confirmation",
+    "user_confirmation_ko": "아직 실물은 없고 기준 설계로 진행",
+    "actual_specimen_available": false,
+    "physical_testing_in_current_scope": false,
+    "physical_testing_required_before_real_use_qualification": true
+  },
+  "reference_product": "Coolgear CG-U3MINI4PH-G2",
+  "configuration_status": "nominal_geometry_candidate",
+  "reference_plate_revision": "R1",
+  "physical_test": "not_tested",
+  "physical_suitability": "indeterminate",
+  "manufacturing_release": false,
+  "installed_load_rating_N": null,
+  "fastening_torque_Nm": null,
+  "path_basis": "repository_root",
+  "source_config": "configs/examples/usb_hub_reference_mount.json",
+  "catalog_data": "docs/reference-data/usb-hub-fastener-candidates.json",
+  "geometry_source_commit": "89f07842f40b01fb6895b2f59f2abe34eb83f062",
+  "selected_assembly_source_sha256": "cb95852f9cccd02436748adb52274f97a7b4bb93ddbfaf5858eab22f3e65a519",
+  "selection_basis": [
+    "M3x10 retained as geometry candidate with baseline plain washers.",
+    "Original R1 M3x12 assembly and NBK upper-washer comparison remain separate preserved studies.",
+    "Catalog identity and nominal geometry are not physical lot or complete joint qualification."
+  ],
+  "bom": [
+    {
+      "id": "hub",
+      "name_ko": "기준 허브",
+      "quantity": 1,
+      "catalog_candidate_id": null,
+      "model": "Coolgear CG-U3MINI4PH-G2",
+      "basis": "manufacturer_reference_cad",
+      "cad_labels": [
+        "Coolgear_Manufacturer_STEP"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "adapter",
+      "name_ko": "장착판 R1",
+      "quantity": 1,
+      "catalog_candidate_id": null,
+      "model": "USB-REF-R1, 142×74×4 mm",
+      "material_design_choice": "6061-T6",
+      "basis": "design_choice",
+      "cad_labels": [
+        "Adapter_6061_T6_Design"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "panel",
+      "name_ko": "가정 받침판",
+      "quantity": 1,
+      "catalog_candidate_id": null,
+      "model": "142×74×2 mm",
+      "material": null,
+      "basis": "assumed_reference_envelope",
+      "cad_labels": [
+        "Receiving_Panel_2mm_ASSUMPTION"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "spacer",
+      "name_ko": "가정 스페이서",
+      "quantity": 4,
+      "catalog_candidate_id": null,
+      "model": "내경 5.5 / 외경 10 / 길이 10 mm",
+      "material": null,
+      "basis": "assumed_reference_envelope",
+      "cad_labels": [
+        "P1_Spacer_5_5x10x10",
+        "P2_Spacer_5_5x10x10",
+        "P3_Spacer_5_5x10x10",
+        "P4_Spacer_5_5x10x10"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "hub_bolt",
+      "name_ko": "허브 볼트 후보",
+      "quantity": 4,
+      "catalog_candidate_id": "H_bolt_candidate",
+      "model": "M3×10",
+      "basis": "catalog_candidate_nominal_envelope",
+      "cad_labels": [
+        "H1_M3x10_CANDIDATE_Envelope",
+        "H2_M3x10_CANDIDATE_Envelope",
+        "H3_M3x10_CANDIDATE_Envelope",
+        "H4_M3x10_CANDIDATE_Envelope"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "panel_bolt",
+      "name_ko": "받침판 볼트 후보",
+      "quantity": 4,
+      "catalog_candidate_id": "P_bolt_candidate",
+      "model": "M5×25",
+      "basis": "catalog_candidate_nominal_envelope",
+      "cad_labels": [
+        "P1_M5x25_Envelope",
+        "P2_M5x25_Envelope",
+        "P3_M5x25_Envelope",
+        "P4_M5x25_Envelope"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "hub_nut",
+      "name_ko": "허브 너트 후보",
+      "quantity": 4,
+      "catalog_candidate_id": "H_nut_candidate",
+      "model": "M3, H 최대값 2.4 mm 적용",
+      "basis": "catalog_candidate_height_maximum",
+      "cad_labels": [
+        "H1_M3Nut_Envelope",
+        "H2_M3Nut_Envelope",
+        "H3_M3Nut_Envelope",
+        "H4_M3Nut_Envelope"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "panel_nut",
+      "name_ko": "받침판 너트 후보",
+      "quantity": 4,
+      "catalog_candidate_id": "P_nut_candidate",
+      "model": "M5, H 최대값 4 mm 적용",
+      "basis": "catalog_candidate_height_maximum",
+      "cad_labels": [
+        "P1_M5Nut_Envelope",
+        "P2_M5Nut_Envelope",
+        "P3_M5Nut_Envelope",
+        "P4_M5Nut_Envelope"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "hub_washer",
+      "name_ko": "허브 평와셔 후보",
+      "quantity": 8,
+      "catalog_candidate_id": "H_plain_washer_candidate",
+      "model": "내경×외경×두께 3.2×7×0.5 mm",
+      "basis": "catalog_candidate_nominal_envelope",
+      "cad_labels": [
+        "H1_TopWasher_3_2x7x0_5",
+        "H1_BottomWasher_3_2x7x0_5",
+        "H2_TopWasher_3_2x7x0_5",
+        "H2_BottomWasher_3_2x7x0_5",
+        "H3_TopWasher_3_2x7x0_5",
+        "H3_BottomWasher_3_2x7x0_5",
+        "H4_TopWasher_3_2x7x0_5",
+        "H4_BottomWasher_3_2x7x0_5"
+      ],
+      "actual_part_verified": false
+    },
+    {
+      "id": "panel_washer",
+      "name_ko": "받침판 평와셔 후보",
+      "quantity": 8,
+      "catalog_candidate_id": "P_plain_washer_candidate",
+      "model": "내경×외경×두께 5.3×10×1 mm",
+      "basis": "catalog_candidate_nominal_envelope",
+      "cad_labels": [
+        "P1_TopWasher_5_3x10x1",
+        "P1_BottomWasher_5_3x10x1",
+        "P2_TopWasher_5_3x10x1",
+        "P2_BottomWasher_5_3x10x1",
+        "P3_TopWasher_5_3x10x1",
+        "P3_BottomWasher_5_3x10x1",
+        "P4_TopWasher_5_3x10x1",
+        "P4_BottomWasher_5_3x10x1"
+      ],
+      "actual_part_verified": false
+    }
+  ],
+  "package_scope": [
+    "candidate assembly FCStd/STEP",
+    "R1 plate STEP/BREP/STL and drawing",
+    "catalog-linked reference BOM",
+    "quality and mounting comparison evidence",
+    "joint and eccentricity studies with reproduction scripts",
+    "future physical-test procedure and blank template"
+  ]
+}

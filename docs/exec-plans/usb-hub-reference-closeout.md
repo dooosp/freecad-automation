@@ -42,3 +42,13 @@
 결과와 범위는 [공칭 편심 보고서](../usb-hub-reference-eccentricity.md), 재현 자료·실행/Git 확인은 `output/usb-hub-reference-mount/eccentricity/`에 기록한다. 앞선 묶음과 압축 파일은 보존하며 최종 통합 ZIP에 추가 결과를 함께 담는다. 전체 연속 3D 공간, 실제 공차·기울기·힘·토크·열의 판정으로 확대하지 않는다.
 
 추가 검증: 재현 실행의 16개 검증 항목 통과, 128개 접선 경계 별도 기록, 데이터·스크립트 해시와 이전 묶음 보존 확인, 로컬 문서/그림 링크 32개 및 브라우저 화면·그림 표시 확인. 결과는 실제 시험이나 제조 승인으로 승격하지 않았다.
+
+## 범위 확정: 실물 없는 기준 설계 통합
+
+사용자는 “아직 실물은 없고 기준 설계로 진행”이라고 확인했다. 현재 범위는 `reference_design_only`다. 실물 준비나 측정값 제출을 이 범위의 완료 조건으로 두지 않는다. 물리 시험은 향후 범위가 바뀔 때 적용할 절차로 보존한다.
+
+[통합 기준 설계 안내](../usb-hub-reference-design-package.md)와 [구성 JSON](../reference-data/usb-hub-reference-baseline.json)에 장착판 R1, M3×10 후보, 기존 평와셔의 구성을 고정한다. 기존 R1 M3×12와 NBK 비교안, 이전 보고서·압축 파일은 보존한다. 최종 자료는 `output/usb-hub-reference-mount/reference-dossier/`, 제어·검증 기록은 `tmp/codex/reference-dossier/`에 둔다.
+
+새 읽기 전용 FreeCAD 검사 10개와 독립 실행 재현을 통과했다. 부품표 10개 행의 수량 합계 39개가 CAD 객체와 일치하고, 89개 솔리드는 유효하다. 별도 장착판 STEP·BREP와 조립 모델 속 판의 양방향 차집합 체적은 0 mm³다. 기존 create/draw 품질 기록은 새 실행으로 집계하지 않으며, 출처 해시를 가진 경로 변환 사본으로 제공한다.
+
+전달 전 확인 항목은 부품표·CAD 대응, 원본/보존본 해시, 휴대용 문서·그림 링크, 화면 표시, 소스 위생, 읽기 전용 검토, 정상 커밋·푸시와 ZIP 내부 해시다. 실제 결과는 통합 자료의 `verification.json`에 기록한다. `physical_test=not_tested`, `physical_suitability=indeterminate`, `manufacturing_release=false`, 하중 정격·토크 `null`을 유지한다.
