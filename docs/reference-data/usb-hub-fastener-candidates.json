@@ -1,0 +1,327 @@
+{
+  "record_kind": "manufacturer_catalog_reference_candidates",
+  "review_date_local": "2026-09-17",
+  "reference_product": "Coolgear CG-U3MINI4PH-G2",
+  "selection_scope": "Nominal geometry and procurement identification study; no order or physical part qualification",
+  "actual_specimen_identified": false,
+  "physical_testing_performed": false,
+  "manufacturing_release": false,
+  "sources": [
+    {
+      "id": "norelem_screws",
+      "url": "https://www.norelem.fr/en/Product-overview/Flexible-standard-component-system/07000/Nuts-screws-washers-securing-elements/Socket-head-screws-DIN-EN-ISO-4762-enhanced-steel-or-stainless-steel/p/agid.35797",
+      "access": "Live rendered manufacturer product-selection table observed",
+      "fields_observed": [
+        "part number",
+        "material",
+        "finish",
+        "grade",
+        "D",
+        "L",
+        "Ls min.",
+        "Lg max.",
+        "DK",
+        "K",
+        "SW"
+      ],
+      "access_date_local": "2026-09-17"
+    },
+    {
+      "id": "norelem_nuts",
+      "url": "https://www.norelem.fr/en/Product-overview/Flexible-standard-component-system/07000/Nuts-screws-washers-securing-elements/Hexagon-nuts-DIN-934/Hexagon-nuts-DIN-934-steel/p/agid.32698",
+      "access": "Live rendered manufacturer table and manufacturer description observed",
+      "fields_observed": [
+        "part number",
+        "material",
+        "finish",
+        "D",
+        "grade",
+        "E",
+        "H",
+        "SW",
+        "DIN"
+      ],
+      "height_note": "Manufacturer description states that H in the table is the maximum nut height.",
+      "access_date_local": "2026-09-17"
+    },
+    {
+      "id": "norelem_washers",
+      "url": "https://www.norelem.es/en/Product-overview/Flexible-standard-component-system/07000/Nuts-screws-washers-securing-elements/Washers-medium-DIN-EN-ISO-7089-A/p/agid.4120",
+      "access": "Live rendered manufacturer product-selection table observed",
+      "fields_observed": [
+        "part number",
+        "material",
+        "for screw",
+        "grade",
+        "D1",
+        "D2",
+        "H"
+      ],
+      "access_date_local": "2026-09-17"
+    },
+    {
+      "id": "nbk_adjusting_washers",
+      "url": "https://www.nbk1560.com/en-US/products/specialscrew/nedzicom/screwparts/SWAS-AW/",
+      "access": "Manufacturer HTML specification table and material description retrieved",
+      "fields_observed": [
+        "part number",
+        "d",
+        "D",
+        "t",
+        "SUS304"
+      ],
+      "access_date_local": "2026-09-17"
+    }
+  ],
+  "parts": [
+    {
+      "id": "H_bolt_candidate",
+      "supplier": "norelem",
+      "part_number": "07160-03X10",
+      "quantity_in_reference": 4,
+      "source_id": "norelem_screws",
+      "thread": "M3",
+      "catalog_length_mm": 10,
+      "catalog_head_diameter_mm": 5.5,
+      "catalog_head_height_mm": 3,
+      "catalog_hex_key_mm": 2.5,
+      "catalog_Ls_min_mm": 0,
+      "catalog_Lg_max_mm": 1.5,
+      "material": "steel",
+      "property_class": "8.8",
+      "finish": "bright (black)",
+      "standard_label": "DIN EN ISO 4762 enhanced",
+      "length_tolerance_mm": null,
+      "effective_thread_engagement_mm": null,
+      "effective_head_bearing_diameter_mm": null,
+      "installed_torque_Nm": null,
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_length_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_head_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_head_height_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_hex_key_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_Ls_min_mm": "minimum",
+        "catalog_Lg_max_mm": "maximum"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    },
+    {
+      "id": "H_bolt_original_R1",
+      "supplier": "norelem",
+      "part_number": "07160-03X12",
+      "quantity_in_original_reference": 4,
+      "source_id": "norelem_screws",
+      "thread": "M3",
+      "catalog_length_mm": 12,
+      "catalog_head_diameter_mm": 5.5,
+      "catalog_head_height_mm": 3,
+      "catalog_Ls_min_mm": 0,
+      "catalog_Lg_max_mm": 1.5,
+      "material": "steel",
+      "property_class": "8.8",
+      "finish": "bright (black)",
+      "length_tolerance_mm": null,
+      "effective_thread_engagement_mm": null,
+      "installed_torque_Nm": null,
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_length_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_head_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_head_height_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_Ls_min_mm": "minimum",
+        "catalog_Lg_max_mm": "maximum"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    },
+    {
+      "id": "P_bolt_candidate",
+      "supplier": "norelem",
+      "part_number": "07160-05X25",
+      "quantity_in_reference": 4,
+      "source_id": "norelem_screws",
+      "thread": "M5",
+      "catalog_length_mm": 25,
+      "catalog_head_diameter_mm": 8.5,
+      "catalog_head_height_mm": 5,
+      "catalog_hex_key_mm": 4,
+      "catalog_Ls_min_mm": 0,
+      "catalog_Lg_max_mm": 2.4,
+      "material": "steel",
+      "property_class": "8.8",
+      "finish": "bright (black)",
+      "standard_label": "DIN EN ISO 4762 enhanced",
+      "length_tolerance_mm": null,
+      "effective_thread_engagement_mm": null,
+      "installed_torque_Nm": null,
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_length_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_head_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_head_height_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_hex_key_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_Ls_min_mm": "minimum",
+        "catalog_Lg_max_mm": "maximum"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    },
+    {
+      "id": "H_nut_candidate",
+      "supplier": "norelem",
+      "part_number": "07210-03",
+      "quantity_in_reference": 4,
+      "source_id": "norelem_nuts",
+      "thread": "M3",
+      "material": "steel",
+      "property_class": "8",
+      "finish": "bright (black)",
+      "standard_label": "DIN 934",
+      "catalog_height_max_mm": 2.4,
+      "catalog_height_min_mm": null,
+      "catalog_width_across_flats_mm": 5.5,
+      "catalog_E_mm": 6.01,
+      "locking_feature": "No locking feature specified for this plain nut",
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_height_max_mm": "maximum",
+        "catalog_height_min_mm": "unknown",
+        "catalog_width_across_flats_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_E_mm": "catalog_table_value_not_a_verified_tolerance_interval"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    },
+    {
+      "id": "P_nut_candidate",
+      "supplier": "norelem",
+      "part_number": "07210-05",
+      "quantity_in_reference": 4,
+      "source_id": "norelem_nuts",
+      "thread": "M5",
+      "material": "steel",
+      "property_class": "8",
+      "finish": "bright (black)",
+      "standard_label": "DIN 934",
+      "catalog_height_max_mm": 4,
+      "catalog_height_min_mm": null,
+      "catalog_width_across_flats_mm": 8,
+      "catalog_E_mm": 8.79,
+      "locking_feature": "No locking feature specified for this plain nut",
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_height_max_mm": "maximum",
+        "catalog_height_min_mm": "unknown",
+        "catalog_width_across_flats_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_E_mm": "catalog_table_value_not_a_verified_tolerance_interval"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    },
+    {
+      "id": "H_plain_washer_candidate",
+      "supplier": "norelem",
+      "part_number": "07300-03",
+      "quantity_in_reference": 8,
+      "source_id": "norelem_washers",
+      "catalog_for_screw": "M3",
+      "catalog_inner_diameter_mm": 3.2,
+      "catalog_outer_diameter_mm": 7,
+      "catalog_thickness_mm": 0.5,
+      "material": "steel",
+      "finish": "bright",
+      "standard_label": "DIN EN ISO 7089 A",
+      "catalog_grade_cell": "—",
+      "hardness_HV": null,
+      "thickness_tolerance_mm": null,
+      "flatness_mm": null,
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_inner_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_outer_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_thickness_mm": "catalog_table_value_not_a_verified_tolerance_interval"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    },
+    {
+      "id": "P_plain_washer_candidate",
+      "supplier": "norelem",
+      "part_number": "07300-05",
+      "quantity_in_reference": 8,
+      "source_id": "norelem_washers",
+      "catalog_for_screw": "M5",
+      "catalog_inner_diameter_mm": 5.3,
+      "catalog_outer_diameter_mm": 10,
+      "catalog_thickness_mm": 1,
+      "material": "steel",
+      "finish": "bright",
+      "standard_label": "DIN EN ISO 7089 A",
+      "catalog_grade_cell": "—",
+      "hardness_HV": null,
+      "thickness_tolerance_mm": null,
+      "flatness_mm": null,
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_inner_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_outer_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_thickness_mm": "catalog_table_value_not_a_verified_tolerance_interval"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    },
+    {
+      "id": "H_upper_washer_comparison_only",
+      "supplier": "NBK",
+      "part_number": "SWAS-4-8-1-AW",
+      "source_id": "nbk_adjusting_washers",
+      "catalog_inner_diameter_mm": 4,
+      "catalog_outer_diameter_mm": 8,
+      "catalog_thickness_mm": 1,
+      "material": "SUS304",
+      "hardness_HV": null,
+      "thickness_tolerance_mm": null,
+      "flatness_mm": null,
+      "selected_for_reference_installation": false,
+      "reason": "Comparison of nominal geometry only; increased lower support area does not establish washer bending, preload retention or fastening suitability.",
+      "actual_part_verified": false,
+      "dimension_basis": {
+        "catalog_inner_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_outer_diameter_mm": "catalog_table_value_not_a_verified_tolerance_interval",
+        "catalog_thickness_mm": "catalog_table_value_not_a_verified_tolerance_interval"
+      },
+      "CAD_use": "Reference envelope only; manufacturer fillets, chamfers, threads and tolerances are not modeled."
+    }
+  ],
+  "unresolved_reference_components": [
+    {
+      "id": "spacer",
+      "quantity": 4,
+      "nominal_inner_diameter_mm": 5.5,
+      "nominal_outer_diameter_mm": 10,
+      "nominal_length_mm": 10,
+      "part_number": null,
+      "material": null,
+      "length_tolerance_mm": null
+    },
+    {
+      "id": "receiving_panel",
+      "nominal_thickness_mm": 2,
+      "material": null,
+      "actual_support_geometry": null,
+      "thickness_tolerance_mm": null
+    },
+    {
+      "id": "hub_flange",
+      "nominal_CAD_thickness_mm": 1,
+      "thickness_tolerance_mm": null,
+      "material_grade": null,
+      "local_strength_limit": null
+    }
+  ],
+  "qualification_limits": [
+    "Catalog identity and grade do not verify any physical specimen or lot.",
+    "Published nominal dimensions and Ls/Lg labels do not establish complete effective thread overlap at both ends.",
+    "Unretrieved tolerance values remain null; no zero tolerance or arbitrary material strength is substituted.",
+    "The catalog height maximum is one-sided information; it is not a measured height or a symmetric interval.",
+    "No prices, availability, purchase, supplier contact, torque setting or installed load rating are part of this selection.",
+    "Nut envelope uses catalog H maximum with all other unbounded dimensions fixed at reference values; calculated protrusion is not a full-stack minimum.",
+    "Ls minimum and Lg maximum are bounds, not exact unthreaded/transition lengths; effective engagement remains unverified.",
+    "An ideal hexagonal CAD nut is not an exact manufacturer nut model; E and chamfer geometry have not been matched."
+  ]
+}
