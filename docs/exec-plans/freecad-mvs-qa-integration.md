@@ -10,7 +10,7 @@
 
 **Spec:** [연동 설계와 사실 근거](../architecture/freecad-mvs-qa-integration.md).
 
-작성일: 2026-09-18. **계획 문서이며 아래 구현·회귀 검사·연동 시연은 아직 실행하지 않았다.** 실제 ChatGPT `6 Pro` 리뷰를 받아 [종합 판단](../architecture/freecad-mvs-qa-integration.md#8-chatgpt-pro-리뷰와-최종-판단)에 반영했다. Pro 자문은 설계 리뷰이며 독립 코드 실행/시험이 아니다.
+작성일: 2026-09-18. **최초 작성 당시에는 계획 문서였으며, 아래 체크 표시는 후속 실행 근거를 반영한다.** G0–G5 실행 결과와 G6 자료는 [품질보증 사례](../portfolio/freecad-mvs-qa-case.ko.md)에 기록한다. 디지털 연동 완료, 탐지 성능 한계, 재검사 보류, 실물 미시험을 구분한다. MVS 전체 검증은 E1 구현 해시 불일치로 HOLD이며, 전체 PASS나 병합 승인을 뜻하지 않는다. 실제 ChatGPT `6 Pro` 리뷰를 받아 [종합 판단](../architecture/freecad-mvs-qa-integration.md#8-chatgpt-pro-리뷰와-최종-판단)에 반영했다. Pro 자문은 설계 리뷰이며 독립 코드 실행/시험이 아니다.
 
 ## Global Constraints
 
@@ -83,7 +83,7 @@ G2와 G3는 계약이 고정되면 독립 개발 가능하지만 기본 실행�
 
 **Produces:** `baseline.json`에 실제 선택 SHA/branch/runtime/명령/exit code, `integration-entry-report.md`에 기본 경로·공유 의존성·현재 feature 전달 누락·HOLD 적용 범위 기록.
 
-- [ ] **1. 원본 상태를 읽고 고정한다.** 각 저장소에서 아래 명령을 실행하고 결과·dirty diff 해시를 자신의 제어 폴더에 보존한다.
+- [x] **1. 원본 상태를 읽고 고정한다.** 각 저장소에서 아래 명령을 실행하고 결과·dirty diff 해시를 자신의 제어 폴더에 보존한다.
 
 ```sh
 pwd
@@ -94,7 +94,7 @@ git status --short
 git diff --name-only HEAD
 ```
 
-- [ ] **2. 선택 SHA의 clean 작업 트리에서 관련 기본 검사를 실행한다.** 기존 working copy, 후보 선택 파일, 별도 수리 worktree는 변경하지 않는다.
+- [x] **2. 선택 SHA의 clean 작업 트리에서 관련 기본 검사를 실행한다.** 기존 working copy, 후보 선택 파일, 별도 수리 worktree는 변경하지 않는다.
 
 ```sh
 # FreeCAD 작업 트리
@@ -108,9 +108,9 @@ uv run pytest tests/test_model_contract.py tests/test_registry_fail_closed.py te
 npm --prefix web run check
 ```
 
-- [ ] **3. 소스 경로와 공유 의존성을 확인한다.** `adapters.import_reference → registry.add_reference`, `registry.analyze_case → model.inspect`, `registry._case_document`의 기본 ID와 기존 import-closure 시험을 읽는다. 선택 커밋과 별도 HOLD 커밋의 차이를 대조한다. 어댑터·저장·분석·evidence 경로에 공유되는 실패인지 명시하고 근거 경로를 보고서에 적는다.
+- [x] **3. 소스 경로와 공유 의존성을 확인한다.** `adapters.import_reference → registry.add_reference`, `registry.analyze_case → model.inspect`, `registry._case_document`의 기본 ID와 기존 import-closure 시험을 읽는다. 선택 커밋과 별도 HOLD 커밋의 차이를 대조한다. 어댑터·저장·분석·evidence 경로에 공유되는 실패인지 명시하고 근거 경로를 보고서에 적는다.
 
-- [ ] **4. 실패를 분류한다.** 기본 경로 자체 실패와 새 연동 요구의 예상 RED를 구분한다. 영향 없는 다른 커밋의 E1 HOLD는 이력으로 보존한다. 실제 통합 의존 경로의 실패는 수리 범위를 정한 별도 작업으로 기록한다. 재현되지 않은 과거 실패를 현재 결과로 옮기지 않는다.
+- [x] **4. 실패를 분류한다.** 기본 경로 자체 실패와 새 연동 요구의 예상 RED를 구분한다. 영향 없는 다른 커밋의 E1 HOLD는 이력으로 보존한다. 실제 통합 의존 경로의 실패는 수리 범위를 정한 별도 작업으로 기록한다. 재현되지 않은 과거 실패를 현재 결과로 옮기지 않는다.
 
 **완료 기준:** 정확한 커밋에서 기본 경로와 의존 영향이 판정되어 G1을 시작할 수 있다. 관련 실패 또는 영향 불명확성이 있으면 그 범위의 수리를 기록한다. 새로운 8-feature 요구의 RED는 G1에서 재현하며 기능 미구현 증거이지 G0 착수를 막는 기존 회귀가 아니다. 첫 실제 실행 작업은 이 G0 보고서 한 건이다.
 
@@ -122,8 +122,8 @@ npm --prefix web run check
 
 **Produces:** 양쪽이 고정한 `coolgear-plate-top/v1` 프로파일과 동일 fixture 해시. 새 해시 필드의 의미·스키마 버전 결정 기록.
 
-- [ ] **1. 형상/뷰 규칙을 고정한다.** 1520×840, 10 px/mm, 5 mm 여백, Y 반전, 사각형 ROI의 양의 크기, 8개 고유 ID, finite 좌표 및 0–1 범위, native 단위 mm를 선언한다.
-- [ ] **2. 구현과 독립적인 기대값으로 투영 시험을 작성한다.** 아래 함수와 인자는 신규 순수 모듈의 계약이다.
+- [x] **1. 형상/뷰 규칙을 고정한다.** 1520×840, 10 px/mm, 5 mm 여백, Y 반전, 사각형 ROI의 양의 크기, 8개 고유 ID, finite 좌표 및 0–1 범위, native 단위 mm를 선언한다.
+- [x] **2. 구현과 독립적인 기대값으로 투영 시험을 작성한다.** 아래 함수와 인자는 신규 순수 모듈의 계약이다.
 
 ```python
 # scripts/mvs_reference_projection.py의 제안 인터페이스
@@ -137,7 +137,7 @@ def test_three_independent_reference_points():
     assert project_point(29.0, 24.4) == (340.0, 546.0)
 ```
 
-- [ ] **3. MVS fixture helper와 특징 전달 RED를 만든다.** 아래 fixture는 현재 v1 adapter 경계를 통과시키기 위한 합성 계약 자료다. 실제 native CAD export와 구분한다. G1의 프로파일 의미 검증을 추가할 때에도 이 구분과 실제 생성 바이트를 유지한다.
+- [x] **3. MVS fixture helper와 특징 전달 RED를 만든다.** 아래 fixture는 현재 v1 adapter 경계를 통과시키기 위한 합성 계약 자료다. 실제 native CAD export와 구분한다. G1의 프로파일 의미 검증을 추가할 때에도 이 구분과 실제 생성 바이트를 유지한다.
 
 ```python
 # tests/cad_binding_fixtures.py
@@ -228,7 +228,7 @@ def test_imported_feature_ids_reach_case(tmp_path):
 ```
 
 실행 명령은 `uv run pytest tests/test_freecad_feature_binding.py::test_imported_feature_ids_reach_case -q`다. schema·import 실패가 아니라 **기본 예제 feature 목록과 기대한 8개 목록의 차이**에서 실패했는지 확인한다. 이 RED는 G3에서 해소한다. fixture는 테스트가 고정한 예상 해시와 임시 저장소에서만 사용하며 실제 runtime 생산 근거로 승격하지 않는다.
-- [ ] **4. 중복 ID, 뒤집힌 사각형, NaN, 영역 밖 좌표, manifest/features 불일치, metadata part/revision 불일치, 해시·크기 불일치를 각각 거부하는 시험을 작성하고 최소 validator를 구현한다.** 바이트 검증을 통과해도 의미가 다른 입력은 승인하지 않는다.
+- [x] **4. 중복 ID, 뒤집힌 사각형, NaN, 영역 밖 좌표, manifest/features 불일치, metadata part/revision 불일치, 해시·크기 불일치를 각각 거부하는 시험을 작성하고 최소 validator를 구현한다.** 바이트 검증을 통과해도 의미가 다른 입력은 승인하지 않는다.
 
 ```python
 # MVS cad_binding.py의 제안 인터페이스
@@ -250,7 +250,7 @@ def validate_cad_binding(manifest_bytes: bytes,
 
 이 타입은 신규 인터페이스 선언이다. `dataclass`는 표준 `dataclasses`, `Mapping`은 `collections.abc`에서 가져온다. 검증되지 않은 사전이나 변경 가능한 영역을 보관하지 않는다.
 
-- [ ] **5. 실행·검토 후 계약을 고정한다.**
+- [x] **5. 실행·검토 후 계약을 고정한다.**
 
 ```sh
 # FreeCAD
@@ -271,8 +271,8 @@ uv run mypy src
 
 **Produces:** 새 출력 폴더의 4개 adapter 파일과 기존 helper로 작성한 output-manifest. 기존 원본 자료는 바이트 단위로 보존한다.
 
-- [ ] **1. Node 오케스트레이션의 실패 시험을 먼저 작성한다.** 원본 manifest/CAD의 불일치, 없는 feature, native 검사 실패, 기존 출력 폴더 덮어쓰기를 거부한다. 의도적으로 실패한 native 실행에서 정상 이미지나 pass manifest가 나오지 않아야 한다.
-- [ ] **2. 다음 명시적 개발 명령을 구현한다.** `--config`, `--model`, `--source-manifest`, `--out-dir`는 필수다. `--part-id`와 `--cad-revision`은 metadata와 맞춰 검증한다. 새 public `fcad` 명령은 만들지 않는다.
+- [x] **1. Node 오케스트레이션의 실패 시험을 먼저 작성한다.** 원본 manifest/CAD의 불일치, 없는 feature, native 검사 실패, 기존 출력 폴더 덮어쓰기를 거부한다. 의도적으로 실패한 native 실행에서 정상 이미지나 pass manifest가 나오지 않아야 한다.
+- [x] **2. 다음 명시적 개발 명령을 구현한다.** `--config`, `--model`, `--source-manifest`, `--out-dir`는 필수다. `--part-id`와 `--cad-revision`은 metadata와 맞춰 검증한다. 새 public `fcad` 명령은 만들지 않는다.
 
 ```sh
 node scripts/export-mvs-reference.js \
@@ -285,9 +285,9 @@ node scripts/export-mvs-reference.js \
 
 위 source-manifest 파일은 계획 시 실제 존재를 확인한 create 출력이다. 실행 시에도 역할/입력/CAD 해시를 재검증하며, 없거나 불일치하면 가짜 manifest로 대체하지 않는다.
 
-- [ ] **3. Python에서는 `lib/runner.js`의 `runScript()`와 기존 `_bootstrap` 방식을 통해 FreeCAD를 사용한다.** 실제 판 형상이 유효한 단일 solid인지, 142×74×4인지, 8개 cylinder hole 중심·지름이 입력과 연결되는지 확인한다. 전체 조립체의 첫 객체를 임의로 장착판으로 선택하지 않는다. native 형상에서 얻은 상면 외곽/구멍 투영을 PNG와 ROI에 사용한다.
-- [ ] **4. staging 폴더에서 바이트를 완성한 뒤 manifest를 쓴다.** Native metadata → PNG/feature-map/cad-metadata → 기존 MVS adapter manifest 순서로 생성한다. 생산 실행 provenance는 `buildOutputManifest()`/`writeOutputManifest()`로 기록한다. 순환 해시를 만들지 않는다.
-- [ ] **5. 재현·반례·원본 보존을 확인한다.** 실제 구멍 하나를 제거한 별도 입력에서 기대한 hole ID 실패가 발생하는지 확인한다. 같은 입력·환경에서 payload가 같고 변경된 입력에서는 관련 digest가 달라져야 한다. 생성 시간 같은 실행 메타데이터의 차이는 payload 차이와 구분한다.
+- [x] **3. Python에서는 `lib/runner.js`의 `runScript()`와 기존 `_bootstrap` 방식을 통해 FreeCAD를 사용한다.** 실제 판 형상이 유효한 단일 solid인지, 142×74×4인지, 8개 cylinder hole 중심·지름이 입력과 연결되는지 확인한다. 전체 조립체의 첫 객체를 임의로 장착판으로 선택하지 않는다. native 형상에서 얻은 상면 외곽/구멍 투영을 PNG와 ROI에 사용한다.
+- [x] **4. staging 폴더에서 바이트를 완성한 뒤 manifest를 쓴다.** Native metadata → PNG/feature-map/cad-metadata → 기존 MVS adapter manifest 순서로 생성한다. 생산 실행 provenance는 `buildOutputManifest()`/`writeOutputManifest()`로 기록한다. 순환 해시를 만들지 않는다.
+- [x] **5. 재현·반례·원본 보존을 확인한다.** 실제 구멍 하나를 제거한 별도 입력에서 기대한 hole ID 실패가 발생하는지 확인한다. 같은 입력·환경에서 payload가 같고 변경된 입력에서는 관련 digest가 달라져야 한다. 생성 시간 같은 실행 메타데이터의 차이는 payload 차이와 구분한다.
 
 ```sh
 node tests/mvs-reference-export.test.js
@@ -306,8 +306,8 @@ npm run check:source-hygiene
 
 **Produces:** 실제 `freecad_adapter_binding`을 가진 case, 8개 영역을 사용한 analysis, 기존 합성 case의 호환 동작.
 
-- [ ] **1. G1 특징 전달 시험을 RED로 확인한다.** 분석 호출에도 영역이 전달되는 spy 시험을 추가한다. 입력 fixture의 8개 ID가 model 호출 인자·case ID 목록·결과 feature 목록에서 같아야 한다.
-- [ ] **2. registry에 원자적 가져오기 경계를 추가한다.** 제안 인터페이스는 아래와 같다. reference만 먼저 추가하고 나중에 binding을 쓰는 두 번의 공개 mutation으로 구현하지 않는다.
+- [x] **1. G1 특징 전달 시험을 RED로 확인한다.** 분석 호출에도 영역이 전달되는 spy 시험을 추가한다. 입력 fixture의 8개 ID가 model 호출 인자·case ID 목록·결과 feature 목록에서 같아야 한다.
+- [x] **2. registry에 원자적 가져오기 경계를 추가한다.** 제안 인터페이스는 아래와 같다. reference만 먼저 추가하고 나중에 binding을 쓰는 두 번의 공개 mutation으로 구현하지 않는다.
 
 ```python
 def import_cad_reference(
@@ -320,7 +320,7 @@ def import_cad_reference(
 
 기존 reference가 있는 case의 교체는 첫 버전에서 거부하고 새 case를 사용한다. 새 SQLite binding table은 case ID와 manifest hash를 연결하고 payload는 기존 content-addressed blob 저장을 쓴다. transaction 실패 시 새 blob 정리도 기존 원자성 패턴으로 처리한다.
 
-- [ ] **3. 저장된 영역을 분석에 전달한다.**
+- [x] **3. 저장된 영역을 분석에 전달한다.**
 
 ```python
 regions = {row[0]: tuple(row[1:]) for row in binding.feature_regions}
@@ -329,8 +329,8 @@ result = active_model.inspect(reference, inspection, feature_regions=regions)
 
 반복성 확인용 두 번째 호출에도 같은 `regions`를 사용한다. CAD case의 binding 누락/손상은 오류다. 기존 합성 case만 기존 기본 영역을 유지한다. 분석 cache 재사용은 영상·구성·binding의 일치가 확인될 때만 허용한다.
 
-- [ ] **4. binding과 분석 결과의 연결을 명시적으로 버전화한다.** 기존 v1 case의 optional `freecad_adapter_binding`을 사용하되, analysis/evidence에 새 필드가 필요하면 새 버전 schema와 reader를 함께 추가한다. 기존 `configuration_sha256`의 의미나 과거 결과를 재작성하지 않는다. 새로운 CAD case에는 model configuration과 CAD binding 모두 연결되어야 한다.
-- [ ] **5. 실패 원자성과 legacy 호환을 실행한다.** 다른 부품/리비전, stale case revision, 재해시한 다른 metadata/feature-map, validation 후 파일 변경, binding 없는 CAD case, 복제 ID, invalid 영역은 case/blob 변경 없이 실패해야 한다.
+- [x] **4. binding과 분석 결과의 연결을 명시적으로 버전화한다.** 기존 v1 case의 optional `freecad_adapter_binding`을 사용하되, analysis/evidence에 새 필드가 필요하면 새 버전 schema와 reader를 함께 추가한다. 기존 `configuration_sha256`의 의미나 과거 결과를 재작성하지 않는다. 새로운 CAD case에는 model configuration과 CAD binding 모두 연결되어야 한다.
+- [x] **5. 실패 원자성과 legacy 호환을 실행한다.** 다른 부품/리비전, stale case revision, 재해시한 다른 metadata/feature-map, validation 후 파일 변경, binding 없는 CAD case, 복제 ID, invalid 영역은 case/blob 변경 없이 실패해야 한다.
 
 ```sh
 uv run pytest tests/test_freecad_feature_binding.py tests/test_registry_fail_closed.py tests/test_model_contract.py tests/test_dispositions.py tests/test_api_fail_closed.py tests/test_schema_contracts.py
@@ -348,14 +348,14 @@ uv run mypy src
 
 **Produces:** export/import/re-export 후 part/revision/8 feature/binding/analysis/disposition이 유지되는 묶음과 한국어 검토 화면.
 
-- [ ] **1. 결과 묶음 왕복 시험을 먼저 작성한다.** 새로운 CAD payload 역할을 기존 v1 enum에 무조건 끼워 넣지 않는다. 새 버전이 필요하면 exporter/reader를 함께 추가하고 legacy bundle 검증은 유지한다.
-- [ ] **2. 기준 payload의 원본 바이트와 hash를 묶음에 포함한다.** 새 registry로 가져온 후 기준 이미지뿐 아니라 manifest·view/ROI·출처 binding이 있어야 한다. 원본 export 폴더에 접근할 수 없어도 보존 자료의 검증이 가능해야 한다.
-- [ ] **3. 교차 검증을 추가한다.** case의 binding hash, analysis의 binding, manifest/features, 파일 바이트, source image와 reviewer 판정의 analysis hash가 일치해야 한다. 내부 일관성은 실제 CAD 정합성/현장 승인으로 표시하지 않는다.
+- [x] **1. 결과 묶음 왕복 시험을 먼저 작성한다.** 새로운 CAD payload 역할을 기존 v1 enum에 무조건 끼워 넣지 않는다. 새 버전이 필요하면 exporter/reader를 함께 추가하고 legacy bundle 검증은 유지한다.
+- [x] **2. 기준 payload의 원본 바이트와 hash를 묶음에 포함한다.** 새 registry로 가져온 후 기준 이미지뿐 아니라 manifest·view/ROI·출처 binding이 있어야 한다. 원본 export 폴더에 접근할 수 없어도 보존 자료의 검증이 가능해야 한다.
+- [x] **3. 교차 검증을 추가한다.** case의 binding hash, analysis의 binding, manifest/features, 파일 바이트, source image와 reviewer 판정의 analysis hash가 일치해야 한다. 내부 일관성은 실제 CAD 정합성/현장 승인으로 표시하지 않는다.
 
 묶음이 요구하는 evaluation report도 대상 pipeline/configuration과 맞아야 한다. 기존 v0.1.0의 2-image 결과를 Coolgear 검출 성능으로 붙이지 않는다. 이 단계에는 현재 합성 계약 fixture로 수행한 smoke 범위의 기록만 넣고, G5의 별도 평가와 구분한다. 현재 스키마가 미평가/범위 구분을 표현하지 못하면 먼저 명시적 버전 계약으로 해결하며 숫자를 만들어 필수 필드를 채우지 않는다.
 
-- [ ] **4. 실제 자료를 화면에 표시한다.** `InspectionWorkspace`와 `EvidencePanel`에 부품·리비전·해당 구멍 ID·CAD 합성 기준·검토 상태를 표시한다. 가져온 특징이 없을 때 예제 구멍이나 예제 heatmap을 실분석처럼 표시하지 않는다. 기존 한국어 copy 구조를 사용한다.
-- [ ] **5. 왕복과 호환을 확인한다.**
+- [x] **4. 실제 자료를 화면에 표시한다.** `InspectionWorkspace`와 `EvidencePanel`에 부품·리비전·해당 구멍 ID·CAD 합성 기준·검토 상태를 표시한다. 가져온 특징이 없을 때 예제 구멍이나 예제 heatmap을 실분석처럼 표시하지 않는다. 기존 한국어 copy 구조를 사용한다.
+- [x] **5. 왕복과 호환을 확인한다.**
 
 ```sh
 uv run pytest tests/test_coolgear_integration.py tests/test_evidence_bundles.py tests/test_dispositions.py
@@ -375,11 +375,11 @@ npm --prefix web run test:e2e
 
 **Produces:** 표본 수와 FP/FN/feature 정오·미매핑·보류·실패를 포함한 합성 결과, 변경 영향과 재검토 항목.
 
-- [ ] **1. 작은 smoke 집합의 정상/누락 구멍/이동 구멍/외곽 변화/영상 잡음 시나리오와 별도 평가 seed를 JSON 프로토콜에 먼저 고정한다.** Markdown은 JSON의 설명 문서다. 같은 이미지의 복사·미세 변형을 development/test 양쪽에 나누어 독립 평가인 것처럼 세지 않는다. 정답 마스크 생성 코드는 detector 출력에 의존하지 않는다. 예상 revision은 정상 R1을 유지하고 결함 생성용 CAD hash/revision은 evaluator의 생성 이력에만 기록한다.
-- [ ] **2. 분석 함수에는 검사 이미지와 사전에 확정된 기준만 넘긴다.** 결함 종류, 정답 feature, 마스크, 결함 생성좌표는 evaluator만 읽는다. ROI는 기준 CAD에서 정하며 검사 결함을 보고 이동시키지 않는다.
-- [ ] **3. 인식 결과와 무결성 시험을 분리한다.** 현 core의 whole-image threshold `0.0025`에서 작은 구멍 누락이 FN이면 그대로 기록한다. 이를 이유로 frozen E1나 평가용 threshold를 바꿔 PASS로 만들지 않는다. 구멍 하나의 이동과 전체 영상 이동을 나누어 정합이 결함을 흡수하는지 확인한다. 외곽 ROI 없는 edge-change는 feature 기준 미검사/미매핑으로 표시한다. 잘못된 부품/리비전·tamper 차단율을 시각 결함 검출 성능에 합산하지 않는다.
-- [ ] **4. R2 변경을 재생한다.** 별도 demo config에서 `hole_H4` X좌표를 113→113.5 mm로 바꾼다. R1 권위 기준을 그대로 적용한 비교에서는 기존 0.10 mm 소프트웨어 비교 허용값을 넘어 `fail`이어야 한다. 새 R2 설계 기준이 필요한 경우 그 요구사항 변경을 별도 명시하고 R1 결과와 섞지 않는다. R2는 승인된 실제 설계가 아닌 변경관리 시연 입력이다.
-- [ ] **5. 기존 변경/검사 계약으로 가능한 연결을 실행한다.** 정상적인 baseline/candidate review pack을 각각 만들고 `compare-rev --impact-out` 및 `inspection-plan --scope delta`를 사용한다. 부족한 권위 입력은 명시적으로 보류한다. 빈 검사 템플릿을 실측 결과로 채우지 않는다.
+- [x] **1. 작은 smoke 집합의 정상/누락 구멍/이동 구멍/외곽 변화/영상 잡음 시나리오와 별도 평가 seed를 JSON 프로토콜에 먼저 고정한다.** Markdown은 JSON의 설명 문서다. 같은 이미지의 복사·미세 변형을 development/test 양쪽에 나누어 독립 평가인 것처럼 세지 않는다. 정답 마스크 생성 코드는 detector 출력에 의존하지 않는다. 예상 revision은 정상 R1을 유지하고 결함 생성용 CAD hash/revision은 evaluator의 생성 이력에만 기록한다.
+- [x] **2. 분석 함수에는 검사 이미지와 사전에 확정된 기준만 넘긴다.** 결함 종류, 정답 feature, 마스크, 결함 생성좌표는 evaluator만 읽는다. ROI는 기준 CAD에서 정하며 검사 결함을 보고 이동시키지 않는다.
+- [x] **3. 인식 결과와 무결성 시험을 분리한다.** 현 core의 whole-image threshold `0.0025`에서 작은 구멍 누락이 FN이면 그대로 기록한다. 이를 이유로 frozen E1나 평가용 threshold를 바꿔 PASS로 만들지 않는다. 구멍 하나의 이동과 전체 영상 이동을 나누어 정합이 결함을 흡수하는지 확인한다. 외곽 ROI 없는 edge-change는 feature 기준 미검사/미매핑으로 표시한다. 잘못된 부품/리비전·tamper 차단율을 시각 결함 검출 성능에 합산하지 않는다.
+- [x] **4. R2 변경을 재생한다.** 별도 demo config에서 `hole_H4` X좌표를 113→113.5 mm로 바꾼다. R1 권위 기준을 그대로 적용한 비교에서는 기존 0.10 mm 소프트웨어 비교 허용값을 넘어 `fail`이어야 한다. 새 R2 설계 기준이 필요한 경우 그 요구사항 변경을 별도 명시하고 R1 결과와 섞지 않는다. R2는 승인된 실제 설계가 아닌 변경관리 시연 입력이다.
+- [x] **5. 기존 변경/검사 계약으로 가능한 연결을 실행한다.** 정상적인 baseline/candidate review pack을 각각 만들고 `compare-rev --impact-out` 및 `inspection-plan --scope delta`를 사용한다. 부족한 권위 입력은 명시적으로 보류한다. 빈 검사 템플릿을 실측 결과로 채우지 않는다.
 
 ```sh
 # 실제 새 스크립트 구현 후 MVS에서 실행할 제안 명령
@@ -397,11 +397,11 @@ uv run pytest tests/test_coolgear_integration.py
 
 **Produces:** 요구사항 연결표, 변경·재검토 사례, 시정조치 사례, 한 페이지 요약, 재현 명령과 결과 묶음.
 
-- [ ] **1. 요구사항 표를 만든다.** 행 필드는 `requirement_id`, `feature_id`, `source_revision`, `requirement_kind`, `criterion_source`, `method`, `evidence_ref`, `status`, `limitation`으로 고정한다. 제조사 공칭값·설계 선택·소프트웨어 허용값·미확정 실물 기준을 구분한다.
-- [ ] **2. 실제 소프트웨어 문제 해결을 서술한다.** 해당 기준 입력의 치수 추적 0% 실패 → 분류/연결 조건 원인 → 지름 그룹별 feature 연결 → 해당 입력 100% 및 반례 유지의 근거를 기록한다. 전후 입력·검사항목·분모·커밋을 확인한 경우에만 0→100%를 개선 지표로 쓰고, 조건이 달라졌으면 각각의 결과로 기술한다. 새로운 통합 작업의 성과와 과거 수정 성과를 따로 날짜/커밋으로 연결한다.
-- [ ] **3. 최종 상태표를 만든다.** producer/consumer/왕복/합성 평가/웹/E1/전체 저장소/물리 시험을 각 행으로 표시한다. 날짜·커밋·명령·종료 코드를 함께 제시한다. 실패·중단·미실행은 PASS로 요약하지 않는다.
-- [ ] **4. 읽기 전용 최종 검토와 자료 검증을 한다.** 각 변경 저장소에서 검토 전후 `git diff --name-only`와 patch hash를 비교한다. 모든 상대 링크·ZIP CRC·멤버 hash·과거 묶음 보존을 확인한다. 이 계획 자체의 승인과 실제 품질/제조 승인을 혼동하지 않는다.
-- [ ] **5. 작은 커밋과 정확한 전달 상태를 기록한다.** 문서·코드·fixture만 버전 관리하고 생성 CAD/이미지/DB/로그/원시 ChatGPT 대화는 기존 ignored 경로에 둔다. push/PR/merge는 실제 수행한 범위만 보고한다.
+- [x] **1. 요구사항 표를 만든다.** 행 필드는 `requirement_id`, `feature_id`, `source_revision`, `requirement_kind`, `criterion_source`, `method`, `evidence_ref`, `status`, `limitation`으로 고정한다. 제조사 공칭값·설계 선택·소프트웨어 허용값·미확정 실물 기준을 구분한다.
+- [x] **2. 실제 소프트웨어 문제 해결을 서술한다.** 해당 기준 입력의 치수 추적 0% 실패 → 분류/연결 조건 원인 → 지름 그룹별 feature 연결 → 해당 입력 100% 및 반례 유지의 근거를 기록한다. 전후 입력·검사항목·분모·커밋을 확인한 경우에만 0→100%를 개선 지표로 쓰고, 조건이 달라졌으면 각각의 결과로 기술한다. 새로운 통합 작업의 성과와 과거 수정 성과를 따로 날짜/커밋으로 연결한다.
+- [x] **3. 최종 상태표를 만든다.** producer/consumer/왕복/합성 평가/웹/E1/전체 저장소/물리 시험을 각 행으로 표시한다. 날짜·커밋·명령·종료 코드를 함께 제시한다. 실패·중단·미실행은 PASS로 요약하지 않는다.
+- [x] **4. 읽기 전용 최종 검토와 자료 검증을 한다.** 각 변경 저장소에서 검토 전후 `git diff --name-only`와 patch hash를 비교한다. 모든 상대 링크·ZIP CRC·멤버 hash·과거 묶음 보존을 확인한다. 이 계획 자체의 승인과 실제 품질/제조 승인을 혼동하지 않는다.
+- [x] **5. 작은 커밋과 정확한 전달 상태를 기록한다.** 문서·코드·fixture만 버전 관리하고 생성 CAD/이미지/DB/로그/원시 ChatGPT 대화는 기존 ignored 경로에 둔다. push/PR/merge는 실제 수행한 범위만 보고한다.
 
 **완료 기준:** 면접에서 한 부품을 선택하여 “왜 이 항목을 검사하는지, 어떤 입력/버전으로 분석했는지, 이상과 미확정을 어떻게 처리하는지, 변경 후 무엇을 다시 확인했는지”를 실제 자료로 보여줄 수 있다.
 

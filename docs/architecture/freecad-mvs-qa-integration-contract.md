@@ -18,8 +18,8 @@ The identical producer/consumer fixture SHA-256 is
   It never means the adapter manifest's own digest. External pinned expectations
   identify the selected source; self-consistent hashes are not authentication.
 - Existing case schema `1.0.0` already has optional `freecad_adapter_binding`.
-  CAD analyses, bundle inventory roles and unevaluated case summaries require
-  explicit `1.1.0` schemas/readers in G3–G4; existing `1.0.0` schemas stay unchanged.
+  CAD analyses, bundle inventories and unevaluated case summaries use the
+  explicit `1.1.0` schemas/readers added in G3–G4; existing `1.0.0` schemas stay unchanged.
   Model `configuration_sha256` keeps its original meaning; CAD binding is separate.
 - Fixture source kind is `synthetic_contract_fixture`; native exporter source kind
   is `native_freecad`. Neither indicates physical validation or manufacturing release.
@@ -27,8 +27,9 @@ The identical producer/consumer fixture SHA-256 is
 G0 regenerated the unchanged R1 geometry with the current config because the old
 create manifest named older config bytes. The original output and ZIPs were kept.
 Execution-specific upstream digests and logs stay in `tmp/codex/freecad-mvs-baseline/`.
-The new feature-delivery regression is intentionally RED until G3; contract-only
-success must not be called full integration success.
+The feature-delivery regression first failed in G1 and passed after G3's atomic
+reference/binding import. G4 additionally verified an actual native-source ZIP
+round trip; contract-only success was not counted as full integration success.
 
 ## Development exporter
 
