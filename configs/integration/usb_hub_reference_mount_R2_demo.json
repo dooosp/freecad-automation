@@ -1,0 +1,298 @@
+{
+  "config_version": 1,
+  "name": "usb_hub_reference_adapter_R2_demo",
+  "final": "final",
+  "part_type": "plate",
+  "product": {
+    "revision": "R2",
+    "evidence_status": "CHANGE CONTROL DEMONSTRATION ONLY - NOT APPROVED - PHYSICAL FIT NOT TESTED"
+  },
+  "shapes": [
+    {
+      "id": "plate",
+      "type": "box",
+      "length": 142,
+      "width": 74,
+      "height": 4
+    },
+    {
+      "id": "hole_H1",
+      "type": "cylinder",
+      "radius": 2.0,
+      "height": 6,
+      "position": [
+        29,
+        24.4,
+        -1
+      ]
+    },
+    {
+      "id": "hole_H2",
+      "type": "cylinder",
+      "radius": 2.0,
+      "height": 6,
+      "position": [
+        29,
+        49.6,
+        -1
+      ]
+    },
+    {
+      "id": "hole_H3",
+      "type": "cylinder",
+      "radius": 2.0,
+      "height": 6,
+      "position": [
+        113,
+        24.4,
+        -1
+      ]
+    },
+    {
+      "id": "hole_H4",
+      "type": "cylinder",
+      "radius": 2.0,
+      "height": 6,
+      "position": [
+        113.5,
+        49.6,
+        -1
+      ]
+    },
+    {
+      "id": "hole_P1",
+      "type": "cylinder",
+      "radius": 2.75,
+      "height": 6,
+      "position": [
+        12,
+        12,
+        -1
+      ]
+    },
+    {
+      "id": "hole_P2",
+      "type": "cylinder",
+      "radius": 2.75,
+      "height": 6,
+      "position": [
+        12,
+        62,
+        -1
+      ]
+    },
+    {
+      "id": "hole_P3",
+      "type": "cylinder",
+      "radius": 2.75,
+      "height": 6,
+      "position": [
+        130,
+        12,
+        -1
+      ]
+    },
+    {
+      "id": "hole_P4",
+      "type": "cylinder",
+      "radius": 2.75,
+      "height": 6,
+      "position": [
+        130,
+        62,
+        -1
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "op": "cut",
+      "base": "plate",
+      "tool": "hole_H1",
+      "result": "cut_1"
+    },
+    {
+      "op": "cut",
+      "base": "cut_1",
+      "tool": "hole_H2",
+      "result": "cut_2"
+    },
+    {
+      "op": "cut",
+      "base": "cut_2",
+      "tool": "hole_H3",
+      "result": "cut_3"
+    },
+    {
+      "op": "cut",
+      "base": "cut_3",
+      "tool": "hole_H4",
+      "result": "cut_4"
+    },
+    {
+      "op": "cut",
+      "base": "cut_4",
+      "tool": "hole_P1",
+      "result": "cut_5"
+    },
+    {
+      "op": "cut",
+      "base": "cut_5",
+      "tool": "hole_P2",
+      "result": "cut_6"
+    },
+    {
+      "op": "cut",
+      "base": "cut_6",
+      "tool": "hole_P3",
+      "result": "cut_7"
+    },
+    {
+      "op": "cut",
+      "base": "cut_7",
+      "tool": "hole_P4",
+      "result": "final"
+    }
+  ],
+  "drawing": {
+    "views": [
+      "front",
+      "top",
+      "right"
+    ],
+    "units": "mm",
+    "scale": 1,
+    "meta": {
+      "part_name": "USB HUB REFERENCE ADAPTER",
+      "drawing_no": "USB-REF-R2-DEMO",
+      "material": "6061-T6 ALUMINUM (DESIGN)",
+      "tolerance": "SEE NOTES - DESIGN TARGETS",
+      "designed_by": "REFERENCE STUDY"
+    },
+    "style": {
+      "show_hidden": true,
+      "show_centerlines": true,
+      "show_dimensions": true
+    },
+    "dimension_style": {
+      "type": "baseline"
+    },
+    "notes": {
+      "general": [
+        "R2 CHANGE DEMO - NOT APPROVED - PHYSICAL FIT NOT TESTED",
+        "COOLGEAR CG-U3MINI4PH-G2 REFERENCE ONLY",
+        "Origin: lower-left, X right, Y up. All units mm.",
+        "H1-H4: 4x DIA 4.0 THRU FOR M3 + PLAIN WASHERS",
+        "H1 (29,24.4); H2 (29,49.6); H3 (113,24.4); H4 (113.5,49.6)",
+        "P1-P4: 4x DIA 5.5 THRU FOR M5",
+        "P1 (12,12); P2 (12,62); P3 (130,12); P4 (130,62)",
+        "Design tolerances: hole XY +/-0.10, hole DIA +0.10/0.00",
+        "Overall XY +/-0.20; thickness +/-0.10. Deburr edges."
+      ]
+    }
+  },
+  "drawing_plan": {
+    "part_type": "plate",
+    "views": {
+      "enabled": [
+        "front",
+        "top",
+        "right"
+      ]
+    },
+    "notes": {
+      "general": [
+        "R2 CHANGE DEMO - NOT APPROVED - PHYSICAL FIT NOT TESTED",
+        "COOLGEAR CG-U3MINI4PH-G2 REFERENCE ONLY",
+        "Origin: lower-left, X right, Y up. All units mm.",
+        "H1-H4: 4x DIA 4.0 THRU FOR M3 + PLAIN WASHERS",
+        "H1 (29,24.4); H2 (29,49.6); H3 (113,24.4); H4 (113.5,49.6)",
+        "P1-P4: 4x DIA 5.5 THRU FOR M5",
+        "P1 (12,12); P2 (12,62); P3 (130,12); P4 (130,62)",
+        "Design tolerances: hole XY +/-0.10, hole DIA +0.10/0.00",
+        "Overall XY +/-0.20; thickness +/-0.10. Deburr edges."
+      ]
+    },
+    "dim_intents": [
+      {
+        "id": "HOLE_DIA",
+        "value_mm": 4.0,
+        "member_feature_ids": [
+          "hole_H1",
+          "hole_H2",
+          "hole_H3",
+          "hole_H4"
+        ]
+      },
+      {
+        "id": "PANEL_HOLE_DIA",
+        "feature": "mounting_hole_diameter",
+        "view": "top",
+        "style": "diameter",
+        "required": true,
+        "priority": 79,
+        "value_mm": 5.5,
+        "member_feature_ids": [
+          "hole_P1",
+          "hole_P2",
+          "hole_P3",
+          "hole_P4"
+        ],
+        "reason": "M5 panel attachment holes, separate from the M3 hub group"
+      }
+    ]
+  },
+  "export": {
+    "formats": [
+      "step",
+      "stl",
+      "brep"
+    ],
+    "directory": "output/mvs-reference/r2-native/cad"
+  },
+  "mounting_reference": {
+    "source": {
+      "kind": "manufacturer_reference",
+      "product_id": "Coolgear CG-U3MINI4PH-G2",
+      "evidence_ref": "https://www.coolgear.com/wp-content/uploads/CG-U3MINI4PH-G2_Drawing_JWV1-1.pdf"
+    },
+    "units": "mm",
+    "coordinate_frame": "model_xy",
+    "coordinate_basis": "84 x 25.2 mm manufacturer pattern centered at model XY (71,37); lower-left plate origin; X right, Y up",
+    "center_tolerance_mm": 0.1,
+    "holes": [
+      {
+        "id": "H1",
+        "target_feature_id": "hole_H1",
+        "center_mm": [
+          29,
+          24.4
+        ]
+      },
+      {
+        "id": "H2",
+        "target_feature_id": "hole_H2",
+        "center_mm": [
+          29,
+          49.6
+        ]
+      },
+      {
+        "id": "H3",
+        "target_feature_id": "hole_H3",
+        "center_mm": [
+          113,
+          24.4
+        ]
+      },
+      {
+        "id": "H4",
+        "target_feature_id": "hole_H4",
+        "center_mm": [
+          113,
+          49.6
+        ]
+      }
+    ]
+  }
+}
