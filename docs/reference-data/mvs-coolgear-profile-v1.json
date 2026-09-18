@@ -1,0 +1,96 @@
+{
+  "cad_revision": "R1",
+  "cad_to_pixel": [
+    [
+      10,
+      0,
+      50
+    ],
+    [
+      0,
+      -10,
+      790
+    ],
+    [
+      0,
+      0,
+      1
+    ]
+  ],
+  "fastening_torque_Nm": null,
+  "height_px": 840,
+  "hole_columns": [
+    "feature_id",
+    "x_mm",
+    "y_mm",
+    "radius_mm"
+  ],
+  "holes": [
+    [
+      "hole_H1",
+      29,
+      24.4,
+      2
+    ],
+    [
+      "hole_H2",
+      29,
+      49.6,
+      2
+    ],
+    [
+      "hole_H3",
+      113,
+      24.4,
+      2
+    ],
+    [
+      "hole_H4",
+      113,
+      49.6,
+      2
+    ],
+    [
+      "hole_P1",
+      12,
+      12,
+      2.75
+    ],
+    [
+      "hole_P2",
+      12,
+      62,
+      2.75
+    ],
+    [
+      "hole_P3",
+      130,
+      12,
+      2.75
+    ],
+    [
+      "hole_P4",
+      130,
+      62,
+      2.75
+    ]
+  ],
+  "installed_load_rating_N": null,
+  "manufacturing_release": false,
+  "part_id": "USB-REF-ADAPTER",
+  "physical_test": "not_tested",
+  "pixel_boundary_rule": "round_nearest_ties_to_even",
+  "pixel_interval": "[left,right) x [top,bottom)",
+  "plate_bounds_mm": [
+    0,
+    0,
+    0,
+    142,
+    74,
+    4
+  ],
+  "profile": "coolgear-plate-top/v1",
+  "roi_margin_mm": 1,
+  "units": "mm",
+  "width_px": 1520
+}
