@@ -29,3 +29,34 @@ create manifest named older config bytes. The original output and ZIPs were kept
 Execution-specific upstream digests and logs stay in `tmp/codex/freecad-mvs-baseline/`.
 The new feature-delivery regression is intentionally RED until G3; contract-only
 success must not be called full integration success.
+
+## Development exporter
+
+Run from the FreeCAD repository after a real `create --strict-quality` for this
+config. All six arguments are required; existing destinations are refused.
+
+```sh
+node scripts/export-mvs-reference.js \
+  --config configs/examples/usb_hub_reference_mount.json \
+  --model output/usb-hub-reference-mount/cad/usb_hub_reference_adapter_R1.brep \
+  --source-manifest output/usb-hub-reference-mount/cad/usb_hub_reference_adapter_R1_manifest.json \
+  --part-id USB-REF-ADAPTER --cad-revision R1 \
+  --out-dir output/mvs-reference/coolgear-r1
+```
+
+The producer validates the actual solid against a rectangular plate with eight
+measured vertical through holes, then rasterizes that supported geometry. It
+checks config/model bytes against the input output-manifest and publishes a
+staged folder containing the four adapter payloads plus an output-manifest made
+by the existing helper. Metadata contains actual upstream manifest bytes, source
+and producer commit IDs, producer-script digest, FreeCAD version and hole values.
+The source-script digest identifies working-tree code independently of commit ID.
+
+```sh
+node tests/mvs-reference-export.test.js
+FCAD_MVS_RUNTIME=1 node scripts/run-pytest.js -q \
+  tests/test_mvs_reference_projection.py tests/test_mvs_reference_runtime.py
+```
+
+The runtime tests require G0's real R1 artifacts. Without the explicit opt-in,
+native tests are skipped and do not establish native validation.
