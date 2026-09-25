@@ -340,5 +340,11 @@ def main():
     respond(result)
 
 
-if __name__ == "__main__":
+# FreeCADCmd imports its CLI script by stem instead of setting __name__ to __main__.
+# Match the selected script path as well so ordinary module imports stay inert.
+if __name__ == "__main__" or (
+    __name__ == os.path.splitext(os.path.basename(__file__))[0]
+    and len(sys.argv) > 1
+    and os.path.realpath(sys.argv[1]) == os.path.realpath(__file__)
+):
     main()
