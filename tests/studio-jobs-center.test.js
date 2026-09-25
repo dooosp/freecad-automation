@@ -233,4 +233,40 @@ assert.deepEqual(
   }
 );
 
+// Runtime jobs publish canonical quality next to success, not in report_summary.
+for (const type of ['draw', 'create']) {
+  const key = type === 'draw' ? 'drawing_quality' : 'create_quality';
+  for (const [quality, label, attention] of [
+    ['fail', 'Quality failed', true],
+    ['pass', 'Quality passed', false],
+    ['warning', 'Quality warning', true],
+    ['not_run', 'Quality Unknown', true],
+  ]) {
+    const job = {
+      type,
+      status: 'succeeded',
+      request: { config: { name: 'usb_hub_surrogate_B' } },
+      result: { success: true, [key]: { status: quality, score: 89 } },
+    };
+    const status = deriveRecentJobQualityStatus(job);
+    assert.equal(status.jobExecutionStatus, 'Job succeeded');
+    assert.equal(status.qualityStatus, label, `${type}: ${quality}`);
+    assert.equal(status.readyForManufacturingReview, 'Ready Unknown');
+    assert.equal(deriveRecentJobDecisionState(job).needsAttention, attention);
+  }
+  const noQuality = { type, status: 'succeeded', result: { success: true, score: 100 } };
+  assert.equal(deriveRecentJobQualityStatus(noQuality).qualityStatus, 'Quality Unknown');
+}
+
+// Passing components cannot replace the report's incomplete overall decision.
+assert.equal(deriveRecentJobQualityStatus({
+  type: 'report',
+  status: 'succeeded',
+  result: {
+    report_summary: { overall_status: 'incomplete' },
+    create_quality: { status: 'pass' },
+    drawing_quality: { status: 'pass' },
+  },
+}).qualityStatus, 'Quality Unknown');
+
 console.log('studio-jobs-center.test.js: ok');

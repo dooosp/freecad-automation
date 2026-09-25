@@ -49,6 +49,7 @@ import {
   deriveRecentJobDecisionState,
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
+  qualitySummaryFromJob,
 } from './recent-job-quality-status.js';
 import {
   collectResultFileGroups,
@@ -1521,7 +1522,7 @@ function createResultArtifactCard(artifact, { primarySummary = false } = {}) {
   });
 }
 
-function renderResultSummary(activeJob, { hydrating = false } = {}) {
+export function renderResultSummary(activeJob, { hydrating = false } = {}) {
   if (hydrating || activeJob?.status === 'loading') {
     return createEmptyState({
       icon: '…',
@@ -1551,6 +1552,21 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
     });
   }
 
+  const quality = ['draw', 'create'].includes(activeJob.summary.type)
+    ? qualitySummaryFromJob(activeJob.summary)
+    : {};
+  const blockers = (Array.isArray(quality.blocking_issues) ? quality.blocking_issues : [])
+    .map((issue) => {
+      if (issue?.code === 'traceability-coverage' && Number.isFinite(quality.traceability?.coverage_percent)) {
+        return t('studio.artifacts.summary.traceability-blocker', { coverage: quality.traceability.coverage_percent });
+      }
+      return typeof issue === 'string' ? issue : issue?.message;
+    })
+    .filter((message) => typeof message === 'string' && message.trim());
+  const unmapped = Array.isArray(quality.traceability?.unmapped_required_entities)
+    ? quality.traceability.unmapped_required_entities.filter((id) => typeof id === 'string' && id.trim())
+    : [];
+
   return createCard({
     kicker: t('studio.artifacts.summary.kicker'),
     title: t('studio.artifacts.summary.title'),
@@ -1562,6 +1578,8 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
         { label: t('studio.artifacts.summary.primary'), value: resultFileTitle(primaryArtifact) },
         { label: t('studio.artifacts.summary.execution'), value: localizedExecutionStatus(activeJob.summary) },
         { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },
+        ...(blockers.length ? [{ label: t('studio.artifacts.summary.blockers'), value: blockers.join(' · ') }] : []),
+        ...(unmapped.length ? [{ label: t('studio.artifacts.summary.unmapped-dimensions'), value: unmapped.join(', ') }] : []),
         { label: t('studio.artifacts.summary.other'), value: String(Math.max(0, artifacts.length - 1)) },
       ]),
       createResultArtifactCard(primaryArtifact, { primarySummary: true }),
