@@ -1,0 +1,223 @@
+{
+  "description": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record.",
+  "package_slug": "usb-hub-plate-simulated",
+  "part_id": "USB-HUB-PLATE-SIM",
+  "test_scope": "synthetic_portfolio_case",
+  "production_trust": false,
+  "coordinate_reference": "Plate lower-left origin; X right, Y up, Z thickness; mm. Not a released GD&T datum scheme.",
+  "unknowns": [
+    "material",
+    "load",
+    "physical_fit",
+    "manufacturing_tolerance",
+    "inspection_method",
+    "inspection_equipment",
+    "sampling"
+  ],
+  "characteristics": [
+    {
+      "characteristic_id": "PLATE.LENGTH",
+      "feature_id": "plate",
+      "label": "Plate length",
+      "nominal_mm": {
+        "A": 142,
+        "B": 142
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.LENGTH"
+    },
+    {
+      "characteristic_id": "PLATE.WIDTH",
+      "feature_id": "plate",
+      "label": "Plate width",
+      "nominal_mm": {
+        "A": 74,
+        "B": 74
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.WIDTH"
+    },
+    {
+      "characteristic_id": "PLATE.THICKNESS",
+      "feature_id": "plate",
+      "label": "Plate height",
+      "nominal_mm": {
+        "A": 4,
+        "B": 4
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.THICKNESS"
+    },
+    {
+      "characteristic_id": "D1.X",
+      "feature_id": "hole_D1",
+      "label": "D1 center X from plate lower-left",
+      "nominal_mm": {
+        "A": 12,
+        "B": 12
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D1.X"
+    },
+    {
+      "characteristic_id": "D1.Y",
+      "feature_id": "hole_D1",
+      "label": "D1 center Y from plate lower-left",
+      "nominal_mm": {
+        "A": 12,
+        "B": 12
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D1.Y"
+    },
+    {
+      "characteristic_id": "D1.DIAMETER",
+      "feature_id": "hole_D1",
+      "label": "D1 through-hole diameter",
+      "nominal_mm": {
+        "A": 5.2,
+        "B": 5.2
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D1.DIAMETER"
+    },
+    {
+      "characteristic_id": "D2.X",
+      "feature_id": "hole_D2",
+      "label": "D2 center X from plate lower-left",
+      "nominal_mm": {
+        "A": 12,
+        "B": 12
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D2.X"
+    },
+    {
+      "characteristic_id": "D2.Y",
+      "feature_id": "hole_D2",
+      "label": "D2 center Y from plate lower-left",
+      "nominal_mm": {
+        "A": 62,
+        "B": 62
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D2.Y"
+    },
+    {
+      "characteristic_id": "D2.DIAMETER",
+      "feature_id": "hole_D2",
+      "label": "D2 through-hole diameter",
+      "nominal_mm": {
+        "A": 5.2,
+        "B": 5.2
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D2.DIAMETER"
+    },
+    {
+      "characteristic_id": "H1.X",
+      "feature_id": "hole_H1",
+      "label": "H1 center X from plate lower-left",
+      "nominal_mm": {
+        "A": 130,
+        "B": 120
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H1.X"
+    },
+    {
+      "characteristic_id": "H1.Y",
+      "feature_id": "hole_H1",
+      "label": "H1 center Y from plate lower-left",
+      "nominal_mm": {
+        "A": 12,
+        "B": 12
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H1.Y"
+    },
+    {
+      "characteristic_id": "H1.DIAMETER",
+      "feature_id": "hole_H1",
+      "label": "H1 through-hole diameter",
+      "nominal_mm": {
+        "A": 5.2,
+        "B": 5.2
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H1.DIAMETER"
+    },
+    {
+      "characteristic_id": "H2.X",
+      "feature_id": "hole_H2",
+      "label": "H2 center X from plate lower-left",
+      "nominal_mm": {
+        "A": 130,
+        "B": 120
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H2.X"
+    },
+    {
+      "characteristic_id": "H2.Y",
+      "feature_id": "hole_H2",
+      "label": "H2 center Y from plate lower-left",
+      "nominal_mm": {
+        "A": 62,
+        "B": 62
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H2.Y"
+    },
+    {
+      "characteristic_id": "H2.DIAMETER",
+      "feature_id": "hole_H2",
+      "label": "H2 through-hole diameter",
+      "nominal_mm": {
+        "A": 5.2,
+        "B": 5.2
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H2.DIAMETER"
+    },
+    {
+      "characteristic_id": "HORIZONTAL.PITCH",
+      "feature_id": "hole_H1",
+      "label": "D1 to H1 X center pitch (same for D2 to H2)",
+      "nominal_mm": {
+        "A": 118,
+        "B": 108
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:HORIZONTAL.PITCH"
+    },
+    {
+      "characteristic_id": "RIGHT.CENTER_MARGIN",
+      "feature_id": "hole_H1",
+      "label": "Right plate edge to H1 center (same for H2)",
+      "nominal_mm": {
+        "A": 12,
+        "B": 22
+      },
+      "tolerance": null,
+      "inspection_method": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:RIGHT.CENTER_MARGIN"
+    }
+  ]
+}
