@@ -43,7 +43,11 @@ export function classifyResultFilePurpose(artifact = {}) {
     return 'system';
   }
 
+  if (extension === '.svg' || extension === '.dxf') return 'immediate';
+
   if (includesAny(search, [
+    'drawing.qa-report',
+    'drawing.qa-issues',
     'quality',
     'readiness',
     'review-pack',
@@ -101,7 +105,7 @@ function jobTypePreferenceScore(artifact = {}, jobType = '') {
   )) return -250;
   if (normalizedType === 'draw' && (
     ['.svg', '.dxf', '.pdf'].includes(extension)
-    || search.includes('drawing')
+    || ['drawing.svg', 'drawing.dxf', 'drawing.pdf'].includes(artifact.type)
   )) return -250;
   if (normalizedType === 'report' && (extension === '.pdf' || search.includes('report'))) return -250;
   if (includesAny(normalizedType, ['review', 'inspect', 'readiness', 'compare', 'stabilization'])
@@ -169,12 +173,13 @@ export function resultFileLabelKey(artifact = {}) {
   const extension = artifactExtension(artifact);
 
   if (extension === '.pdf') return 'studio.artifacts.file.report';
+  if (extension === '.svg' || extension === '.dxf') return 'studio.artifacts.file.drawing';
   if (extension === '.fcstd' || extension === '.brep' || extension === '.brp') return 'studio.artifacts.file.model';
   if (extension === '.step' || extension === '.stp') return 'studio.artifacts.file.step';
   if (extension === '.stl') return 'studio.artifacts.file.stl';
   if (includesAny(search, ['bom', 'bill of material'])) return 'studio.artifacts.file.bom';
   if (includesAny(search, ['readiness'])) return 'studio.artifacts.file.readiness';
-  if (includesAny(search, ['quality', 'dfm', 'inspection', 'review', 'revision', 'stabilization', 'report_summary', 'report summary'])) {
+  if (includesAny(search, ['quality', 'drawing.qa-report', 'drawing.qa-issues', 'dfm', 'inspection', 'review', 'revision', 'stabilization', 'report_summary', 'report summary'])) {
     return 'studio.artifacts.file.quality';
   }
   if (extension === '.svg' || extension === '.dxf' || search.includes('drawing')) return 'studio.artifacts.file.drawing';

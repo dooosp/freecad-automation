@@ -57,6 +57,13 @@ function reportSummaryFromJob(job = {}) {
   );
 }
 
+export function qualitySummaryFromJob(job = {}) {
+  const result = asObject(job.result);
+  if (job.type === 'draw') return asObject(result.drawing_quality);
+  if (job.type === 'create') return asObject(result.create_quality);
+  return reportSummaryFromJob(job);
+}
+
 function firstObjectWithAnyKey(candidates = [], keys = []) {
   return candidates
     .map((candidate) => asObject(candidate))
@@ -180,7 +187,10 @@ export function formatReadyForManufacturingReview(value) {
 
 export function deriveRecentJobQualityStatus(job = {}) {
   const reportSummary = reportSummaryFromJob(job);
-  const qualityStatus = formatQualityStatus(reportSummary.overall_status);
+  const qualitySummary = qualitySummaryFromJob(job);
+  const qualityStatus = formatQualityStatus(
+    job.type === 'draw' || job.type === 'create' ? qualitySummary.status : qualitySummary.overall_status
+  );
   const readyForManufacturingReview = readinessHoldLabel(job, reportSummary)
     || formatReadyForManufacturingReview(reportSummary.ready_for_manufacturing_review);
 
@@ -194,7 +204,7 @@ export function deriveRecentJobQualityStatus(job = {}) {
 }
 
 function hasDecisionPayload(job = {}) {
-  const reportSummary = reportSummaryFromJob(job);
+  const reportSummary = qualitySummaryFromJob(job);
   const readinessSummary = readinessSummaryFromJob(job, reportSummary);
   return Object.keys(reportSummary).length > 0 || Object.keys(readinessSummary).length > 0;
 }

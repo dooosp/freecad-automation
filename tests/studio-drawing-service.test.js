@@ -176,6 +176,43 @@ function fullConfigToml() {
   return stringifyTOML(config);
 }
 
+test('JSON and TOML drawing previews share normalization and editable plan persistence', async (t) => {
+  const service = parityService(t);
+  const configToml = partialConfigToml();
+  const configJson = JSON.stringify(parseTOML(configToml));
+  const tomlResult = await service.buildPreview({ configToml });
+  const tomlConfig = generatedConfigs.at(-1);
+  const jsonResult = await service.buildPreview({ configToml: ` \n${configJson}\n ` });
+  const jsonConfig = generatedConfigs.at(-1);
+  assert.deepEqual({ ...jsonConfig, export: { ...jsonConfig.export, directory: tomlConfig.export.directory } }, tomlConfig,
+    'renderer receives the same normalized config apart from its isolated export directory');
+  assert.notEqual(jsonConfig.export.directory, tomlConfig.export.directory);
+  assert.deepEqual(jsonResult.preview.validation, tomlResult.preview.validation);
+  assert.deepEqual(jsonResult.preview.overview, tomlResult.preview.overview);
+  assert.deepEqual(jsonResult.preview.dimensions, tomlResult.preview.dimensions);
+  assert.equal(jsonResult.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 120);
+  assert.deepEqual(
+    parseTOML(readFileSync(jsonResult.preview.plan_path, 'utf8')),
+    parseTOML(readFileSync(tomlResult.preview.plan_path, 'utf8')),
+    'JSON input must still persist a valid editable TOML plan'
+  );
+});
+
+test('malformed, schema-invalid and unsafe JSON drawing inputs reject before preview allocation', async (t) => {
+  const service = parityService(t, {
+    mkdtempFn() { throw new Error('Invalid config reached preview allocation'); },
+  });
+  for (const [configToml, expectedError] of [
+    ['{"name":"broken",}', /JSON parse error:.*(?:position|line|property name)/i],
+    ['{"shapes":"not-an-array"}', /root\.shapes must be array/],
+    ...['__proto__', 'constructor', 'prototype'].map((key) => [
+      `{"metadata":{"${key}":"unsafe"}}`, /Unsafe config key/,
+    ]),
+  ]) {
+    await assert.rejects(service.buildPreview({ configToml }), expectedError);
+  }
+});
+
 test('partial plans receive compiled editable dimensions without losing explicit notes', async (t) => {
   const service = parityService(t);
   const { preview } = await service.buildPreview({ configToml: partialConfigToml() });
@@ -185,9 +222,9 @@ test('partial plans receive compiled editable dimensions without losing explicit
   assert.equal(toPublicDrawingPreviewPayload({ preview }).preview.editable_plan_available, true);
 });
 
-test('edited full plans survive actual TOML loading and the tracked job coordinator', async (t) => {
+for (const format of ['TOML', 'JSON']) test(`edited full plans survive ${format} source reloading and the tracked job coordinator`, async (t) => {
   const service = parityService(t);
-  const configToml = fullConfigToml();
+  const configToml = format === 'JSON' ? JSON.stringify(parseTOML(fullConfigToml())) : fullConfigToml();
   const first = await service.buildPreview({ configToml });
   const edited = await service.updateDimension({ previewId: first.preview.id, dimId: 'WIDTH', valueMm: 150 });
   assert.equal(edited.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 150);

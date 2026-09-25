@@ -2,9 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { parse as parseTOML } from 'smol-toml';
 
-import { validateConfigDocument } from '../../lib/config-schema.js';
+import { parseConfigText, validateConfigDocument } from '../../lib/config-schema.js';
 import { runScript } from '../../lib/runner.js';
 import { createDesignService } from '../api/design.js';
 import { createModel } from '../api/model.js';
@@ -73,9 +72,9 @@ export function createStudioModelService({ projectRoot }) {
     }
   }
 
-  function parseAndValidateConfigToml(configToml) {
-    const raw = parseTOML(configToml);
-    const validation = validateConfigDocument(raw, { filepath: 'studio:model-preview' });
+  function parseAndValidateConfig(configText, format) {
+    const { parsed } = parseConfigText(configText, `studio:model-preview.${format}`);
+    const validation = validateConfigDocument(parsed, { filepath: 'studio:model-preview' });
     return {
       config: validation.config,
       summary: validation.summary,
@@ -111,11 +110,13 @@ export function createStudioModelService({ projectRoot }) {
         throw new Error('Config TOML is required.');
       }
 
+      // The legacy API supplies text without a filename; JSON configs have an object root.
+      const format = source.startsWith('{') ? 'json' : 'toml';
       let parsed;
       try {
-        parsed = parseAndValidateConfigToml(source);
+        parsed = parseAndValidateConfig(source, format);
       } catch (error) {
-        throw new Error(`TOML parse error: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`${format.toUpperCase()} parse error: ${error instanceof Error ? error.message : String(error)}`);
       }
 
       if (!parsed.valid) {

@@ -1,6 +1,4 @@
-import { parse as parseTOML } from 'smol-toml';
-
-import { validateConfigDocument } from '../../lib/config-schema.js';
+import { parseConfigText, validateConfigDocument } from '../../lib/config-schema.js';
 import {
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
@@ -197,12 +195,13 @@ function buildResolvedPairOptions(request, baselineArtifact, candidateArtifact) 
   return options;
 }
 
-function parseStudioConfigToml(configToml) {
+function parseStudioConfig(configText) {
+  const format = configText.startsWith('{') ? 'json' : 'toml';
   let parsed;
   try {
-    parsed = parseTOML(configToml);
+    ({ parsed } = parseConfigText(configText, `studio:tracked-job.${format}`));
   } catch (error) {
-    throw new Error(`TOML parse error: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`${format.toUpperCase()} parse error: ${error instanceof Error ? error.message : String(error)}`);
   }
   const validation = validateConfigDocument(parsed, { filepath: 'studio:tracked-job' });
   if (!validation.valid) {
@@ -1115,7 +1114,7 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
 
   let config;
   try {
-    config = parseStudioConfigToml(request.config_toml.trim());
+    config = parseStudioConfig(request.config_toml.trim());
   } catch (error) {
     return {
       ok: false,
