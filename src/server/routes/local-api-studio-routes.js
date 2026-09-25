@@ -169,7 +169,7 @@ export function registerStudioRoutes(app, {
       }));
     } catch (error) {
       const rawMessage = errorMessage(error);
-      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
+      const status = /(?:TOML|JSON) parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'model_preview_failed',
         [publicErrorMessage(error)],
@@ -231,7 +231,7 @@ export function registerStudioRoutes(app, {
       }));
     } catch (error) {
       const rawMessage = errorMessage(error);
-      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
+      const status = /(?:TOML|JSON) parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'drawing_preview_failed',
         [publicErrorMessage(error)],

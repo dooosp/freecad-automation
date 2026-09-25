@@ -2,10 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { parse as parseTOML } from 'smol-toml';
 
 import { deepMerge } from '../../lib/config-loader.js';
-import { validateConfigDocument } from '../../lib/config-schema.js';
+import { parseConfigText, validateConfigDocument } from '../../lib/config-schema.js';
 import { updateDimIntent, readDimIntents } from '../../lib/toml-writer.js';
 import { runScript } from '../../lib/runner.js';
 import { createDrawingService } from '../api/drawing.js';
@@ -164,9 +163,9 @@ export function createStudioDrawingService({
     }
   }
 
-  function parseAndValidateConfigToml(configToml) {
-    const raw = parseTOML(configToml);
-    const validation = validateConfigDocument(raw, { filepath: 'studio:drawing-preview' });
+  function parseAndValidateConfig(configText, format) {
+    const { parsed } = parseConfigText(configText, `studio:drawing-preview.${format}`);
+    const validation = validateConfigDocument(parsed, { filepath: 'studio:drawing-preview' });
     return {
       config: validation.config,
       summary: validation.summary,
@@ -198,11 +197,12 @@ export function createStudioDrawingService({
       throw new Error('Config TOML is required.');
     }
 
+    const format = source.startsWith('{') ? 'json' : 'toml';
     let parsed;
     try {
-      parsed = parseAndValidateConfigToml(source);
+      parsed = parseAndValidateConfig(source, format);
     } catch (error) {
-      throw new Error(`TOML parse error: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`${format.toUpperCase()} parse error: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     const { config, summary, overview, valid } = parsed;

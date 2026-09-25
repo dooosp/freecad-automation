@@ -23,6 +23,93 @@ async function listen(server) {
   return typeof address === 'object' && address ? address.port : 0;
 }
 
+async function verifyConfigFormats() {
+  const { server: configServer, studioModelService } = createLocalApiServer({
+    projectRoot: ROOT,
+    jobsDir: join(tmpRoot, 'config-jobs'),
+  });
+  try {
+    const port = await listen(configServer);
+    const configToml = `
+name = "format-compat"
+material = "AL6061"
+[[shapes]]
+id = "body"
+type = "box"
+length = 20
+width = 10
+height = 4
+[[operations]]
+type = "fillet"
+target = "body"
+radius = 1
+[drawing]
+views = ["front"]
+[export]
+step = true
+`;
+    const configJson = JSON.stringify({
+      name: 'format-compat',
+      material: 'AL6061',
+      shapes: [{ id: 'body', type: 'box', length: 20, width: 10, height: 4 }],
+      operations: [{ type: 'fillet', target: 'body', radius: 1 }],
+      drawing: { views: ['front'] },
+      export: { step: true },
+    });
+    const tomlValidation = await studioModelService.validateConfigToml(configToml);
+    const jsonValidation = await studioModelService.validateConfigToml(` \n${configJson}\n `);
+    assert.deepEqual(jsonValidation, tomlValidation,
+      'JSON and TOML must share canonical normalization and diagnostics');
+    assert.equal(jsonValidation.config.config_version, 1);
+    assert.equal(jsonValidation.config.operations[0].op, 'fillet');
+    assert.equal(jsonValidation.config.manufacturing.material, 'AL6061');
+    assert.equal(jsonValidation.config.drawing.units, 'mm');
+    assert.deepEqual(jsonValidation.config.export.formats, ['step']);
+    assert.equal(jsonValidation.overview.shape_count, 1);
+    assert.equal(jsonValidation.overview.operation_count, 1);
+    assert.ok(jsonValidation.summary.deprecated_fields.length > 0);
+
+    const tableFirst = await studioModelService.validateConfigToml('[export]\nformats = ["step"]');
+    assert.deepEqual(tableFirst.config.export.formats, ['step'], 'TOML tables must not be treated as JSON arrays');
+
+    for (const configText of ['shapes = "not-an-array"', '{"shapes":"not-an-array"}']) {
+      await assert.rejects(studioModelService.validateConfigToml(configText), /root\.shapes must be array/);
+      await assert.rejects(studioModelService.buildPreview({ configToml: configText }), /root\.shapes must be array/);
+    }
+    for (const key of ['__proto__', 'constructor', 'prototype']) {
+      for (const configText of [`[metadata]\n${key} = "unsafe"`, `{"metadata":{"${key}":"unsafe"}}`]) {
+        await assert.rejects(studioModelService.validateConfigToml(configText), /Unsafe config key/);
+        await assert.rejects(studioModelService.buildPreview({ configToml: configText }), /Unsafe config key/);
+      }
+    }
+
+    async function postConfig(route, configText) {
+      const response = await fetch(`http://127.0.0.1:${port}/api/studio/${route}`, {
+        method: 'POST',
+        headers: { accept: 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify({ config_toml: configText }),
+      });
+      return { status: response.status, payload: await response.json() };
+    }
+    const tomlResponse = await postConfig('validate-config', configToml);
+    const jsonResponse = await postConfig('validate-config', configJson);
+    assert.equal(jsonResponse.status, 200);
+    assert.equal(validateLocalApiResponse('studio_validate_config', jsonResponse.payload).ok, true);
+    assert.deepEqual(jsonResponse, tomlResponse, 'legacy config_toml API field accepts either format');
+
+    const malformedJson = '{"name":"format-compat",}';
+    for (const [route, code] of [['validate-config', 'invalid_config'], ['model-preview', 'model_preview_failed']]) {
+      const invalidResponse = await postConfig(route, malformedJson);
+      assert.equal(invalidResponse.status, 400, `${route} must classify malformed JSON as an input error`);
+      assert.equal(invalidResponse.payload.error.code, code);
+      assert.match(invalidResponse.payload.error.messages.join('\n'), /JSON parse error:.*(?:position|line|property name)/i);
+    }
+  } finally {
+    await new Promise((resolveClose) => configServer.close(resolveClose));
+    await studioModelService.dispose();
+  }
+}
+
 const fakeModelService = {
   async buildPreview() {
     return {
@@ -196,6 +283,8 @@ try {
   assert.equal(missingAssetResponse.status, 404);
   const missingPayload = await missingAssetResponse.json();
   assert.equal(missingPayload.ok, false);
+
+  await verifyConfigFormats();
 
   console.log('local-api-studio-model.test.js: ok');
 } finally {
