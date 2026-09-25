@@ -1,0 +1,100 @@
+{
+  "source_commit": "ed317324c9f5ee4152a8d0ad6d6bebdbfb620e88",
+  "prior_bundle_sha256": "b731142af60e7da023d1166bde97f84a79dd2fe2743993d8c43d80b82b55f796",
+  "inherited_bundle_records": "evidence/prior-bundle-provenance.json",
+  "inherited_records_are_historical": true,
+  "byte_identical_new_copies": [
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/CLOSEOUT.ko.md",
+      "source": "docs/portfolio/usb-hub-plate-change/CLOSEOUT.ko.md",
+      "sha256": "16b1c1c73af3b935c84aa367bb4bb3407a4c26314d9f4ce8ac70863fd387fead"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/CONTRIBUTION.ko.md",
+      "source": "docs/portfolio/usb-hub-plate-change/CONTRIBUTION.ko.md",
+      "sha256": "0faa5ec6f8475efd993dc3c78ead4c8317ce53902bbdfcbfdb8489ac3a8adb20"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/DEMO.ko.md",
+      "source": "docs/portfolio/usb-hub-plate-change/DEMO.ko.md",
+      "sha256": "18e1d09d78c52fe36b804cb2ea664e9844fcd9f1e2dc6ab1c0af2d4471356380"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/ENGINEERING_REVIEW.ko.md",
+      "source": "docs/portfolio/usb-hub-plate-change/ENGINEERING_REVIEW.ko.md",
+      "sha256": "a7677dacc96e7e7c0a9a0056f072d5ed3cbcd0ad6ce401a1e13e8dedca4b7b54"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/README.ko.md",
+      "source": "docs/portfolio/usb-hub-plate-change/README.ko.md",
+      "sha256": "6169c05a514685b88a6da391fbe9201ef5692c367f9150b941910fa88fb6cf3f"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/engineering-review.mjs",
+      "source": "docs/portfolio/usb-hub-plate-change/engineering-review.mjs",
+      "sha256": "afcd1269384037fdb1614ff6243f820179b337df29ad86ab02b7fe1d1b9b7321"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/inputs/rev-a.toml",
+      "source": "docs/portfolio/usb-hub-plate-change/inputs/rev-a.toml",
+      "sha256": "20a93256842c0a0ddc2c9f0b2a992f18aeeba0fc891c27442504f380600c6743"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/inputs/rev-b.toml",
+      "source": "docs/portfolio/usb-hub-plate-change/inputs/rev-b.toml",
+      "sha256": "ac608510fa095235af18d32d50c42abc81faec52a21bb93c0cb8f12179d03be3"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "source": "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "sha256": "bcee36f9a6f663220b892223210e3f0987926791a17ba6c8cf04acd632dbfd08"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/measure.py",
+      "source": "docs/portfolio/usb-hub-plate-change/measure.py",
+      "sha256": "785cb6fc57e07039ab99da088810525ff80b4c1876ddbdb1db884fa74b8b745c"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/reproduce.mjs",
+      "source": "docs/portfolio/usb-hub-plate-change/reproduce.mjs",
+      "sha256": "b8d5f0c6890433f62b9eee887850abda068d93828d582a909ff33d348738f2b7"
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/revision-case.mjs",
+      "source": "docs/portfolio/usb-hub-plate-change/revision-case.mjs",
+      "sha256": "fbcd088e1a0a97abff9d5532919456b7025a25531c21cc876a94aefc49338042"
+    },
+    {
+      "file": "engineering/review.json",
+      "source": "output/usb-hub-engineering-review-WRU6p3/engineering-review-portable.json",
+      "sha256": "1e6e61d85862266e1a0d32f03a4ec43f0471bd96e19170fbd3baadd5479a66ec"
+    },
+    {
+      "file": "engineering/dfm.json",
+      "source": "output/usb-hub-engineering-review-WRU6p3/rev-b/dfm.json",
+      "sha256": "29e8b7aae96c0c31577c06bf88066253969aa72cf52c013ffade55b55ed9db45"
+    },
+    {
+      "file": "engineering/measurements.json",
+      "source": "output/usb-hub-engineering-review-WRU6p3/source-measurement/measurements.json",
+      "sha256": "a1e8d898a50b468fa057b879aab412688b44a61430e7b9b15bfa05dfc97b0089"
+    }
+  ],
+  "derived_new_copies": [
+    {
+      "file": "engineering/report-summary.json",
+      "source": "output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report_summary.json",
+      "source_sha256": "ab1ca6c3bb776f560a1b2b2ab9e25f7a133b1c8b4c276a45a9133f6581386a6d",
+      "transformation": "Replace repository absolute path with ${REPO_ROOT}; preserve other fields and status."
+    },
+    {
+      "file": "engineering/commands.json",
+      "source": "output/usb-hub-engineering-review-WRU6p3/commands.json",
+      "source_sha256": "967a9ebf78c2bdfd357e128eedfb116cb0764c86af3e8a0c9f6e804d09f68559",
+      "transformation": "Replace repository absolute path with ${REPO_ROOT}; preserve other fields and status."
+    }
+  ],
+  "rendering": "Pandoc GFM to HTML for source case documents; same content with portable links. Index summaries are downstream presentation.",
+  "canonical_records_modified": false,
+  "native_report_pdf": "Not published because visual verification found text overlap; original local file preserved."
+}

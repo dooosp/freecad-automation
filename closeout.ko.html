@@ -1,0 +1,61 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>포트폴리오 후속 소프트웨어 작업 — 2026-09-25</title><style>
+:root{color-scheme:light;--ink:#183144;--muted:#566e7b;--line:#dbe3e5;--teal:#006d63}*{box-sizing:border-box}body{margin:0;background:#f6f8f8;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.65}a{color:var(--teal);text-underline-offset:4px}main{max-width:1120px;margin:auto;padding:42px 32px 56px}header{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:17px;color:var(--muted);font-size:13px;letter-spacing:.06em}.tag{background:#e5f0ed;color:var(--teal);padding:3px 10px;border-radius:20px;font-weight:650}h1{font-size:clamp(28px,4vw,46px);line-height:1.28;margin:26px 0 16px;letter-spacing:-.045em}h2{font-size:23px;letter-spacing:-.03em;margin:0 0 12px}h3{margin:0;font-size:18px}.lead{max-width:800px;font-size:18px;color:#425c6a}.note{font-size:13px;color:var(--muted)}.pair{display:grid;grid-template-columns:1fr 1fr;gap:22px}.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:23px}.panel svg{width:100%;display:block;margin:14px 0}.rev{display:flex;justify-content:space-between;align-items:center}.rev span{font-size:13px;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:22px 0 42px}.metric{padding:17px 19px;background:#eaf1f1;border-radius:12px}.metric strong{display:block;font-size:24px;line-height:1.4}.metric span{font-size:13px;color:var(--muted)}.section{margin-top:32px}.failure{display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;align-items:center}.failure img{width:100%;border-radius:12px;border:1px solid #bbc6ce}.badge{display:inline-block;background:#f8e9e7;color:#9b372d;border-radius:6px;padding:3px 9px;font-size:13px;font-weight:650}.values{padding:14px 0;border-block:1px solid var(--line);font-size:18px;font-weight:600}.limits{border-left:3px solid #82968d;padding:4px 0 4px 18px}.links{display:flex;flex-wrap:wrap;gap:14px}.cmd{font-family:ui-monospace,monospace;background:#eaf1f1;padding:14px;border-radius:10px;overflow-wrap:anywhere;font-size:13px}footer{border-top:1px solid var(--line);margin-top:35px;padding-top:18px;font-size:12px;color:var(--muted)}@media(max-width:720px){main{padding:24px 18px}.pair,.failure{grid-template-columns:1fr}.metrics{grid-template-columns:1fr}header{display:block}.tag{display:inline-block;margin-top:8px}}@media print{body{background:white}main{padding:0}.panel,.failure,.limits{break-inside:avoid}a{color:inherit}header{font-size:11px}}
+
+article{max-width:920px;margin:auto}article h2{margin-top:36px}article h3{margin-top:26px}table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;font-size:14px}td,th{border:1px solid var(--line);padding:10px;text-align:left}th{background:#eaf1f1}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#eaf1f1;border-radius:12px}code{overflow-wrap:anywhere}blockquote{margin:20px 0;padding:4px 20px;border-left:3px solid var(--teal);background:#eaf1f1}</style></head><body><main><header><a href="index.html">포트폴리오 첫 화면</a><a href="https://github.com/dooosp/freecad-automation/pull/203">소스 변경 PR</a></header><article><h1 id="포트폴리오-후속-소프트웨어-작업--2026-09-25">포트폴리오 후속 소프트웨어 작업 — 2026-09-25</h1>
+<p>진단의 F01과 사례 묶음 작성에 이어, 남았던 F02·F03·F04를 같은 작업 트리에서 처리했다. 기준 HEAD는 <code>4dba0d32fe1b10f2266f27501165e56df9f943af</code>, 수정과 사례의 브랜치는 <code>codex/studio-quality-summary-fix</code>다. 아래 브라우저 기록과 첫 ZIP은 초기 검증 당시의 관찰로 보존한다. 이후 사용자가 커밋·push·PR·공개 배포를 요청해 해당 절차도 진행했다. 최신 공개 상태는 저장소·PR·배포 기록으로 확인한다.</p>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>처리한 내용</th>
+<th>실제 확인</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F01 품질 표시</td>
+<td>기존 draw/create 품질 연결과 주요 도면 선택 수정 유지</td>
+<td>JSON에서 만든 정상·불일치 도면에서도 실행 완료와 품질 pass/fail·WIDTH·SVG를 확인</td>
+</tr>
+<tr>
+<td>F02 리비전 연결</td>
+<td>비교용 입력에 같은 part/package ID, 명시적 A/B 리비전, 17개 특성 ID 정의</td>
+<td>원래 <code>review-context</code> → <code>compare-rev</code> → <code>inspection-plan</code> 전체·변경 흐름 실행 성공</td>
+</tr>
+<tr>
+<td>F03 STEP 특징 검출</td>
+<td>FreeCAD의 파일 모듈 실행 방식에 맞는 진입점 추가. 일반 import는 실행하지 않음</td>
+<td>원래 runner 및 CLI에서 네 Ø5.2 홀과 runtime-backed 결과. 실제 잘못된 STEP의 fallback도 유지</td>
+</tr>
+<tr>
+<td>F04 JSON 입력</td>
+<td>모델·도면·추적 작업이 같은 공용 JSON/TOML 파서와 기존 검증 사용</td>
+<td>JSON 파일 선택 → 모델 미리보기 → 추적 create → 도면 미리보기 → 추적 draw → 보고서 생성 성공. TOML 미리보기도 재확인</td>
+</tr>
+<tr>
+<td>F05 전달 자료</td>
+<td>사례 설명, 전후 그림, 실제 파일·검증 근거, 3분 대본, 재현 소스와 패치</td>
+<td>새 실행 결과로 열람용 묶음 갱신. 개인 기여나 실물 검증을 자동 생성하지 않음</td>
+</tr>
+</tbody>
+</table>
+<h2 id="변경-영향의-결과와-해석">변경 영향의 결과와 해석</h2>
+<p>같은 부품의 A/B를 연결하고 명목치 변경 4건을 얻었다: <code>H1.X</code>, <code>H2.X</code>, <code>HORIZONTAL.PITCH</code>, <code>RIGHT.CENTER_MARGIN</code>. 판·D홀의 특성 9개는 영향 없음이다. 전체 계획은 17개, 변경 계획은 9개이며 모든 항목은 <code>not_started</code>이다.</p>
+<p>변경 계획에는 H홀의 위치 변경에 따라 지름·Y좌표 확인도 포함된다. 자동 홀 패턴 한 항목은 고정 요구사항과 연결되지 않아 추가 검토 대상으로 남는다. 공차·검사 방법은 <code>null</code>, 두 계획 모두 <code>review_required</code>다. 이것은 입력 연결 실패나 빈 blocked 계획과 다르지만, 검사 수행 가능·완료·승인을 의미하지 않는다.</p>
+<p>요구값을 저장 STEP 측정값과 먼저 대조한다. H1.X의 요구값만 131로 바꾼 별도 반례는 실제 측정 130과 달라 review CLI 호출 전에 거절됐다. 원본 CAD 입력, 이전 산출물, canonical readiness와 검사 증거는 변경하지 않았다.</p>
+<h2 id="json-후속-경로의-확인">JSON 후속 경로의 확인</h2>
+<p>JSON과 TOML을 모델 미리보기에서 동일한 정규화·스키마 검증으로 처리한다. 모델에서 도면으로 넘기거나 추적 create/draw/report를 요청할 때도 JSON 텍스트를 TOML로 잘못 읽지 않는다. 추적 작업은 기존 실행기가 정규화된 설정을 JSON으로 저장하는 방식을 그대로 사용한다. 잘못된 JSON의 모델·도면 요청은 HTTP 400으로 응답한다.</p>
+<p>실제 브라우저에서 JSON 원본의 WIDTH 주석만 150으로 바꾼 도면은 QA 89, 품질 fail, 근거 연결률 80%, WIDTH 미연결이었다. 형상 폭은 142를 유지했다. 이후 브라우저 보고서는 화면 안내대로 원본 설정 142로 생성됐으며 overall status는 <code>incomplete</code>였다. 해당 보고서는 create 품질·drawing 품질·DFM 자료를 받지 못했다. 보고서와 tracked create에 없는 품질 판정을 새로 만들어 통과로 표시하지 않았다. 그 실행의 UI 요약 <code>결과 없음</code>은 분석 완료의 근거가 아니다.</p>
+<p>후속 실행에서는 새 출력 폴더에서 strict create·draw를 수행하고 <code>report --dfm</code>에 세 자료를 모두 제공했다. 보고서는 overall 92 / <code>pass</code>, DFM은 95점과 경미한 경고 1건이었다. 이는 별도 CLI 실행의 결과이며 이전 브라우저 작업을 수정하거나 UI 보고서 경로가 자동 수집하도록 고친 것이 아니다. <a href="engineering.ko.html">공학 검토와 근거</a>에 실행 구분, 패턴 대응, DFM의 한계와 PDF 레이아웃 관찰을 기록한다.</p>
+<h2 id="검증의-범위">검증의 범위</h2>
+<ul>
+<li>원래 코드의 실패를 재현한 뒤 관련 Node/Python 회귀 검사를 실행했다. STEP 진입점·import 안전성과 실제 오류 fallback, JSON/TOML 동등성·잘못된 입력·금지된 키·도면 편집/저장 연결을 확인했다.</li>
+<li>모델·도면 생성, STEP/SVG 측정, 리비전 비교와 계획은 실제 로컬 FreeCAD 1.1.3 및 기존 CLI를 사용했다.</li>
+<li>브라우저는 실제 파일 선택과 모델·도면·추적 작업을 수행했다. 검사 조합 전체나 다른 OS에서의 성공을 보장하지 않는다.</li>
+<li>전체 테스트·최종 읽기 전용 검토·묶음 링크와 체크섬 결과는 제공 묶음의 검증 기록에 실행 시각과 함께 보관한다. 생성물은 <code>output/</code>, 작업 로그는 <code>tmp/codex/</code>에 둔다.</li>
+</ul>
+<h2 id="남는-직접-확인과-범위-밖-작업">남는 직접 확인과 범위 밖 작업</h2>
+<p>실제 USB 허브 치수·장착·재질·하중·제조 공차·검사 방법은 확인하지 않았다. 실제 검사값·제조 승인·검사 증거 첨부도 없다. 본인 기여와 설계 판단은 발표자가 실제 수행 범위로 설명해야 한다. 제품 내 유료 AI API, 동영상 녹화, 다른 OS/타인 PC의 실사용 검증은 하지 않았다.</p>
+<p>형상에 따라 변하는 자동 패턴 ID의 일반적 동일성 매칭은 별도 확장 범위다. 이 사례에서는 해당 불확실성을 계획에 유지한다. 새로운 플랫폼이나 분석 기능을 포트폴리오 v1의 필수 조건으로 추가하지 않는다.</p>
+<p>처음 제공한 묶음은 commit·push·PR·배포 전의 기록이다. 후속 공개 자료는 해당 소스 커밋과 PR을 별도로 명시하며, master 병합이나 실물 검사 완료를 의미하지 않는다. <a href="case.ko.html">사례 설명</a>, <a href="demo.ko.html">시연 대본</a>, <a href="contribution.ko.html">기여 기록</a>에서 시작하면 된다.</p>
+</article><footer>합성 소프트웨어 사례 · 실물 검사 및 제조 승인 없음 · 소스 ed31732</footer></main></body></html>

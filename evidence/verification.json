@@ -1,0 +1,44 @@
+{
+  "scope": "Software portfolio case; not physical validation",
+  "npm_test": {
+    "exit_code": 0,
+    "started_at": "2026-09-25T12:05:47.481455+00:00",
+    "finished_at": "2026-09-25T12:10:21.581760+00:00"
+  },
+  "cli_reproduction": {
+    "exit_code": 0,
+    "result": "run/case-result.json"
+  },
+  "python_regression": {
+    "command": "node scripts/run-pytest.js -q tests/test_step_feature_detector_entrypoint.py tests/test_analyze_part.py",
+    "passed": 11
+  },
+  "json_browser_workflow": "evidence/browser-workflow.json",
+  "synthetic_requirement_mismatch_rejected": true,
+  "source_hygiene": {
+    "exit_code": 0
+  },
+  "read_only_review": {
+    "result": "PASS",
+    "scope": "F02–F04 code, tests, docs and recorded runtime/browser evidence; prior F01 hashes unchanged",
+    "runtime_rerun_by_reviewer": false
+  },
+  "limits": [
+    "One native macOS environment",
+    "No paid product AI call",
+    "No physical inspection",
+    "No recorded video",
+    "No commit/push/PR/deploy"
+  ],
+  "bundle_visual_check": {
+    "new_revision_section_checked": true,
+    "no_horizontal_overflow": true,
+    "embedded_image_loaded": true,
+    "browser_console_errors": []
+  },
+  "patch_base_check": {
+    "exit_code": 0,
+    "base": "4dba0d32fe1b10f2266f27501165e56df9f943af",
+    "method": "git apply --cached --check with isolated temporary index; original index/worktree untouched"
+  }
+}

@@ -1,0 +1,151 @@
+- link "작업 영역으로 건너뛰기":
+  - /url: "#workspace-root"
+- navigation "기본 탐색":
+  - heading "자동화 스튜디오" [level=1]
+  - list "주요 탐색":
+    - link "홈":
+      - /url: "#start"
+      - generic: 홈
+    - link "실행 내역":
+      - /url: "#history"
+      - generic: 실행 내역
+    - link "결과 파일":
+      - /url: "#artifacts"
+      - generic: 결과 파일
+  - generic "고급 작업 −":
+    - generic: 고급 작업
+    - text: −
+  - list:
+    - checkbox "고급 작업 계속 펼치기 이 기기에만 저장됩니다. 데이터와 권한은 바뀌지 않습니다."
+    - strong: 고급 작업 계속 펼치기
+    - generic: 이 기기에만 저장됩니다. 데이터와 권한은 바뀌지 않습니다.
+    - link "검토 입력 도구":
+      - /url: "#console"
+      - generic: 검토 입력 도구
+    - link "모델 설정 편집":
+      - /url: "#model"
+      - generic: 모델 설정 편집
+    - link "도면 편집":
+      - /url: "#drawing"
+      - generic: 도면 편집
+    - link "검토 및 준비 상태":
+      - /url: "#review"
+      - generic: 검토 및 준비 상태
+    - link "로컬 API":
+      - /url: /api
+    - button "실행 모니터"
+    - button "진단 로그"
+- banner:
+  - heading "FreeCAD 자동화 스튜디오" [level=2]
+  - status:
+    - generic "FreeCAD 준비됨"
+  - generic: 언어
+  - combobox "언어":
+    - option "English"
+    - option "한국어" [selected]
+- status
+- main:
+  - heading "3D 모델 만들고 확인하기" [level=2]
+  - paragraph: 입력을 선택하고 생성 작업을 확인한 뒤 결과를 살펴봅니다.
+  - generic: 입력 로드됨
+  - generic: 미리보기 준비됨
+  - generic: 추적 대기
+  - list "모델 생성 진행 상황":
+    - generic: ✓
+    - generic: 입력 선택
+    - generic: ✓
+    - generic: 작업 확인
+    - generic: ✓
+    - generic: 모델 생성
+    - generic: "4"
+    - generic: 결과 확인
+  - status: 결과 확인
+  - text: +
+  - heading "3D 모델 생성 완료" [level=2]
+  - paragraph: 미리보기가 완료되었습니다. 3D 결과를 열거나 선택 작업을 진행하세요.
+  - generic: 실행
+  - generic: 완료
+  - generic: 품질
+  - generic: 미리보기에서는 제공되지 않음
+  - generic: 주요 결과
+  - generic: 3D 모델
+  - alert:
+    - paragraph: 3D 결과를 확인해야 합니다
+    - paragraph
+  - article:
+    - heading "3D 모델" [level=3]
+    - paragraph: 생성된 미리보기 결과
+    - paragraph: Studio 뷰포트에서 생성된 형상을 확인합니다.
+    - button "3D 모델 보기"
+    - button "3D 모델 추가 작업": ⋯
+  - generic "고급 모델 도구" [active]
+  - paragraph: 설정 편집, 미리보기 옵션, 추적 실행, 보고서, AI 초안, 메타데이터, 로그, 모션 제어.
+  - article:
+    - heading "런타임 준비됨" [level=3]
+    - paragraph: macOS FreeCAD runtime (<freecad-runtime>/freecadcmd)
+  - article:
+    - heading "API 연결됨" [level=3]
+    - paragraph: 이 작업대는 필요한 로컬 API 엔드포인트에 연결할 수 있습니다.
+  - article:
+    - heading "미리보기 준비됨" [level=3]
+    - paragraph: 이곳에서 미리보기는 빠른 반복 경로로 유지됩니다. 추적 작업 이력을 만들지 않고 모델을 빠르게 반복 검토할 때 사용하세요.
+  - article:
+    - heading "추적 실행 대기" [level=3]
+    - paragraph: 현재 설정과 산출물을 작업 이력에 남기려면 추적 생성이나 추적 보고서를 실행하세요.
+  - article:
+    - paragraph: 입력
+    - heading "모델 입력 소스 선택" [level=3]
+    - combobox "예제 선택":
+      - option "belt_drive.toml" [selected]
+      - option "bracket_fem.toml"
+      - option "cam_follower.toml"
+      - option "controller_housing.toml"
+      - option "controller_housing_eol.toml"
+      - option "display_module_support.toml"
+      - option "excavator.toml"
+      - option "four_bar_linkage.toml"
+      - option "hinge_block.toml"
+      - option "import_test.toml"
+      - option "infotainment_display_bracket.toml"
+      - option "infotainment_display_bracket_after.toml"
+      - option "infotainment_display_bracket_before.toml"
+      - option "infotainment_display_bracket_hole_dia_repro.toml"
+      - option "ks_assembly.toml"
+      - option "ks_bracket.toml"
+      - option "ks_bushing_plate.toml"
+      - option "ks_flange.toml"
+      - option "ks_gear_housing.toml"
+      - option "ks_shaft.toml"
+      - option "pcb_mount_plate.toml"
+      - option "piston_engine.toml"
+      - option "ptu.toml"
+      - option "ptu_assembly_mates.toml"
+      - option "ptu_motion.toml"
+      - option "quality_fail_wrong_hole_center.toml"
+      - option "quality_fail_wrong_hole_diameter.toml"
+      - option "quality_pass_bracket.toml"
+      - option "reviewer_feedback_runtime_probe.toml"
+      - option "robot_arm_6axis.toml"
+      - option "seatbelt_retractor.reviewed.toml"
+      - option "seatbelt_retractor.toml"
+      - option "section_detail_runtime_probe.toml"
+    - button "예제 불러오기"
+    - button "설정 파일 열기"
+    - button "Choose File"
+    - generic: 현재 설정
+    - generic: usb_hub_surrogate_B
+    - generic: 불러온 원본
+    - generic: rev-b.json
+  - generic "TOML 편집 +"
+  - generic "빌드 및 추적 실행 옵션 +"
+  - text: +
+  - article:
+    - paragraph: 모델 메타데이터
+    - heading "운영용 모델 정보" [level=3]
+    - heading "모델" [level=3]
+    - generic: "이름: usb_hub_surrogate_B"
+    - generic: "부피: 41,692.21 mm³"
+    - generic: "면: 10"
+    - generic: "에지: 24"
+    - generic: "크기: 142.0 × 74.0 × 4.0 mm"
+  - generic "빌드 로그 +"

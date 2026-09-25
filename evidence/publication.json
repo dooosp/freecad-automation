@@ -1,0 +1,11 @@
+{
+  "kind": "static_portfolio_evidence_publication",
+  "source_commit": "ed317324c9f5ee4152a8d0ad6d6bebdbfb620e88",
+  "source_branch": "codex/studio-quality-summary-fix",
+  "pull_request": "https://github.com/dooosp/freecad-automation/pull/203",
+  "site_url": "https://dooosp.github.io/freecad-automation/",
+  "pages_branch": "codex/portfolio-pages-20260925",
+  "source_merged": false,
+  "physical_validation": false,
+  "manufacturing_approval": false
+}

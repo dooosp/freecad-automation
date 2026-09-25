@@ -1,0 +1,261 @@
+- link "작업 영역으로 건너뛰기":
+  - /url: "#workspace-root"
+- navigation "기본 탐색":
+  - heading "자동화 스튜디오" [level=1]
+  - list "주요 탐색":
+    - link "홈":
+      - /url: "#start"
+      - generic: 홈
+    - link "실행 내역":
+      - /url: "#history"
+      - generic: 실행 내역
+    - link "결과 파일":
+      - /url: "#artifacts"
+      - generic: 결과 파일
+  - generic "고급 작업 −":
+    - generic: 고급 작업
+    - text: −
+  - list:
+    - checkbox "고급 작업 계속 펼치기 이 기기에만 저장됩니다. 데이터와 권한은 바뀌지 않습니다."
+    - strong: 고급 작업 계속 펼치기
+    - generic: 이 기기에만 저장됩니다. 데이터와 권한은 바뀌지 않습니다.
+    - link "검토 입력 도구":
+      - /url: "#console"
+      - generic: 검토 입력 도구
+    - link "모델 설정 편집":
+      - /url: "#model"
+      - generic: 모델 설정 편집
+    - link "도면 편집":
+      - /url: "#drawing"
+      - generic: 도면 편집
+    - link "검토 및 준비 상태":
+      - /url: "#review"
+      - generic: 검토 및 준비 상태
+    - link "로컬 API":
+      - /url: /api
+    - button "실행 모니터"
+    - button "진단 로그"
+- banner:
+  - heading "FreeCAD 자동화 스튜디오" [level=2]
+  - status:
+    - generic "FreeCAD 준비됨"
+  - generic: 언어
+  - combobox "언어":
+    - option "English"
+    - option "한국어" [selected]
+- status:
+  - paragraph: 추적 생성 완료
+  - paragraph: 작업이 성공했습니다.
+  - paragraph: 생성 파일과 품질 출력을 검토하려면 산출물을 여세요.
+  - button "산출물 열기"
+  - button "닫기"
+- main:
+  - heading "도면" [level=2]
+  - generic: 설정 로드됨
+  - generic: 도면 준비됨
+  - generic "런타임 및 실행 상세 +"
+  - article:
+    - paragraph: 소스
+    - heading "시트 입력 소스를 선택하세요" [level=3]
+    - combobox "예제 선택":
+      - option "belt_drive.toml" [selected]
+      - option "bracket_fem.toml"
+      - option "cam_follower.toml"
+      - option "controller_housing.toml"
+      - option "controller_housing_eol.toml"
+      - option "display_module_support.toml"
+      - option "excavator.toml"
+      - option "four_bar_linkage.toml"
+      - option "hinge_block.toml"
+      - option "import_test.toml"
+      - option "infotainment_display_bracket.toml"
+      - option "infotainment_display_bracket_after.toml"
+      - option "infotainment_display_bracket_before.toml"
+      - option "infotainment_display_bracket_hole_dia_repro.toml"
+      - option "ks_assembly.toml"
+      - option "ks_bracket.toml"
+      - option "ks_bushing_plate.toml"
+      - option "ks_flange.toml"
+      - option "ks_gear_housing.toml"
+      - option "ks_shaft.toml"
+      - option "pcb_mount_plate.toml"
+      - option "piston_engine.toml"
+      - option "ptu.toml"
+      - option "ptu_assembly_mates.toml"
+      - option "ptu_motion.toml"
+      - option "quality_fail_wrong_hole_center.toml"
+      - option "quality_fail_wrong_hole_diameter.toml"
+      - option "quality_pass_bracket.toml"
+      - option "reviewer_feedback_runtime_probe.toml"
+      - option "robot_arm_6axis.toml"
+      - option "seatbelt_retractor.reviewed.toml"
+      - option "seatbelt_retractor.toml"
+      - option "section_detail_runtime_probe.toml"
+    - button "예제 불러오기"
+    - button "설정 파일 열기"
+    - button "모델에서 편집"
+    - button "Choose File"
+    - generic: 현재 설정
+    - generic: usb_hub_surrogate_B
+    - generic: 불러온 원본
+    - generic: rev-b.json
+  - article:
+    - paragraph: 미리보기 vs 추적 실행
+    - heading "도면 설정" [level=3]
+    - paragraph: 보기 프리셋
+    - checkbox "front" [checked]
+    - generic: front
+    - checkbox "top" [checked]
+    - generic: top
+    - checkbox "right" [checked]
+    - generic: right
+    - checkbox "iso"
+    - generic: iso
+    - generic: 시트 축척
+    - combobox "시트 축척":
+      - option "AUTO"
+      - option "1:1" [selected]
+      - option "1:2"
+      - option "1:5"
+      - option "2:1"
+    - checkbox "단면 보조"
+    - generic: 단면 보조
+    - checkbox "상세도 보조"
+    - generic: 상세도 보조
+    - generic "추적 실행 상세 +"
+  - article:
+    - paragraph: 도면 캔버스
+    - heading "시트 보기" [level=3]
+    - paragraph: 도면이 준비됐습니다. 저장 전에 치수를 검토하세요.
+    - region "이 도면 미리보기":
+      - paragraph: 계속하기 전에
+      - heading "이 도면 미리보기" [level=3]
+      - paragraph: 추적 결과를 만들기 전에 교체 가능한 시트 미리보기를 생성합니다.
+      - term: 필요한 입력
+      - definition:
+        - generic: 불러온 설정과 현재 시트 설정
+      - term: 예상 결과
+      - definition:
+        - generic: BOM, 주석, QA 보조 자료가 포함된 도면 미리보기
+      - term: FreeCAD 실행
+      - definition:
+        - generic: 예 — 미리보기 시트를 생성함
+      - term: 파일 변경
+      - definition:
+        - generic: 로컬 Studio 작업 영역에 교체 가능한 미리보기 파일을 기록함
+      - term: 네트워크 사용
+      - definition:
+        - generic: 로컬 Studio API만 사용
+      - term: 외부 제공자
+      - definition:
+        - generic: 없음
+      - term: 발생 가능한 비용
+      - definition:
+        - generic: 없음
+      - term: 확인 필요
+      - definition:
+        - generic: 예
+      - paragraph: 제조 판단에 사용하기 전에 시트를 검토하세요.
+    - button "도면 미리보기"
+    - button "추적 도면 실행"
+    - button "시트 맞춤"
+    - region "추적 보고서 생성":
+      - paragraph: 계속하기 전에
+      - heading "추적 보고서 생성" [level=3]
+      - paragraph: 도면을 확인한 뒤 현재 불러온 설정으로 보고서를 대기열에 등록합니다. 보고서에서 도면을 다시 생성합니다.
+      - term: 필요한 입력
+      - definition:
+        - generic: 현재 불러온 설정과 성공한 도면 미리보기
+      - term: 예상 결과
+      - definition:
+        - generic: 추적 보고서 PDF와 관련 산출물
+      - term: FreeCAD 실행
+      - definition:
+        - generic: 예 — 보고서 결과를 생성함
+      - term: 파일 변경
+      - definition:
+        - generic: 영구 로컬 작업과 보고서 산출물을 생성함
+      - term: 네트워크 사용
+      - definition:
+        - generic: 로컬 Studio API만 사용
+      - term: 외부 제공자
+      - definition:
+        - generic: 없음
+      - term: 발생 가능한 비용
+      - definition:
+        - generic: 없음
+      - term: 확인 필요
+      - definition:
+        - generic: 예
+      - paragraph: 미리보기에서만 바꾼 치수와 시트 설정은 보고서에 포함되지 않습니다. 릴리스 판단 전에 완료된 결과와 품질 근거를 검토하세요.
+    - button "보고서 생성" [active]
+    - status: 현재 불러온 설정으로 보고서를 생성할 준비가 되었습니다.
+    - button "+"
+    - button "-"
+    - button "맞춤"
+    - generic: 100%
+    - region "도면 미리보기 캔버스":
+    - paragraph: 드래그로 이동하고 스크롤로 확대·축소하세요. 치수를 클릭하면 주석을 수정합니다.
+  - article:
+    - paragraph: 주석
+    - heading "메모 및 콜아웃" [level=3]
+    - paragraph: SIMULATED - NOT FOR FABRICATION
+    - paragraph: Fit, material and tolerances are UNVERIFIED.
+    - paragraph: "Top view origin: plate lower-left. X right, Y up. mm."
+    - paragraph: 4 THROUGH HOLES DIA 5.2
+    - paragraph: "D1: X12 Y12; D2: X12 Y62"
+    - paragraph: "H1: X120 Y12; H2: X120 Y62"
+    - paragraph: "general: SIMULATED - NOT FOR FABRICATION,All sizes are assumptions; fit unverified.,Material and manufacturing tolerances unverified."
+  - article:
+    - paragraph: QA 요약
+    - heading "시트 준비 상태" [level=3]
+    - generic: QA 점수
+    - generic: 89/100
+    - generic: 가중치 프로필
+    - generic: bracket
+    - generic: 계획된 치수
+    - generic: "7"
+    - generic: 렌더링된 전체 치수
+    - generic: "11"
+    - generic: 렌더링된 계획 치수
+    - generic: "1"
+    - generic: 자동 치수
+    - generic: "10"
+    - generic: 충돌
+    - generic: "0"
+    - generic: 정보성 안내
+    - generic: "7"
+  - article:
+    - paragraph: 치수 반복 작업
+    - heading "편집 가능한 치수와 이력" [level=3]
+    - generic "현재 편집 가능한 치수 -"
+    - paragraph: WIDTH
+    - paragraph: base_length · required
+    - spinbutton: "142"
+    - button "적용"
+    - paragraph: HEIGHT
+    - paragraph: overall_height · required
+    - spinbutton: "4"
+    - button "적용"
+    - paragraph: THK
+    - paragraph: base_thickness · required
+    - spinbutton: "4"
+    - button "적용"
+    - paragraph: HOLE_DIA
+    - paragraph: mounting_hole_diameter · required
+    - spinbutton: "5.2"
+    - button "적용"
+    - paragraph: BASE_W
+    - paragraph: base_width · required
+    - spinbutton: "74"
+    - button "적용"
+    - paragraph: FILLET
+    - paragraph: fillet_radius
+    - spinbutton
+    - button "적용"
+    - paragraph: HOLE_SPACING
+    - paragraph: hole_spacing
+    - spinbutton
+    - button "적용"
+    - generic "편집 이력 -"
+    - paragraph: 시트나 치수 목록에서 변경한 내용이 여기에 기록됩니다.

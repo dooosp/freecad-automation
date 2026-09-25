@@ -1,0 +1,152 @@
+{
+  "config_version": 1,
+  "name": "usb_hub_surrogate_B",
+  "final": "final",
+  "product": {
+    "revision": "B",
+    "evidence_status": "SIMULATED - NOT FOR FABRICATION"
+  },
+  "shapes": [
+    {
+      "id": "plate",
+      "type": "box",
+      "length": 142,
+      "width": 74,
+      "height": 4
+    },
+    {
+      "id": "hole_D1",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        12,
+        12,
+        -1
+      ]
+    },
+    {
+      "id": "hole_D2",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        12,
+        62,
+        -1
+      ]
+    },
+    {
+      "id": "hole_H1",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        120,
+        12,
+        -1
+      ]
+    },
+    {
+      "id": "hole_H2",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        120,
+        62,
+        -1
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "op": "cut",
+      "base": "plate",
+      "tool": "hole_D1",
+      "result": "cut_1"
+    },
+    {
+      "op": "cut",
+      "base": "cut_1",
+      "tool": "hole_D2",
+      "result": "cut_2"
+    },
+    {
+      "op": "cut",
+      "base": "cut_2",
+      "tool": "hole_H1",
+      "result": "cut_3"
+    },
+    {
+      "op": "cut",
+      "base": "cut_3",
+      "tool": "hole_H2",
+      "result": "final"
+    }
+  ],
+  "drawing": {
+    "views": [
+      "front",
+      "top",
+      "right"
+    ],
+    "units": "mm",
+    "scale": 1,
+    "meta": {
+      "part_name": "USB HUB ADAPTER - SIMULATED",
+      "drawing_no": "USB-SIM-B",
+      "material": "UNSPECIFIED",
+      "tolerance": "UNVERIFIED",
+      "designed_by": "AI SURROGATE"
+    },
+    "style": {
+      "show_hidden": true,
+      "show_centerlines": true,
+      "show_dimensions": true
+    },
+    "dimension_style": {
+      "type": "baseline"
+    },
+    "revisions": [
+      {
+        "rev": "B",
+        "date": "2026-09-12",
+        "description": "Move hub bracket 10 mm left - simulated",
+        "by": "AI"
+      }
+    ],
+    "notes": {
+      "general": [
+        "SIMULATED - NOT FOR FABRICATION",
+        "All sizes are assumptions; fit unverified.",
+        "Material and manufacturing tolerances unverified."
+      ]
+    }
+  },
+  "export": {
+    "formats": [
+      "step"
+    ],
+    "directory": "output/usb-hub-portfolio-input/rev-b"
+  },
+  "drawing_plan": {
+    "notes": {
+      "general": [
+        "SIMULATED - NOT FOR FABRICATION",
+        "Fit, material and tolerances are UNVERIFIED.",
+        "Top view origin: plate lower-left. X right, Y up. mm.",
+        "4 THROUGH HOLES DIA 5.2",
+        "D1: X12 Y12; D2: X12 Y62",
+        "H1: X120 Y12; H2: X120 Y62"
+      ]
+    },
+    "views": {
+      "enabled": [
+        "front",
+        "top",
+        "right"
+      ]
+    }
+  }
+}

@@ -1,0 +1,60 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>사용자와 Codex의 기여 기록</title><style>
+:root{color-scheme:light;--ink:#183144;--muted:#566e7b;--line:#dbe3e5;--teal:#006d63}*{box-sizing:border-box}body{margin:0;background:#f6f8f8;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.65}a{color:var(--teal);text-underline-offset:4px}main{max-width:1120px;margin:auto;padding:42px 32px 56px}header{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:17px;color:var(--muted);font-size:13px;letter-spacing:.06em}.tag{background:#e5f0ed;color:var(--teal);padding:3px 10px;border-radius:20px;font-weight:650}h1{font-size:clamp(28px,4vw,46px);line-height:1.28;margin:26px 0 16px;letter-spacing:-.045em}h2{font-size:23px;letter-spacing:-.03em;margin:0 0 12px}h3{margin:0;font-size:18px}.lead{max-width:800px;font-size:18px;color:#425c6a}.note{font-size:13px;color:var(--muted)}.pair{display:grid;grid-template-columns:1fr 1fr;gap:22px}.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:23px}.panel svg{width:100%;display:block;margin:14px 0}.rev{display:flex;justify-content:space-between;align-items:center}.rev span{font-size:13px;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:22px 0 42px}.metric{padding:17px 19px;background:#eaf1f1;border-radius:12px}.metric strong{display:block;font-size:24px;line-height:1.4}.metric span{font-size:13px;color:var(--muted)}.section{margin-top:32px}.failure{display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;align-items:center}.failure img{width:100%;border-radius:12px;border:1px solid #bbc6ce}.badge{display:inline-block;background:#f8e9e7;color:#9b372d;border-radius:6px;padding:3px 9px;font-size:13px;font-weight:650}.values{padding:14px 0;border-block:1px solid var(--line);font-size:18px;font-weight:600}.limits{border-left:3px solid #82968d;padding:4px 0 4px 18px}.links{display:flex;flex-wrap:wrap;gap:14px}.cmd{font-family:ui-monospace,monospace;background:#eaf1f1;padding:14px;border-radius:10px;overflow-wrap:anywhere;font-size:13px}footer{border-top:1px solid var(--line);margin-top:35px;padding-top:18px;font-size:12px;color:var(--muted)}@media(max-width:720px){main{padding:24px 18px}.pair,.failure{grid-template-columns:1fr}.metrics{grid-template-columns:1fr}header{display:block}.tag{display:inline-block;margin-top:8px}}@media print{body{background:white}main{padding:0}.panel,.failure,.limits{break-inside:avoid}a{color:inherit}header{font-size:11px}}
+
+article{max-width:920px;margin:auto}article h2{margin-top:36px}article h3{margin-top:26px}table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;font-size:14px}td,th{border:1px solid var(--line);padding:10px;text-align:left}th{background:#eaf1f1}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#eaf1f1;border-radius:12px}code{overflow-wrap:anywhere}blockquote{margin:20px 0;padding:4px 20px;border-left:3px solid var(--teal);background:#eaf1f1}</style></head><body><main><header><a href="index.html">포트폴리오 첫 화면</a><a href="https://github.com/dooosp/freecad-automation/pull/203">소스 변경 PR</a></header><article><h1 id="사용자와-codex의-기여-기록">사용자와 Codex의 기여 기록</h1>
+<p>2026-09-25 기준 대화와 실행 기록에서 확인되는 역할을 정리한다. 사용자는 자신을 기계공학 학생으로 소개하고, 기계공학 지식과 AI 활용을 보여줄 제한된 포트폴리오 v1을 요청했다. 아래 구분은 개인의 독립적인 실무 능력이나 이해도를 증명하는 평가가 아니다.</p>
+<table>
+<thead>
+<tr>
+<th>영역</th>
+<th>사용자에게 확인된 역할</th>
+<th>Codex가 도구로 수행한 작업</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>목적·범위</td>
+<td>포트폴리오 목적과 v1 범위를 제시</td>
+<td>사례 구성과 실행 절차를 구체화하고 문서 작성</td>
+</tr>
+<tr>
+<td>보존·검증 조건</td>
+<td>기존 자료 보존, 측정값 조작 금지 조건과 감사 명세 제공</td>
+<td>저장소·산출물 조사, 로그·해시·실행 결과 대조</td>
+</tr>
+<tr>
+<td>수정과 후속 작업</td>
+<td>F01 수정 승인, 사례 묶음과 F02–F04 후속 작업 진행 승인</td>
+<td>원인 진단, 코드·설정 생성 및 수정, 변경 영향·계획 연결</td>
+</tr>
+<tr>
+<td>생성·검증</td>
+<td>독립적인 직접 실행 이력은 제공되지 않음</td>
+<td>CLI·FreeCAD 실행, 저장 STEP/SVG 검사, 회귀 검사, 브라우저 확인</td>
+</tr>
+<tr>
+<td>전달 자료</td>
+<td>사례 포장과 후속 정리 진행 요청</td>
+<td>한국어 사례·시연 대본·근거 묶음 작성</td>
+</tr>
+<tr>
+<td>저장소 공개</td>
+<td>commit·push·PR·배포 진행을 명시적으로 허용</td>
+<td>실제 공개 여부는 해당 Git·PR·배포 기록으로 확인해야 함</td>
+</tr>
+</tbody>
+</table>
+<p>코드·설정 생성, 런타임 실행, F01·F03·F04 수정과 포트폴리오 작성은 Codex의 도구 실행으로 기록되어 있다. 승인이나 Git 작성자 계정만으로 이를 사용자의 직접 구현·검사 작업으로 분류하지 않는다. 공개 승인은 공개 완료의 증거가 아니다.</p>
+<h2 id="사실에-맞는-ai-활용-설명">사실에 맞는 AI 활용 설명</h2>
+<blockquote>
+<p>포트폴리오의 목적과 보존·검증 조건을 제시하고, 생성·진단·수정·검증·문서화를 Codex에 위임했습니다. 구현과 실행 결과는 Codex의 도구 기록에 근거합니다. 이 기록을 제가 직접 코딩하거나 실물을 측정했다는 근거로 사용하지 않습니다.</p>
+</blockquote>
+<p>여기서 확인된 AI 활용은 Codex를 통한 작업 위임이다. 제품 내 유료 AI API 실호출을 수행했다는 뜻은 아니다.</p>
+<h2 id="사례를-설명할-때-사용할-요약">사례를 설명할 때 사용할 요약</h2>
+<blockquote>
+<p>이 사례는 실제 허브를 실측한 장착 설계가 아닌 합성 시험판입니다. 판 142 × 74 × 4 mm와 D홀 두 개를 유지하면서 H홀 두 개의 X를 130에서 120 mm로 옮겼고, 지름과 Y좌표는 유지했습니다. Codex가 저장된 STEP과 SVG를 다시 읽어 요구값을 확인했습니다. 외곽과 체적만으로는 이 홀 배치 변경을 확인하기 어렵습니다. WIDTH 주석만 142에서 150으로 바꾼 반례에서는 QA 점수가 89여도 근거 연결률 80%, WIDTH 미연결로 품질이 실패했습니다. 실행 완료·점수·품질 판정을 구분한 소프트웨어 사례이며, 실물 적합성이나 제조 승인을 증명하지 않습니다.</p>
+</blockquote>
+<p>이 요약은 사례 결과에 대한 설명문이다. 발표자가 이를 독립적으로 도출하거나 충분히 이해했다는 증거는 아니다. 상세 결과와 미완료 검사 계획은 <a href="case.ko.html">사례 설명</a>과 <a href="closeout.ko.html">후속 조치</a>에 기록한다.</p>
+<h2 id="확인되지-않은-개인-기여">확인되지 않은 개인 기여</h2>
+<p>사용자의 직접 CAD 조작·코딩·실물 계측·단독 문제 해결 이력과 각 설계 판단의 근거는 제공되지 않았다. 시험 치수를 사용자가 직접 선정했는지, 실제 하드웨어를 검토했는지, 코드를 독립적으로 설명·수정할 수 있는지도 확인되지 않았다. 따라서 현재 확인된 개인 역할은 목적·조건 제시와 작업 요청·승인까지이며, 직접 수행 범위나 숙련도에 대한 추가 주장은 이 문서에 포함하지 않는다.</p>
+</article><footer>합성 소프트웨어 사례 · 실물 검사 및 제조 승인 없음 · 소스 ed31732</footer></main></body></html>

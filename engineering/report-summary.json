@@ -1,0 +1,1362 @@
+{
+  "schema_version": "1.0",
+  "command": "report",
+  "input_config": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/config.toml",
+  "report_pdf": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report.pdf",
+  "report_summary_json": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report_summary.json",
+  "overall_status": "pass",
+  "overall_score": 92,
+  "ready_for_manufacturing_review": true,
+  "config_name": "usb_hub_surrogate_B",
+  "run_id": "2dddd675-09e6-45fb-ac43-7195b727985d",
+  "git_commit": "4dba0d32fe1b10f2266f27501165e56df9f943af",
+  "git_branch": "codex/studio-quality-summary-fix",
+  "generated_at": "2026-09-25T12:27:17.156Z",
+  "runtime_status": {
+    "mode": "macos-bundle",
+    "available": true,
+    "status": "ready",
+    "executable_detected": true,
+    "probe_status": "usable"
+  },
+  "inputs_consumed": [
+    {
+      "key": "config",
+      "label": "Input config",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/config.toml",
+      "status": "available",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "dfm_input",
+      "label": "In-memory DFM results",
+      "path": null,
+      "status": "in_memory",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "fem_input",
+      "label": "In-memory FEM results",
+      "path": null,
+      "status": "not_run",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "tolerance_input",
+      "label": "In-memory tolerance results",
+      "path": null,
+      "status": "not_run",
+      "required": true,
+      "note": null
+    }
+  ],
+  "artifacts_referenced": [
+    {
+      "key": "report_pdf",
+      "label": "Engineering report PDF",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report.pdf",
+      "status": "generated",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "report_summary_json",
+      "label": "Report summary JSON",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report_summary.json",
+      "status": "generated",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "create_quality",
+      "label": "Create quality JSON",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_create_quality.json",
+      "status": "available",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "drawing_quality",
+      "label": "Drawing quality JSON",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing_quality.json",
+      "status": "available",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "dfm",
+      "label": "DFM analysis",
+      "path": null,
+      "status": "in_memory",
+      "required": true,
+      "note": null
+    },
+    {
+      "key": "fem",
+      "label": "FEM analysis",
+      "path": null,
+      "status": "not_run",
+      "required": false,
+      "note": null
+    },
+    {
+      "key": "tolerance",
+      "label": "Tolerance analysis",
+      "path": null,
+      "status": "not_available",
+      "required": false,
+      "note": null
+    },
+    {
+      "key": "traceability_json",
+      "label": "Drawing traceability JSON",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_traceability.json",
+      "status": "available",
+      "required": false,
+      "note": null
+    },
+    {
+      "key": "extracted_drawing_semantics",
+      "label": "Extracted drawing semantics JSON",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_extracted_drawing_semantics.json",
+      "status": "available",
+      "required": false,
+      "note": "Advisory extraction from generated drawing evidence only."
+    },
+    {
+      "key": "create_manifest",
+      "label": "Create output manifest",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_manifest.json",
+      "status": "available",
+      "required": false,
+      "note": null
+    },
+    {
+      "key": "drawing_manifest",
+      "label": "Drawing output manifest",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing_manifest.json",
+      "status": "available",
+      "required": false,
+      "note": null
+    },
+    {
+      "key": "feature_catalog",
+      "label": "Conservative feature catalog JSON",
+      "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_feature_catalog.json",
+      "status": "available",
+      "required": false,
+      "note": "Feature recognition is conservative and evidence-scoped."
+    },
+    {
+      "key": "report_manifest",
+      "label": "Report output manifest",
+      "path": null,
+      "status": "not_available",
+      "required": false,
+      "note": null
+    }
+  ],
+  "blocking_issues": [],
+  "warnings": [],
+  "recommended_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add a required diameter dimension intent for \"hole_D1\".",
+    "Add a required diameter dimension intent for \"hole_D2\".",
+    "Add a required diameter dimension intent for \"hole_H1\".",
+    "Add a required diameter dimension intent for \"hole_H2\"."
+  ],
+  "missing_optional_artifacts": [
+    "tolerance",
+    "report_manifest"
+  ],
+  "top_risks": [],
+  "surfaces": {
+    "create_quality": {
+      "available": true,
+      "status": "pass",
+      "score": null,
+      "invalid_shape": false,
+      "blocking_issues": [],
+      "warnings": []
+    },
+    "drawing_quality": {
+      "available": true,
+      "status": "pass",
+      "score": 89,
+      "missing_required_dimensions": [],
+      "conflict_count": 0,
+      "overlap_count": 0,
+      "traceability_coverage_percent": 100,
+      "semantic_quality": {
+        "decision": "unknown",
+        "advisory_decision": "unknown",
+        "enforceable": false,
+        "score": null,
+        "critical_features_total": 0,
+        "critical_features_covered": 0,
+        "required_dimensions_total": 0,
+        "required_dimensions_present": 0,
+        "missing_required_dimensions": [],
+        "required_notes_missing": [],
+        "required_views_missing": [],
+        "traceability": {
+          "required_dimensions_total": 0,
+          "linked_required_dimensions": 0,
+          "missing_required_dimensions": [],
+          "unknown_required_dimensions": []
+        },
+        "missing_critical_information": [],
+        "required_blockers": [],
+        "optional_missing_information": [],
+        "suggested_actions": [],
+        "suggested_action_details": [],
+        "extracted_evidence": {
+          "status": "available",
+          "advisory_only": true,
+          "file": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_extracted_drawing_semantics.json",
+          "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_extracted_drawing_semantics.json",
+          "sources": [
+            {
+              "artifact_type": "svg",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+              "inspected": true,
+              "method": "svg_text_scan"
+            },
+            {
+              "artifact_type": "svg",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+              "inspected": false,
+              "method": "svg_title_block_material_pair"
+            },
+            {
+              "artifact_type": "svg",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+              "inspected": true,
+              "method": "svg_view_group_metadata"
+            },
+            {
+              "artifact_type": "layout_report",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_layout_report.json",
+              "inspected": true,
+              "method": "layout_report_views"
+            },
+            {
+              "artifact_type": "dimension_map",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_dimension_map.json",
+              "inspected": true,
+              "method": "dimension_map_reference"
+            },
+            {
+              "artifact_type": "traceability",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_traceability.json",
+              "inspected": true,
+              "method": "traceability_reference"
+            }
+          ],
+          "coverage": {
+            "required_dimensions": {
+              "total": 0,
+              "extracted": 0,
+              "missing": 0,
+              "unknown": 0,
+              "unsupported": 0,
+              "extracted_percent": null
+            },
+            "required_notes": {
+              "total": 0,
+              "extracted": 0,
+              "missing": 0,
+              "unknown": 0,
+              "unsupported": 0,
+              "extracted_percent": null
+            },
+            "required_views": {
+              "total": 0,
+              "extracted": 0,
+              "missing": 0,
+              "unknown": 0,
+              "unsupported": 0,
+              "extracted_percent": null
+            },
+            "total_required": 0,
+            "total_extracted": 0,
+            "total_missing": 0,
+            "total_unknown": 0,
+            "total_unsupported": 0
+          },
+          "required_dimensions": [],
+          "required_notes": [],
+          "required_views": [],
+          "unmatched_dimensions": [
+            {
+              "extracted_id": "svg_text_002",
+              "raw_text": "142",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_002"
+              }
+            },
+            {
+              "extracted_id": "svg_text_003",
+              "raw_text": "4",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_003"
+              }
+            },
+            {
+              "extracted_id": "svg_text_006",
+              "raw_text": "12",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_006"
+              }
+            },
+            {
+              "extracted_id": "svg_text_007",
+              "raw_text": "120",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_007"
+              }
+            },
+            {
+              "extracted_id": "svg_text_009",
+              "raw_text": "74",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_009"
+              }
+            },
+            {
+              "extracted_id": "svg_text_010",
+              "raw_text": "⌀5.2",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_010"
+              }
+            },
+            {
+              "extracted_id": "svg_text_011",
+              "raw_text": "12",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_011"
+              }
+            },
+            {
+              "extracted_id": "svg_text_012",
+              "raw_text": "108",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_012"
+              }
+            },
+            {
+              "extracted_id": "svg_text_013",
+              "raw_text": "22",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_013"
+              }
+            },
+            {
+              "extracted_id": "svg_text_014",
+              "raw_text": "12",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_014"
+              }
+            },
+            {
+              "extracted_id": "svg_text_015",
+              "raw_text": "50",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_015"
+              }
+            },
+            {
+              "extracted_id": "svg_text_019",
+              "raw_text": "74",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_019"
+              }
+            },
+            {
+              "extracted_id": "svg_text_020",
+              "raw_text": "4",
+              "category": null,
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.62,
+              "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_dimension_text_scan",
+                "svg_text_id": "svg_text_020"
+              }
+            }
+          ],
+          "unmatched_notes": [
+            {
+              "extracted_id": "svg_text_004",
+              "raw_text": "A",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_004"
+              }
+            },
+            {
+              "extracted_id": "svg_text_005",
+              "raw_text": "B",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_005"
+              }
+            },
+            {
+              "extracted_id": "svg_text_016",
+              "raw_text": "B",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_016"
+              }
+            },
+            {
+              "extracted_id": "svg_text_017",
+              "raw_text": "C",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_017"
+              }
+            },
+            {
+              "extracted_id": "svg_text_021",
+              "raw_text": "A",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_021"
+              }
+            },
+            {
+              "extracted_id": "svg_text_022",
+              "raw_text": "C",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_022"
+              }
+            },
+            {
+              "extracted_id": "svg_text_023",
+              "raw_text": "PART NAME",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_023"
+              }
+            },
+            {
+              "extracted_id": "svg_text_024",
+              "raw_text": "USB HUB ADAPTER - SIMULATED",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_024"
+              }
+            },
+            {
+              "extracted_id": "svg_text_025",
+              "raw_text": "DRAWING NO.",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_025"
+              }
+            },
+            {
+              "extracted_id": "svg_text_026",
+              "raw_text": "USB-SIM-B",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_026"
+              }
+            },
+            {
+              "extracted_id": "svg_text_027",
+              "raw_text": "MATERIAL",
+              "category": "material",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_027"
+              }
+            },
+            {
+              "extracted_id": "svg_text_028",
+              "raw_text": "UNSPECIFIED",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_028"
+              }
+            },
+            {
+              "extracted_id": "svg_text_029",
+              "raw_text": "SCALE",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_029"
+              }
+            },
+            {
+              "extracted_id": "svg_text_031",
+              "raw_text": "TOLERANCE",
+              "category": "tolerance",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_031"
+              }
+            },
+            {
+              "extracted_id": "svg_text_032",
+              "raw_text": "UNVERIFIED",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_032"
+              }
+            },
+            {
+              "extracted_id": "svg_text_033",
+              "raw_text": "DATE",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_033"
+              }
+            },
+            {
+              "extracted_id": "svg_text_035",
+              "raw_text": "DESIGNED BY",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_035"
+              }
+            },
+            {
+              "extracted_id": "svg_text_036",
+              "raw_text": "AI SURROGATE",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_036"
+              }
+            },
+            {
+              "extracted_id": "svg_text_037",
+              "raw_text": "SIZE / SHEET",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_037"
+              }
+            },
+            {
+              "extracted_id": "svg_text_038",
+              "raw_text": "A3",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_038"
+              }
+            },
+            {
+              "extracted_id": "svg_text_039",
+              "raw_text": "Visible",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_039"
+              }
+            },
+            {
+              "extracted_id": "svg_text_040",
+              "raw_text": "Hidden",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_040"
+              }
+            },
+            {
+              "extracted_id": "svg_text_041",
+              "raw_text": "Center",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_041"
+              }
+            },
+            {
+              "extracted_id": "svg_text_042",
+              "raw_text": "Dimension",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_042"
+              }
+            },
+            {
+              "extracted_id": "svg_text_043",
+              "raw_text": "NOTES:",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_043"
+              }
+            },
+            {
+              "extracted_id": "svg_text_044",
+              "raw_text": "1. SIMULATED - NOT FOR FABRICATION",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_044"
+              }
+            },
+            {
+              "extracted_id": "svg_text_045",
+              "raw_text": "2. Fit, material and tolerances are UNVERIFIED.",
+              "category": "material",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_045"
+              }
+            },
+            {
+              "extracted_id": "svg_text_046",
+              "raw_text": "3. Top view origin: plate lower-left. X right, Y up. mm.",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_046"
+              }
+            },
+            {
+              "extracted_id": "svg_text_047",
+              "raw_text": "4. 4 THROUGH HOLES DIA 5.2",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_047"
+              }
+            },
+            {
+              "extracted_id": "svg_text_048",
+              "raw_text": "5. D1: X12 Y12; D2: X12 Y62",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_048"
+              }
+            },
+            {
+              "extracted_id": "svg_text_049",
+              "raw_text": "6. H1: X120 Y12; H2: X120 Y62",
+              "category": "tolerance",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_049"
+              }
+            },
+            {
+              "extracted_id": "svg_text_050",
+              "raw_text": "REV",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_050"
+              }
+            },
+            {
+              "extracted_id": "svg_text_051",
+              "raw_text": "DATE",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_051"
+              }
+            },
+            {
+              "extracted_id": "svg_text_052",
+              "raw_text": "DESCRIPTION",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_052"
+              }
+            },
+            {
+              "extracted_id": "svg_text_053",
+              "raw_text": "BY",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_053"
+              }
+            },
+            {
+              "extracted_id": "svg_text_054",
+              "raw_text": "B",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_054"
+              }
+            },
+            {
+              "extracted_id": "svg_text_056",
+              "raw_text": "Move hub bracket 10 mm left - simulated",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_056"
+              }
+            },
+            {
+              "extracted_id": "svg_text_057",
+              "raw_text": "AI",
+              "category": "general",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.68,
+              "reason": "Extracted note did not match a required drawing-intent note.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+                "method": "svg_note_text_scan",
+                "svg_text_id": "svg_text_057"
+              }
+            }
+          ],
+          "matched_required_dimensions": 0,
+          "matched_required_notes": 0,
+          "matched_required_views": 0,
+          "missing_required_items": [],
+          "unknowns": [],
+          "limitations": [
+            "Advisory-only foundation; no OCR, no PDF raster parsing, and no screenshot analysis were used.",
+            "Vector geometry without reliable text labels is not promoted to semantic matches in this task.",
+            "Unsupported or missing extraction evidence remains unknown instead of being inferred as pass."
+          ],
+          "suggested_actions": [],
+          "suggested_action_details": []
+        }
+      },
+      "layout_readability": {
+        "status": "warning",
+        "score": 88,
+        "confidence": "high",
+        "advisory_only": true,
+        "evidence_state": "available",
+        "completeness_state": "complete",
+        "summary": "1 advisory layout/readability finding(s) confirmed from structured metadata.",
+        "finding_count": 1,
+        "warning_count": 1,
+        "findings": [
+          {
+            "type": "text_overlap",
+            "severity": "warning",
+            "message": "Structured QA evidence shows overlapping drawing text.",
+            "recommendation": "Separate overlapping note or dimension text and reroute leaders if needed.",
+            "view_ids": [
+              "page"
+            ],
+            "element_ids": [],
+            "labels": [
+              "DRAWING NO.",
+              "USB-SIM-B"
+            ],
+            "raw_source": {
+              "artifact_type": "qa_report",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing_qa.json",
+              "method": "qa_vector_text_overlap",
+              "pair_index": 0,
+              "iou": 0.108
+            },
+            "source_kind": "qa_metrics",
+            "source_artifact": "qa_report",
+            "source_ref": "details.text_overlaps.0",
+            "evidence_state": "available",
+            "completeness_state": "complete",
+            "advisory_only": true,
+            "provenance": {
+              "artifact_type": "qa_report",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing_qa.json",
+              "method": "qa_vector_text_overlap",
+              "pair_index": 0,
+              "iou": 0.108,
+              "source_kind": "qa_metrics",
+              "source_ref": "details.text_overlaps.0"
+            }
+          }
+        ],
+        "provenance": {
+          "sources": [
+            {
+              "artifact_type": "layout_report",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_layout_report.json",
+              "method": "layout_report_views",
+              "view_count": 3,
+              "evidence_state": "available",
+              "completeness_state": "complete",
+              "source_kind": "layout_report",
+              "source_artifact": "layout_report",
+              "source_ref": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_layout_report.json"
+            },
+            {
+              "artifact_type": "qa_report",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing_qa.json",
+              "method": "qa_vector_metrics",
+              "metric_keys": [
+                "intent_metrics_applicable",
+                "iso_hidden_count",
+                "overflow_count",
+                "text_overlap_pairs",
+                "dim_overlap_pairs",
+                "notes_overflow",
+                "gdt_unanchored",
+                "dense_iso",
+                "stroke_violations",
+                "float_precision_count",
+                "dim_completeness",
+                "dim_redundancy",
+                "datum_coherence",
+                "view_coverage",
+                "note_convention",
+                "required_presence_rate",
+                "required_presence_miss",
+                "value_inconsistency",
+                "virtual_pcd_present",
+                "note_semantic_mismatch",
+                "dfm_error_count",
+                "dfm_warning_count"
+              ],
+              "detail_keys": [
+                "overflows",
+                "text_overlaps",
+                "required_presence_missing_ids"
+              ],
+              "evidence_state": "available",
+              "completeness_state": "complete",
+              "source_kind": "qa_metrics",
+              "source_artifact": "qa_report",
+              "source_ref": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing_qa.json"
+            },
+            {
+              "artifact_type": "svg",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+              "method": "svg_view_group_metadata",
+              "view_ids": [
+                "front",
+                "top",
+                "right"
+              ],
+              "evidence_state": "available",
+              "completeness_state": "complete",
+              "source_kind": "svg_view_metadata",
+              "source_artifact": "svg",
+              "source_ref": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg"
+            }
+          ],
+          "evaluated_view_ids": [
+            "front",
+            "top",
+            "right",
+            "page"
+          ],
+          "source_completeness": {
+            "layout_report": {
+              "source_kind": "layout_report",
+              "source_artifact": "layout_report",
+              "source_ref": "layout_report_views",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_layout_report.json",
+              "method": "layout_report_views",
+              "evidence_state": "available",
+              "completeness_state": "complete",
+              "available": true,
+              "inspected": true,
+              "missing_reasons": [],
+              "evidence_keys": [
+                "views",
+                "summary",
+                "overflow"
+              ]
+            },
+            "qa_metrics": {
+              "source_kind": "qa_metrics",
+              "source_artifact": "qa_report",
+              "source_ref": "qa_vector_metrics",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing_qa.json",
+              "method": "qa_vector_metrics",
+              "evidence_state": "available",
+              "completeness_state": "complete",
+              "available": true,
+              "inspected": true,
+              "missing_reasons": [],
+              "evidence_keys": [
+                "metrics.intent_metrics_applicable",
+                "metrics.iso_hidden_count",
+                "metrics.overflow_count",
+                "metrics.text_overlap_pairs",
+                "metrics.dim_overlap_pairs",
+                "metrics.notes_overflow",
+                "metrics.gdt_unanchored",
+                "metrics.dense_iso",
+                "metrics.stroke_violations",
+                "metrics.float_precision_count",
+                "metrics.dim_completeness",
+                "metrics.dim_redundancy",
+                "metrics.datum_coherence",
+                "metrics.view_coverage",
+                "metrics.note_convention",
+                "metrics.required_presence_rate",
+                "metrics.required_presence_miss",
+                "metrics.value_inconsistency",
+                "metrics.virtual_pcd_present",
+                "metrics.note_semantic_mismatch",
+                "metrics.dfm_error_count",
+                "metrics.dfm_warning_count",
+                "details.overflows",
+                "details.text_overlaps",
+                "details.required_presence_missing_ids"
+              ]
+            },
+            "svg_view_metadata": {
+              "source_kind": "svg_view_metadata",
+              "source_artifact": "svg",
+              "source_ref": "svg_view_group_metadata",
+              "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_drawing.svg",
+              "method": "svg_view_group_metadata",
+              "evidence_state": "available",
+              "completeness_state": "complete",
+              "available": true,
+              "inspected": true,
+              "missing_reasons": [],
+              "evidence_keys": [
+                "views.front",
+                "views.top",
+                "views.right"
+              ]
+            }
+          },
+          "metrics_available": {
+            "layout_views": true,
+            "overflow": true,
+            "text_overlap": true,
+            "dimension_overlap": true,
+            "notes_overflow": true,
+            "svg_view_metadata": true
+          }
+        }
+      },
+      "reviewer_feedback": {
+        "advisory_only": true,
+        "status": "none",
+        "evidence_state": "none",
+        "total_count": 0,
+        "unresolved_count": 0,
+        "linked_count": 0,
+        "unmatched_count": 0,
+        "stale_count": 0,
+        "orphaned_count": 0,
+        "invalid_count": 0,
+        "accepted_count": 0,
+        "resolved_count": 0,
+        "items": [],
+        "summary": "Reviewer feedback was not provided.",
+        "suggested_actions": [],
+        "suggested_action_details": [],
+        "path": null,
+        "provenance": {
+          "artifact_type": "reviewer_feedback_json",
+          "path": null,
+          "method": "explicit_reviewer_feedback_json",
+          "input_status": "none"
+        }
+      },
+      "recommended_actions": [
+        "Separate overlapping note or dimension text and reroute leaders if needed.",
+        "Add a required diameter dimension intent for \"hole_D1\".",
+        "Add a required diameter dimension intent for \"hole_D2\".",
+        "Add a required diameter dimension intent for \"hole_H1\".",
+        "Add a required diameter dimension intent for \"hole_H2\".",
+        "Enable or verify center marks/centerlines for hole views.",
+        "Add or verify the material note in the title block or general notes.",
+        "Add a local detail view only if diameter/location callouts collide or become unreadable."
+      ],
+      "blocking_issues": [],
+      "warnings": []
+    },
+    "dfm": {
+      "available": true,
+      "status": "pass",
+      "score": 95,
+      "severity_counts": {
+        "critical": 0,
+        "major": 0,
+        "minor": 1,
+        "info": 0
+      },
+      "top_fixes": [
+        "Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features."
+      ],
+      "blocking_issues": [],
+      "warnings": []
+    },
+    "fem": {
+      "available": false,
+      "status": "not_available",
+      "score": null,
+      "mesh_convergence_checked": null,
+      "blocking_issues": [],
+      "warnings": []
+    },
+    "tolerance": {
+      "available": false,
+      "status": "not_available",
+      "score": null,
+      "success_rate_pct": null,
+      "blocking_issues": [],
+      "warnings": []
+    }
+  },
+  "feature_catalog": {
+    "path": "${REPO_ROOT}/output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_feature_catalog.json",
+    "available": true,
+    "total_features": 6,
+    "recognized_features": 6,
+    "unknown_features": 0,
+    "recognition_policy": "conservative_config_evidence_only"
+  }
+}

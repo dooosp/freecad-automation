@@ -1,0 +1,22 @@
+{
+  "artifact_type": "import_diagnostics",
+  "generated_at": "2026-09-25T12:05:57.707Z",
+  "source_model_path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+  "file_type": "step",
+  "analysis_mode": "runtime_backed",
+  "model_kind": "part",
+  "unit_system": "mm",
+  "unit_assumption": {
+    "unit": "mm",
+    "source": "step-default",
+    "assumed": true,
+    "confidence": 0.72,
+    "rationale": "STEP imports default to millimeter assumptions unless stronger unit metadata is available."
+  },
+  "body_count": 1,
+  "part_count": null,
+  "diagnostics": [],
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ]
+}

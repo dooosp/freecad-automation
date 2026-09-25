@@ -1,0 +1,61 @@
+{
+  "artifact_type": "inspection_linkage",
+  "schema_version": "1.0",
+  "analysis_version": "d1",
+  "generated_at": "2026-09-25T12:06:00Z",
+  "part_id": "USB-HUB-PLATE-SIM",
+  "revision": "B",
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ],
+  "coverage": {
+    "source_artifact_count": 4,
+    "source_file_count": 3,
+    "hotspot_count": 4,
+    "inspection_record_count": 0,
+    "inspection_outlier_count": 0
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.68,
+    "rationale": "Inspection linkage uses deterministic token matching against geometry-derived categories."
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/config.toml",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "role": "evidence",
+      "label": "Context source file"
+    }
+  ],
+  "summary": {
+    "count": 0,
+    "out_of_tolerance": 0,
+    "in_tolerance": 0,
+    "unknown": 0
+  },
+  "linkage_stats": {
+    "matched_record_count": 0,
+    "ambiguous_record_count": 0,
+    "unmatched_record_count": 0
+  },
+  "records": []
+}

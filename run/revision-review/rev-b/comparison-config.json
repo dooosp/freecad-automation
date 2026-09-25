@@ -1,0 +1,329 @@
+{
+  "config_version": 1,
+  "name": "USB-HUB-PLATE-SIM",
+  "final": "final",
+  "product": {
+    "revision": "B",
+    "evidence_status": "SIMULATED - NOT FOR FABRICATION",
+    "part_id": "USB-HUB-PLATE-SIM",
+    "package_slug": "usb-hub-plate-simulated"
+  },
+  "shapes": [
+    {
+      "id": "plate",
+      "type": "box",
+      "length": 142,
+      "width": 74,
+      "height": 4
+    },
+    {
+      "id": "hole_D1",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        12,
+        12,
+        -1
+      ]
+    },
+    {
+      "id": "hole_D2",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        12,
+        62,
+        -1
+      ]
+    },
+    {
+      "id": "hole_H1",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        120,
+        12,
+        -1
+      ]
+    },
+    {
+      "id": "hole_H2",
+      "type": "cylinder",
+      "radius": 2.6,
+      "height": 6,
+      "position": [
+        120,
+        62,
+        -1
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "op": "cut",
+      "base": "plate",
+      "tool": "hole_D1",
+      "result": "cut_1"
+    },
+    {
+      "op": "cut",
+      "base": "cut_1",
+      "tool": "hole_D2",
+      "result": "cut_2"
+    },
+    {
+      "op": "cut",
+      "base": "cut_2",
+      "tool": "hole_H1",
+      "result": "cut_3"
+    },
+    {
+      "op": "cut",
+      "base": "cut_3",
+      "tool": "hole_H2",
+      "result": "final"
+    }
+  ],
+  "drawing": {
+    "views": [
+      "front",
+      "top",
+      "right"
+    ],
+    "units": "mm",
+    "scale": 1,
+    "meta": {
+      "part_name": "USB HUB ADAPTER - SIMULATED",
+      "drawing_no": "USB-SIM-B",
+      "material": "UNSPECIFIED",
+      "tolerance": "UNVERIFIED",
+      "designed_by": "AI SURROGATE"
+    },
+    "style": {
+      "show_hidden": true,
+      "show_centerlines": true,
+      "show_dimensions": true
+    },
+    "dimension_style": {
+      "type": "baseline"
+    },
+    "revisions": [
+      {
+        "rev": "B",
+        "date": "2026-09-12",
+        "description": "Move hub bracket 10 mm left - simulated",
+        "by": "AI"
+      }
+    ],
+    "notes": {
+      "general": [
+        "SIMULATED - NOT FOR FABRICATION",
+        "All sizes are assumptions; fit unverified.",
+        "Material and manufacturing tolerances unverified."
+      ]
+    }
+  },
+  "export": {
+    "formats": [
+      "step"
+    ],
+    "directory": "output/usb-hub-portfolio-VAokFT/rev-b"
+  },
+  "drawing_plan": {
+    "notes": {
+      "general": [
+        "SIMULATED - NOT FOR FABRICATION",
+        "Fit, material and tolerances are UNVERIFIED.",
+        "Top view origin: plate lower-left. X right, Y up. mm.",
+        "4 THROUGH HOLES DIA 5.2",
+        "D1: X12 Y12; D2: X12 Y62",
+        "H1: X120 Y12; H2: X120 Y62"
+      ]
+    },
+    "views": {
+      "enabled": [
+        "front",
+        "top",
+        "right"
+      ]
+    }
+  },
+  "drawing_intent": {
+    "part_type": "plate",
+    "required_dimensions": [
+      {
+        "id": "PLATE.LENGTH",
+        "feature": "plate",
+        "label": "Plate length",
+        "nominal_mm": 142,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.LENGTH"
+      },
+      {
+        "id": "PLATE.WIDTH",
+        "feature": "plate",
+        "label": "Plate width",
+        "nominal_mm": 74,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.WIDTH"
+      },
+      {
+        "id": "PLATE.THICKNESS",
+        "feature": "plate",
+        "label": "Plate height",
+        "nominal_mm": 4,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.THICKNESS"
+      },
+      {
+        "id": "D1.X",
+        "feature": "hole_D1",
+        "label": "D1 center X from plate lower-left",
+        "nominal_mm": 12,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:D1.X"
+      },
+      {
+        "id": "D1.Y",
+        "feature": "hole_D1",
+        "label": "D1 center Y from plate lower-left",
+        "nominal_mm": 12,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:D1.Y"
+      },
+      {
+        "id": "D1.DIAMETER",
+        "feature": "hole_D1",
+        "label": "D1 through-hole diameter",
+        "nominal_mm": 5.2,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:D1.DIAMETER"
+      },
+      {
+        "id": "D2.X",
+        "feature": "hole_D2",
+        "label": "D2 center X from plate lower-left",
+        "nominal_mm": 12,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:D2.X"
+      },
+      {
+        "id": "D2.Y",
+        "feature": "hole_D2",
+        "label": "D2 center Y from plate lower-left",
+        "nominal_mm": 62,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:D2.Y"
+      },
+      {
+        "id": "D2.DIAMETER",
+        "feature": "hole_D2",
+        "label": "D2 through-hole diameter",
+        "nominal_mm": 5.2,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:D2.DIAMETER"
+      },
+      {
+        "id": "H1.X",
+        "feature": "hole_H1",
+        "label": "H1 center X from plate lower-left",
+        "nominal_mm": 120,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:H1.X"
+      },
+      {
+        "id": "H1.Y",
+        "feature": "hole_H1",
+        "label": "H1 center Y from plate lower-left",
+        "nominal_mm": 12,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:H1.Y"
+      },
+      {
+        "id": "H1.DIAMETER",
+        "feature": "hole_H1",
+        "label": "H1 through-hole diameter",
+        "nominal_mm": 5.2,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:H1.DIAMETER"
+      },
+      {
+        "id": "H2.X",
+        "feature": "hole_H2",
+        "label": "H2 center X from plate lower-left",
+        "nominal_mm": 120,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:H2.X"
+      },
+      {
+        "id": "H2.Y",
+        "feature": "hole_H2",
+        "label": "H2 center Y from plate lower-left",
+        "nominal_mm": 62,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:H2.Y"
+      },
+      {
+        "id": "H2.DIAMETER",
+        "feature": "hole_H2",
+        "label": "H2 through-hole diameter",
+        "nominal_mm": 5.2,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:H2.DIAMETER"
+      },
+      {
+        "id": "HORIZONTAL.PITCH",
+        "feature": "hole_H1",
+        "label": "D1 to H1 X center pitch (same for D2 to H2)",
+        "nominal_mm": 108,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:HORIZONTAL.PITCH"
+      },
+      {
+        "id": "RIGHT.CENTER_MARGIN",
+        "feature": "hole_H1",
+        "label": "Right plate edge to H1 center (same for H2)",
+        "nominal_mm": 22,
+        "tolerance": null,
+        "required": true,
+        "reason": "Explicit synthetic requirement; manufacturing tolerance and inspection method unverified.",
+        "specification_reference": "USB-SIM-REQUIREMENTS:RIGHT.CENTER_MARGIN"
+      }
+    ]
+  }
+}

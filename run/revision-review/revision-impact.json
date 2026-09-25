@@ -1,0 +1,820 @@
+{
+  "artifact_type": "revision_impact_report",
+  "baseline": {
+    "artifact_refs": [
+      "input/412d434a2ce448ac/drawing_intent.json",
+      "input/4414b888abb5c41b/review-pack.json",
+      "input/8292c51e36110b41/comparison-config.json"
+    ],
+    "package_slug": "usb-hub-plate-simulated",
+    "part_id": "USB-HUB-PLATE-SIM",
+    "revision": "A",
+    "source_hashes": {
+      "config": "8292c51e36110b41f78b68daa1fefb5af008a5064b734111f3d02630cb820d37",
+      "drawing_intent": "412d434a2ce448ac05c3264bbb96db3a013978017d19f3211df87f137ea693ef",
+      "review_pack": "4414b888abb5c41bb4f4664adf38fb3fb7ec556284bb9b4ca0de854d529d8b72"
+    }
+  },
+  "boundaries": {
+    "canonical_artifacts_mutated": false,
+    "evidence_superseded": false,
+    "existing_evidence_mutated": false,
+    "generated_review_artifact": true,
+    "inspection_evidence_attached": false,
+    "measured_values_generated": false,
+    "readiness_regenerated": false,
+    "release_published": false
+  },
+  "candidate": {
+    "artifact_refs": [
+      "input/5dd1ab1d1daa4a51/review-pack.json",
+      "input/6fd08f902a4a266e/drawing_intent.json",
+      "input/bb32ae2311fce023/comparison-config.json"
+    ],
+    "package_slug": "usb-hub-plate-simulated",
+    "part_id": "USB-HUB-PLATE-SIM",
+    "revision": "B",
+    "source_hashes": {
+      "config": "bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+      "drawing_intent": "6fd08f902a4a266e6aca3511d1c13c383d3534c47433cc9958d7b7c3a90782d3",
+      "review_pack": "5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+    }
+  },
+  "changes": [
+    {
+      "affected_entity_id": "hole_H1",
+      "after_value": {
+        "dimensions": {
+          "height": 6,
+          "id": "hole_H1",
+          "position": [
+            120,
+            12,
+            -1
+          ],
+          "radius": 2.6,
+          "type": "cylinder"
+        },
+        "type": "cylinder"
+      },
+      "baseline_source_ref": "input/8292c51e36110b41/comparison-config.json",
+      "before_value": {
+        "dimensions": {
+          "height": 6,
+          "id": "hole_H1",
+          "position": [
+            130,
+            12,
+            -1
+          ],
+          "radius": 2.6,
+          "type": "cylinder"
+        },
+        "type": "cylinder"
+      },
+      "candidate_source_ref": "input/bb32ae2311fce023/comparison-config.json",
+      "change_id": "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b",
+      "change_type": "geometry_feature_modified",
+      "determinability": "determined",
+      "rationale": "Geometry feature hole_H1 changed under the same explicit stable identity.",
+      "required_action": "reinspect",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": "8292c51e36110b41f78b68daa1fefb5af008a5064b734111f3d02630cb820d37",
+        "candidate": "bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa"
+      },
+      "unit": null
+    },
+    {
+      "affected_entity_id": "feature:hole_pattern:7c08c061b8",
+      "after_value": null,
+      "baseline_source_ref": "input/4414b888abb5c41b/review-pack.json",
+      "before_value": {
+        "critical": null,
+        "details": {
+          "hole_count": 4,
+          "hole_diameter_mm": 5.2,
+          "pcd_mm": 128.156
+        },
+        "region_ref": "region:global",
+        "type": "hole_pattern"
+      },
+      "candidate_source_ref": null,
+      "change_id": "change_7657e762450c639aec76f6315f41ff78f4c35e65fc33a6cd0e4c40f0fdb1bbf9",
+      "change_type": "geometry_feature_removed",
+      "determinability": "determined",
+      "rationale": "Geometry feature feature:hole_pattern:7c08c061b8 was removed; existing records remain immutable and require review.",
+      "required_action": "human_review",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": "4414b888abb5c41bb4f4664adf38fb3fb7ec556284bb9b4ca0de854d529d8b72",
+        "candidate": null
+      },
+      "unit": null
+    },
+    {
+      "affected_entity_id": "HORIZONTAL.PITCH",
+      "after_value": 108,
+      "baseline_source_ref": "input/412d434a2ce448ac/drawing_intent.json",
+      "before_value": 118,
+      "candidate_source_ref": "input/6fd08f902a4a266e/drawing_intent.json",
+      "change_id": "change_84e2c4acfa2a16fdc5d9669194977ab5d1fc5b61f3add1448904b07334414606",
+      "change_type": "nominal_dimension_change",
+      "determinability": "determined",
+      "rationale": "Characteristic HORIZONTAL.PITCH has an exact normalized nominal change.",
+      "required_action": "reinspect",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": "412d434a2ce448ac05c3264bbb96db3a013978017d19f3211df87f137ea693ef",
+        "candidate": "6fd08f902a4a266e6aca3511d1c13c383d3534c47433cc9958d7b7c3a90782d3"
+      },
+      "unit": "mm"
+    },
+    {
+      "affected_entity_id": "H1.X",
+      "after_value": 120,
+      "baseline_source_ref": "input/412d434a2ce448ac/drawing_intent.json",
+      "before_value": 130,
+      "candidate_source_ref": "input/6fd08f902a4a266e/drawing_intent.json",
+      "change_id": "change_955c2e479d9ef56eef899a321167f3bfe86a9714637ba21d0ad5a4bcb623f08d",
+      "change_type": "nominal_dimension_change",
+      "determinability": "determined",
+      "rationale": "Characteristic H1.X has an exact normalized nominal change.",
+      "required_action": "reinspect",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": "412d434a2ce448ac05c3264bbb96db3a013978017d19f3211df87f137ea693ef",
+        "candidate": "6fd08f902a4a266e6aca3511d1c13c383d3534c47433cc9958d7b7c3a90782d3"
+      },
+      "unit": "mm"
+    },
+    {
+      "affected_entity_id": "H2.X",
+      "after_value": 120,
+      "baseline_source_ref": "input/412d434a2ce448ac/drawing_intent.json",
+      "before_value": 130,
+      "candidate_source_ref": "input/6fd08f902a4a266e/drawing_intent.json",
+      "change_id": "change_a5f7512311070d26884fca74a87fc14e0713b38d4389e6723c18ea65540b91a1",
+      "change_type": "nominal_dimension_change",
+      "determinability": "determined",
+      "rationale": "Characteristic H2.X has an exact normalized nominal change.",
+      "required_action": "reinspect",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": "412d434a2ce448ac05c3264bbb96db3a013978017d19f3211df87f137ea693ef",
+        "candidate": "6fd08f902a4a266e6aca3511d1c13c383d3534c47433cc9958d7b7c3a90782d3"
+      },
+      "unit": "mm"
+    },
+    {
+      "affected_entity_id": "RIGHT.CENTER_MARGIN",
+      "after_value": 22,
+      "baseline_source_ref": "input/412d434a2ce448ac/drawing_intent.json",
+      "before_value": 12,
+      "candidate_source_ref": "input/6fd08f902a4a266e/drawing_intent.json",
+      "change_id": "change_b1890716e201bfe787a38373d3831d932e2a3e1f04c1dae0c42b1324ea55b2b5",
+      "change_type": "nominal_dimension_change",
+      "determinability": "determined",
+      "rationale": "Characteristic RIGHT.CENTER_MARGIN has an exact normalized nominal change.",
+      "required_action": "reinspect",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": "412d434a2ce448ac05c3264bbb96db3a013978017d19f3211df87f137ea693ef",
+        "candidate": "6fd08f902a4a266e6aca3511d1c13c383d3534c47433cc9958d7b7c3a90782d3"
+      },
+      "unit": "mm"
+    },
+    {
+      "affected_entity_id": "feature:hole_pattern:cd5c293952",
+      "after_value": {
+        "critical": null,
+        "details": {
+          "hole_count": 4,
+          "hole_diameter_mm": 5.2,
+          "pcd_mm": 119.013
+        },
+        "region_ref": "region:global",
+        "type": "hole_pattern"
+      },
+      "baseline_source_ref": null,
+      "before_value": null,
+      "candidate_source_ref": "input/5dd1ab1d1daa4a51/review-pack.json",
+      "change_id": "change_d42b36207d8379e3a15cbcc999b00bac1fbd50884a51b54ca31bca59c18f3ae5",
+      "change_type": "geometry_feature_added",
+      "determinability": "determined",
+      "rationale": "Geometry feature feature:hole_pattern:cd5c293952 was added with explicit stable identity.",
+      "required_action": "reinspect",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": null,
+        "candidate": "5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      },
+      "unit": null
+    },
+    {
+      "affected_entity_id": "package:revision",
+      "after_value": "B",
+      "baseline_source_ref": "input/4414b888abb5c41b/review-pack.json",
+      "before_value": "A",
+      "candidate_source_ref": "input/5dd1ab1d1daa4a51/review-pack.json",
+      "change_id": "change_def614ed0f16edd869def05241a571effc13d9821c90942a29ef5f094098e003",
+      "change_type": "revision_identity_change",
+      "determinability": "determined",
+      "rationale": "The explicit package revision identifier changed.",
+      "required_action": "human_review",
+      "severity": "informational",
+      "source_hashes": {
+        "baseline": "4414b888abb5c41bb4f4664adf38fb3fb7ec556284bb9b4ca0de854d529d8b72",
+        "candidate": "5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      },
+      "unit": null
+    },
+    {
+      "affected_entity_id": "hole_H2",
+      "after_value": {
+        "dimensions": {
+          "height": 6,
+          "id": "hole_H2",
+          "position": [
+            120,
+            62,
+            -1
+          ],
+          "radius": 2.6,
+          "type": "cylinder"
+        },
+        "type": "cylinder"
+      },
+      "baseline_source_ref": "input/8292c51e36110b41/comparison-config.json",
+      "before_value": {
+        "dimensions": {
+          "height": 6,
+          "id": "hole_H2",
+          "position": [
+            130,
+            62,
+            -1
+          ],
+          "radius": 2.6,
+          "type": "cylinder"
+        },
+        "type": "cylinder"
+      },
+      "candidate_source_ref": "input/bb32ae2311fce023/comparison-config.json",
+      "change_id": "change_f832c9716e5116440713313a3ff9aaedf4fdde5167f00153f92eecbad68ece08",
+      "change_type": "geometry_feature_modified",
+      "determinability": "determined",
+      "rationale": "Geometry feature hole_H2 changed under the same explicit stable identity.",
+      "required_action": "reinspect",
+      "severity": "high",
+      "source_hashes": {
+        "baseline": "8292c51e36110b41f78b68daa1fefb5af008a5064b734111f3d02630cb820d37",
+        "candidate": "bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa"
+      },
+      "unit": null
+    }
+  ],
+  "evidence_applicability": {
+    "assessments": [
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_0e34e50379ea02d8fe42278511a7baacd77b96351b020c6bf9b8f1324b77a211",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "D2.Y",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_1f7de158cdc45cb980a9ad9debb9528442b63c533d3615a5bbc154214521dfd2",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "PLATE.THICKNESS",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_2cb901a67af87019f87ab071a6d3d038f1041d3436be2c8341278908cc0108c9",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "HORIZONTAL.PITCH",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b",
+          "change_84e2c4acfa2a16fdc5d9669194977ab5d1fc5b61f3add1448904b07334414606"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_3591efc3a6458cd4b9044273660127353178efd6dd00456202c8304ec9b47e53",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "H2.X",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_a5f7512311070d26884fca74a87fc14e0713b38d4389e6723c18ea65540b91a1",
+          "change_f832c9716e5116440713313a3ff9aaedf4fdde5167f00153f92eecbad68ece08"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_3dcdd3cce26d82c4f8db15647baa3634c5356e1f3764a14e6a367b7df542f16d",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "PLATE.WIDTH",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_5b1c39e286cdbcacfd364573d1e5a12ad5743d94e10caa3dc59c7fe0e608d9e6",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "D2.X",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_5f9ce04f390f3c383e0a7ca39a1dfdb241cd44b74f350fd5dafcbabfc86a08c2",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "H2.Y",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_f832c9716e5116440713313a3ff9aaedf4fdde5167f00153f92eecbad68ece08"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_68f158f4bc939cbd1bd03a5feb5d3c492abf49d66695ce50aeb5afecafe0cc55",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "D1.X",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_722f67f1e0ba73cb15d0c21aa80dce0258e9542f7745defa40fd6b5e4e5ff81d",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "PLATE.LENGTH",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_75192ef1af8f4e7df932aa6fcb6f6a7a94afd9f48add28979859cbbb832fbd18",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "H2.DIAMETER",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_f832c9716e5116440713313a3ff9aaedf4fdde5167f00153f92eecbad68ece08"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_9c1ea4b7cd3aa8dae535f885f05815bb6b0213139616c807abc73248bb71443e",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "H1.Y",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_aa963677842acfc015282ff9052b8baf05f7dfab989ced5df1f4c94a1d20dad5",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "H1.X",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b",
+          "change_955c2e479d9ef56eef899a321167f3bfe86a9714637ba21d0ad5a4bcb623f08d"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_ab8c3f4abc526a2d26a41bbaf650465ba3f8882bc8860f306d80618ec9fd6be3",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "RIGHT.CENTER_MARGIN",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b",
+          "change_b1890716e201bfe787a38373d3831d932e2a3e1f04c1dae0c42b1324ea55b2b5"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_aebf85870808ae5a45ff734ffcf35539099949d1dae6897675451f538b21897e",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "D1.Y",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "reinspection_required",
+        "assessment_id": "assessment_b5ffb55b286972a33700b2819ab0298c445af50cc76d2e53ef5efceceeec455a",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "H1.DIAMETER",
+        "human_decision_required": true,
+        "rationale": "Applicability follows the explicit normalized changes linked to this stable characteristic.",
+        "reinspection_action": "Perform a later authorized reinspection and attach genuine evidence through the separate onboarding workflow.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b"
+        ],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_ef165bb52e2d6af1052b152089d450cb40392ccb51cb9237737aa1d2dbd82978",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "D2.DIAMETER",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      },
+      {
+        "applicability_status": "unaffected",
+        "assessment_id": "assessment_ff46cfde5fca51d3c2c96397d8e4e53fc509c1d0e7289a476f3b8d3867dc77d6",
+        "authoritative_evidence_state_changed": false,
+        "baseline_package_revision": "A",
+        "candidate_package_revision": "B",
+        "evidence_or_characteristic_id": "D1.DIAMETER",
+        "human_decision_required": false,
+        "rationale": "No normalized engineering change is linked to this stable characteristic.",
+        "reinspection_action": null,
+        "related_change_ids": [],
+        "source_envelope_or_receipt_ref": null
+      }
+    ],
+    "authoritative_evidence_state_changed": false
+  },
+  "generated_at": "2026-09-25T12:05:57.707Z",
+  "reinspection_plan": {
+    "human_authorization_required": true,
+    "items": [
+      {
+        "affected_entity_id": "H2.DIAMETER",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 5.2,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_0c3d4806e4dad94a1c52f00662f6f16e12f7ed720a2bae8baf04a83cebdc1c14",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature H2.DIAMETER for the candidate revision.",
+        "related_change_ids": [
+          "change_f832c9716e5116440713313a3ff9aaedf4fdde5167f00153f92eecbad68ece08"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:H2.DIAMETER",
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "H2.X",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 120,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_59a5d5085556ff0e2cdae8730a2d932f657dfa58125731d1d62d879d27d23398",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature H2.X for the candidate revision.",
+        "related_change_ids": [
+          "change_a5f7512311070d26884fca74a87fc14e0713b38d4389e6723c18ea65540b91a1",
+          "change_f832c9716e5116440713313a3ff9aaedf4fdde5167f00153f92eecbad68ece08"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/412d434a2ce448ac/drawing_intent.json",
+          "input/6fd08f902a4a266e/drawing_intent.json",
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:H2.X",
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "feature:hole_pattern:cd5c293952",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": null,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_815767f03d76c2a850d2adf3bf8ebba75391f756322ec0270ef87d7c9ed3c9b7",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature feature:hole_pattern:cd5c293952 for the candidate revision.",
+        "related_change_ids": [
+          "change_d42b36207d8379e3a15cbcc999b00bac1fbd50884a51b54ca31bca59c18f3ae5"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/5dd1ab1d1daa4a51/review-pack.json"
+        ],
+        "specification_ref": null,
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "H1.DIAMETER",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 5.2,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_9e0f78772d303e1acbc0f77f71b70444f6520858cbb7311fa187171e727922f9",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature H1.DIAMETER for the candidate revision.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:H1.DIAMETER",
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "H1.X",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 120,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_a7f2e5876296169da862a7ecce7448412faf46d7d41705f43352febb90a00639",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature H1.X for the candidate revision.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b",
+          "change_955c2e479d9ef56eef899a321167f3bfe86a9714637ba21d0ad5a4bcb623f08d"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/412d434a2ce448ac/drawing_intent.json",
+          "input/6fd08f902a4a266e/drawing_intent.json",
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:H1.X",
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "HORIZONTAL.PITCH",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 108,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_b73b1cc6e0c94bf0e39d3fda5b01fe2ec22661d2a8bca5239078384899e4dd9d",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature HORIZONTAL.PITCH for the candidate revision.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b",
+          "change_84e2c4acfa2a16fdc5d9669194977ab5d1fc5b61f3add1448904b07334414606"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/412d434a2ce448ac/drawing_intent.json",
+          "input/6fd08f902a4a266e/drawing_intent.json",
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:HORIZONTAL.PITCH",
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "H2.Y",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 62,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_c6fd25279782d3db170e717ab66fa5fc91b4d1e7d763f2c14bbdb1e389e16553",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature H2.Y for the candidate revision.",
+        "related_change_ids": [
+          "change_f832c9716e5116440713313a3ff9aaedf4fdde5167f00153f92eecbad68ece08"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:H2.Y",
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "H1.Y",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 12,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_dac9cc2ce181754bd365a8faf945850930513e637d5c86e4dfe62a6dc1e4660e",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature H1.Y for the candidate revision.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:H1.Y",
+        "suggested_method": null,
+        "tolerance": null
+      },
+      {
+        "affected_entity_id": "RIGHT.CENTER_MARGIN",
+        "attachment_authorization_required": true,
+        "candidate_revision": "B",
+        "execution_status": "not_started",
+        "human_reviewer_required": true,
+        "nominal_value": 22,
+        "package_slug": "usb-hub-plate-simulated",
+        "plan_item_id": "plan_f6bf82a6d9ce0faf81d4d45757b7d9778ffe21606489daa393d6d172529acbfd",
+        "readiness_regeneration_required_later": true,
+        "reason": "One or more determined engineering changes require future reinspection; this item is not completed evidence.",
+        "recommended_inspection_scope": "Reinspect stable characteristic or feature RIGHT.CENTER_MARGIN for the candidate revision.",
+        "related_change_ids": [
+          "change_044428516f57b4dccf1fe0355f938a6ae5fe3386d09f1a39eb7bb632ebe6926b",
+          "change_b1890716e201bfe787a38373d3831d932e2a3e1f04c1dae0c42b1324ea55b2b5"
+        ],
+        "required_evidence_fields": [
+          "characteristic_id",
+          "measured_value",
+          "result",
+          "source_document_sha256",
+          "unit"
+        ],
+        "source_artifact_refs": [
+          "input/412d434a2ce448ac/drawing_intent.json",
+          "input/6fd08f902a4a266e/drawing_intent.json",
+          "input/8292c51e36110b41/comparison-config.json",
+          "input/bb32ae2311fce023/comparison-config.json"
+        ],
+        "specification_ref": "USB-SIM-REQUIREMENTS:RIGHT.CENTER_MARGIN",
+        "suggested_method": null,
+        "tolerance": null
+      }
+    ],
+    "status": "planned"
+  },
+  "schema_version": "1.0",
+  "summary": {
+    "decision": "reinspection_required",
+    "material_change_count": 8,
+    "readiness_review_required": true,
+    "reinspection_required_count": 9,
+    "review_required_count": 2,
+    "unable_to_determine_count": 0
+  }
+}

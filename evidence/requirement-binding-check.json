@@ -1,0 +1,6 @@
+{
+  "pass": true,
+  "scenario": "Synthetic requirement H1.X=131 while saved STEP measures130",
+  "result": "rejected before CLI review execution",
+  "cli_calls": 0
+}

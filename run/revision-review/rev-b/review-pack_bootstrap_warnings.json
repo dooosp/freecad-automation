@@ -1,0 +1,8 @@
+{
+  "artifact_type": "bootstrap_warnings",
+  "generated_at": "2026-09-25T12:05:57.707Z",
+  "warning_count": 1,
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ]
+}

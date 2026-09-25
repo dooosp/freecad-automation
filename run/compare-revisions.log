@@ -1,0 +1,5 @@
+Revision comparison: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/revision-comparison.json
+Revision impact report: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/revision-impact.json
+Revision impact Markdown: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/revision-impact.md
+Manifest: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/revision-comparison_artifact-manifest.json
+

@@ -1,0 +1,96 @@
+{
+  "success": true,
+  "process": "machining",
+  "resolved_process": "machining",
+  "material": "unknown",
+  "rule_profile": {
+    "id": "ks-basic",
+    "label": "KS basic rule profile"
+  },
+  "checks": [
+    {
+      "code": "DFM-04",
+      "severity": "warning",
+      "message": "No fillet or chamfer operations found — internal corners may cause stress concentration",
+      "recommendation": "Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
+      "feature_type": "internal_corner",
+      "actual_value": 0,
+      "actual_unit": "count",
+      "required_value": 1,
+      "required_unit": "count",
+      "delta": -1,
+      "evidence": {
+        "measurement": "corner_relief_ops",
+        "fillet_count": 0,
+        "chamfer_count": 0
+      },
+      "rule_id": "DFM-04",
+      "rule_name": "Internal corner relief",
+      "status": "warning",
+      "actionable_severity": "minor",
+      "part_name": "usb_hub_surrogate_B",
+      "process": "machining",
+      "material": "unknown",
+      "manufacturability_impact": "Sharp internal corners increase tool load and stress concentration and can shorten tool life.",
+      "suggested_fix": "Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
+      "confidence": "medium",
+      "score_impact": 5
+    }
+  ],
+  "issues": [
+    {
+      "rule_id": "DFM-04",
+      "rule_name": "Internal corner relief",
+      "severity": "minor",
+      "status": "warning",
+      "part_id": null,
+      "part_name": "usb_hub_surrogate_B",
+      "feature_id": null,
+      "feature_type": "internal_corner",
+      "actual_value": 0,
+      "actual_unit": "count",
+      "required_value": 1,
+      "required_unit": "count",
+      "delta": -1,
+      "process": "machining",
+      "material": "unknown",
+      "message": "No fillet or chamfer operations found — internal corners may cause stress concentration",
+      "manufacturability_impact": "Sharp internal corners increase tool load and stress concentration and can shorten tool life.",
+      "suggested_fix": "Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
+      "confidence": "medium",
+      "evidence": {
+        "measurement": "corner_relief_ops",
+        "fillet_count": 0,
+        "chamfer_count": 0
+      },
+      "score_impact": 5
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "info": 0,
+    "total": 1,
+    "severity_counts": {
+      "critical": 0,
+      "major": 0,
+      "minor": 1,
+      "info": 0
+    },
+    "top_fixes": [
+      {
+        "rule_id": "DFM-04",
+        "severity": "minor",
+        "feature_id": null,
+        "suggested_fix": "Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
+        "score_impact": 5
+      }
+    ],
+    "score_impact": {
+      "error_penalty": 0,
+      "warning_penalty": 5,
+      "total_penalty": 5
+    }
+  },
+  "score": 95
+}

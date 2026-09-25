@@ -1,0 +1,1356 @@
+{
+  "artifact_type": "inspection_plan",
+  "schema_version": "1.0",
+  "generated_at": "2026-09-25T12:05:57.707Z",
+  "plan_id": "inspection-plan:767890382a5942240c2d9d7a",
+  "status": "review_required",
+  "scope": "full",
+  "package": {
+    "slug": "usb-hub-plate-simulated",
+    "revision": "B",
+    "part_identifier": "USB-HUB-PLATE-SIM"
+  },
+  "source_snapshot": {
+    "review_pack": {
+      "artifact_type": "review_pack",
+      "path": "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/review-pack.json",
+      "sha256": "5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+    },
+    "config": {
+      "artifact_type": "config",
+      "path": "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/comparison-config.json",
+      "sha256": "bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa"
+    },
+    "requirements": {
+      "artifact_type": "inspection_requirements",
+      "path": "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/inspection-requirements.json",
+      "sha256": "c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5"
+    }
+  },
+  "authority_summary": {
+    "authoritative_item_count": 0,
+    "advisory_item_count": 17,
+    "blocked_item_count": 0,
+    "human_release_required": true
+  },
+  "items": [
+    {
+      "plan_item_id": "ipi:009bf742fedc86207a7d16fd",
+      "characteristic_id": "RIGHT.CENTER_MARGIN",
+      "feature_id": "hole_H1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "Right plate edge to H1 center (same for H2)",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 22,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:RIGHT.CENTER_MARGIN",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:2a21b5ba3246f3b23f447492",
+      "characteristic_id": "D2.Y",
+      "feature_id": "hole_D2",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "D2 center Y from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 62,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D2.Y",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:30150e5d1727eb1f53b91efd",
+      "characteristic_id": "H1.X",
+      "feature_id": "hole_H1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "H1 center X from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 120,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H1.X",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:3a8f1babc8a756bda420b5ea",
+      "characteristic_id": "H1.DIAMETER",
+      "feature_id": "hole_H1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "H1 through-hole diameter",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 5.2,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H1.DIAMETER",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:41abaa319023afd4d7980877",
+      "characteristic_id": "D2.DIAMETER",
+      "feature_id": "hole_D2",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "D2 through-hole diameter",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 5.2,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D2.DIAMETER",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:4b85ccc70b505a53d009778c",
+      "characteristic_id": "D1.X",
+      "feature_id": "hole_D1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "D1 center X from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 12,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D1.X",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:5241f1454933885d9848dc3d",
+      "characteristic_id": "H2.Y",
+      "feature_id": "hole_H2",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "H2 center Y from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 62,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H2.Y",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:568863b4351c1ca4298863d7",
+      "characteristic_id": "D2.X",
+      "feature_id": "hole_D2",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "D2 center X from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 12,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D2.X",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:79c33781fb5f84e4b2cd7a21",
+      "characteristic_id": "D1.Y",
+      "feature_id": "hole_D1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "D1 center Y from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 12,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D1.Y",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:7c02bcaf095d646084413b6b",
+      "characteristic_id": "HORIZONTAL.PITCH",
+      "feature_id": "hole_H1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "D1 to H1 X center pitch (same for D2 to H2)",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 108,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:HORIZONTAL.PITCH",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:85de582452bb76665d69f075",
+      "characteristic_id": "H2.X",
+      "feature_id": "hole_H2",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "H2 center X from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 120,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H2.X",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:a195eaf80c4ab7263ff75cbd",
+      "characteristic_id": "PLATE.WIDTH",
+      "feature_id": "plate",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "Plate width",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 74,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.WIDTH",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:ac0d2dba2c08f98da431abc1",
+      "characteristic_id": "D1.DIAMETER",
+      "feature_id": "hole_D1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "D1 through-hole diameter",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 5.2,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:D1.DIAMETER",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:c5cdd6d82c7918767b1fb1ae",
+      "characteristic_id": "H2.DIAMETER",
+      "feature_id": "hole_H2",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "H2 through-hole diameter",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 5.2,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H2.DIAMETER",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:c7394455174784fb95116fc5",
+      "characteristic_id": "PLATE.THICKNESS",
+      "feature_id": "plate",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "Plate height",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 4,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.THICKNESS",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:dda3eebe1810527b7d72d75a",
+      "characteristic_id": "H1.Y",
+      "feature_id": "hole_H1",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "H1 center Y from plate lower-left",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 12,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:H1.Y",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    {
+      "plan_item_id": "ipi:f78998b38a9cd0d058d221da",
+      "characteristic_id": "PLATE.LENGTH",
+      "feature_id": "plate",
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "Plate length",
+      "inspection_purpose": "Verify the explicit inspection requirement.",
+      "revision_impact_change_ids": [],
+      "nominal_value": 142,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": "mm",
+      "datum_reference": null,
+      "specification_reference": "USB-SIM-REQUIREMENTS:PLATE.LENGTH",
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ],
+      "field_authority": {
+        "nominal_value": "authoritative_released_requirement",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "authoritative_released_requirement",
+        "datum_reference": "unresolved",
+        "specification_reference": "authoritative_released_requirement",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "unresolved"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    }
+  ],
+  "unresolved_requirements": [
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:009bf742fedc86207a7d16fd",
+      "message": "RIGHT.CENTER_MARGIN: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:009bf742fedc86207a7d16fd",
+      "message": "RIGHT.CENTER_MARGIN: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:2a21b5ba3246f3b23f447492",
+      "message": "D2.Y: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:2a21b5ba3246f3b23f447492",
+      "message": "D2.Y: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:30150e5d1727eb1f53b91efd",
+      "message": "H1.X: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:30150e5d1727eb1f53b91efd",
+      "message": "H1.X: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:3a8f1babc8a756bda420b5ea",
+      "message": "H1.DIAMETER: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:3a8f1babc8a756bda420b5ea",
+      "message": "H1.DIAMETER: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:41abaa319023afd4d7980877",
+      "message": "D2.DIAMETER: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:41abaa319023afd4d7980877",
+      "message": "D2.DIAMETER: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:4b85ccc70b505a53d009778c",
+      "message": "D1.X: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:4b85ccc70b505a53d009778c",
+      "message": "D1.X: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:5241f1454933885d9848dc3d",
+      "message": "H2.Y: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:5241f1454933885d9848dc3d",
+      "message": "H2.Y: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:568863b4351c1ca4298863d7",
+      "message": "D2.X: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:568863b4351c1ca4298863d7",
+      "message": "D2.X: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:79c33781fb5f84e4b2cd7a21",
+      "message": "D1.Y: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:79c33781fb5f84e4b2cd7a21",
+      "message": "D1.Y: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:7c02bcaf095d646084413b6b",
+      "message": "HORIZONTAL.PITCH: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:7c02bcaf095d646084413b6b",
+      "message": "HORIZONTAL.PITCH: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:85de582452bb76665d69f075",
+      "message": "H2.X: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:85de582452bb76665d69f075",
+      "message": "H2.X: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:a195eaf80c4ab7263ff75cbd",
+      "message": "PLATE.WIDTH: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:a195eaf80c4ab7263ff75cbd",
+      "message": "PLATE.WIDTH: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:ac0d2dba2c08f98da431abc1",
+      "message": "D1.DIAMETER: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:ac0d2dba2c08f98da431abc1",
+      "message": "D1.DIAMETER: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:c5cdd6d82c7918767b1fb1ae",
+      "message": "H2.DIAMETER: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:c5cdd6d82c7918767b1fb1ae",
+      "message": "H2.DIAMETER: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:c7394455174784fb95116fc5",
+      "message": "PLATE.THICKNESS: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:c7394455174784fb95116fc5",
+      "message": "PLATE.THICKNESS: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:dda3eebe1810527b7d72d75a",
+      "message": "H1.Y: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:dda3eebe1810527b7d72d75a",
+      "message": "H1.Y: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "inspection_method_unresolved",
+      "plan_item_id": "ipi:f78998b38a9cd0d058d221da",
+      "message": "PLATE.LENGTH: inspection method unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    },
+    {
+      "code": "tolerance_unresolved",
+      "plan_item_id": "ipi:f78998b38a9cd0d058d221da",
+      "message": "PLATE.LENGTH: tolerance unresolved",
+      "source_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+      ]
+    }
+  ],
+  "derived_outputs": {
+    "checksheet": {
+      "artifact_type": "inspection_checksheet.csv",
+      "generated_control_artifact": true
+    },
+    "supplier_request": {
+      "artifact_type": "supplier_inspection_request.md",
+      "generated_control_artifact": true
+    },
+    "result_template": {
+      "artifact_type": "inspection_result_template.csv",
+      "generated_control_artifact": true
+    }
+  },
+  "boundaries": {
+    "generated_control_artifact": true,
+    "released_document": false,
+    "inspection_evidence": false,
+    "measured_results_present": false,
+    "evidence_attached": false,
+    "readiness_regenerated": false,
+    "canonical_artifacts_mutated": false,
+    "human_release_required": true
+  }
+}

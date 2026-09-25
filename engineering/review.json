@@ -1,0 +1,586 @@
+{
+  "record_type": "downstream_synthetic_engineering_review",
+  "generated_at": "2026-09-25T12:27:17.342Z",
+  "source_run": "output/usb-hub-portfolio-VAokFT",
+  "source_head": "4dba0d32fe1b10f2266f27501165e56df9f943af",
+  "source_files_unchanged": true,
+  "production_trust": false,
+  "report": {
+    "file": "output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report_summary.json",
+    "overall_status": "pass",
+    "ready_for_manufacturing_review": true,
+    "blocking_issues": [],
+    "warnings": [],
+    "surfaces": {
+      "create_quality": {
+        "available": true,
+        "status": "pass",
+        "score": null
+      },
+      "drawing_quality": {
+        "available": true,
+        "status": "pass",
+        "score": 89
+      },
+      "dfm": {
+        "available": true,
+        "status": "pass",
+        "score": 95,
+        "severity_counts": {
+          "critical": 0,
+          "major": 0,
+          "minor": 1,
+          "info": 0
+        }
+      },
+      "fem": {
+        "available": false,
+        "status": "not_available",
+        "score": null
+      },
+      "tolerance": {
+        "available": false,
+        "status": "not_available",
+        "score": null
+      }
+    }
+  },
+  "dfm": {
+    "file": "output/usb-hub-engineering-review-WRU6p3/rev-b/dfm.json",
+    "process": "machining",
+    "score": 95,
+    "summary": {
+      "errors": 0,
+      "warnings": 1,
+      "info": 0,
+      "total": 1,
+      "severity_counts": {
+        "critical": 0,
+        "major": 0,
+        "minor": 1,
+        "info": 0
+      },
+      "top_fixes": [
+        {
+          "rule_id": "DFM-04",
+          "severity": "minor",
+          "feature_id": null,
+          "suggested_fix": "Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
+          "score_impact": 5
+        }
+      ],
+      "score_impact": {
+        "error_penalty": 0,
+        "warning_penalty": 5,
+        "total_penalty": 5
+      }
+    },
+    "issues": [
+      {
+        "rule_id": "DFM-04",
+        "rule_name": "Internal corner relief",
+        "severity": "minor",
+        "status": "warning",
+        "part_id": null,
+        "part_name": "usb_hub_surrogate_B",
+        "feature_id": null,
+        "feature_type": "internal_corner",
+        "actual_value": 0,
+        "actual_unit": "count",
+        "required_value": 1,
+        "required_unit": "count",
+        "delta": -1,
+        "process": "machining",
+        "material": "unknown",
+        "message": "No fillet or chamfer operations found — internal corners may cause stress concentration",
+        "manufacturability_impact": "Sharp internal corners increase tool load and stress concentration and can shorten tool life.",
+        "suggested_fix": "Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
+        "confidence": "medium",
+        "evidence": {
+          "measurement": "corner_relief_ops",
+          "fillet_count": 0,
+          "chamfer_count": 0
+        },
+        "score_impact": 5
+      }
+    ]
+  },
+  "pattern_reconciliation": {
+    "status": "geometry_correspondence_demonstrated_pending_human_review",
+    "patterns": {
+      "A": {
+        "derived_feature": {
+          "feature_id": "feature:hole_pattern:7c08c061b8",
+          "feature_type": "hole_pattern",
+          "region_ref": "region:global",
+          "entity_refs": [
+            "entity:bolt_circle_count4_d5p2_pcd128p156_c71_37_n01"
+          ],
+          "score": 0.7,
+          "confidence": 0.7,
+          "reason_codes": [
+            "geometry.hole_pattern.repeated",
+            "geometry.hole_pattern.dense"
+          ],
+          "evidence_refs": [],
+          "match_tokens": [
+            "hole",
+            "pattern",
+            "bore"
+          ],
+          "details": {
+            "hole_count": 4,
+            "hole_diameter_mm": 5.2,
+            "pcd_mm": 128.156
+          }
+        },
+        "entity": {
+          "entity_ref": "entity:bolt_circle_count4_d5p2_pcd128p156_c71_37_n01",
+          "entity_type": "bolt_circle",
+          "signature": "count4_d5p2_pcd128p156_c71_37",
+          "sequence": 1,
+          "source_index": 0,
+          "hole_count": 4,
+          "hole_diameter_mm": 5.2,
+          "pcd_mm": 128.156,
+          "center": [
+            71,
+            37
+          ]
+        },
+        "rectangle_circumdiameter_mm": 128.15615474880633,
+        "center_mm": [
+          71,
+          37
+        ],
+        "member_entity_refs": [
+          "entity:cylinder_hole_d5p2_a0_0_1_c12_12_neg1_n01",
+          "entity:cylinder_hole_d5p2_a0_0_1_c12_62_neg1_n01",
+          "entity:cylinder_hole_d5p2_a0_0_1_c130_12_neg1_n01",
+          "entity:cylinder_hole_d5p2_a0_0_1_c130_62_neg1_n01"
+        ]
+      },
+      "B": {
+        "derived_feature": {
+          "feature_id": "feature:hole_pattern:cd5c293952",
+          "feature_type": "hole_pattern",
+          "region_ref": "region:global",
+          "entity_refs": [
+            "entity:bolt_circle_count4_d5p2_pcd119p013_c66_37_n01"
+          ],
+          "score": 0.7,
+          "confidence": 0.7,
+          "reason_codes": [
+            "geometry.hole_pattern.repeated",
+            "geometry.hole_pattern.dense"
+          ],
+          "evidence_refs": [],
+          "match_tokens": [
+            "hole",
+            "pattern",
+            "bore"
+          ],
+          "details": {
+            "hole_count": 4,
+            "hole_diameter_mm": 5.2,
+            "pcd_mm": 119.013
+          }
+        },
+        "entity": {
+          "entity_ref": "entity:bolt_circle_count4_d5p2_pcd119p013_c66_37_n01",
+          "entity_type": "bolt_circle",
+          "signature": "count4_d5p2_pcd119p013_c66_37",
+          "sequence": 1,
+          "source_index": 0,
+          "hole_count": 4,
+          "hole_diameter_mm": 5.2,
+          "pcd_mm": 119.013,
+          "center": [
+            66,
+            37
+          ]
+        },
+        "rectangle_circumdiameter_mm": 119.01260437449471,
+        "center_mm": [
+          66,
+          37
+        ],
+        "member_entity_refs": [
+          "entity:cylinder_hole_d5p2_a0_0_1_c12_12_neg1_n01",
+          "entity:cylinder_hole_d5p2_a0_0_1_c12_62_neg1_n01",
+          "entity:cylinder_hole_d5p2_a0_0_1_c120_12_neg1_n01",
+          "entity:cylinder_hole_d5p2_a0_0_1_c120_62_neg1_n01"
+        ]
+      }
+    },
+    "canonical_changes": [
+      {
+        "affected_entity_id": "feature:hole_pattern:7c08c061b8",
+        "after_value": null,
+        "baseline_source_ref": "input/4414b888abb5c41b/review-pack.json",
+        "before_value": {
+          "critical": null,
+          "details": {
+            "hole_count": 4,
+            "hole_diameter_mm": 5.2,
+            "pcd_mm": 128.156
+          },
+          "region_ref": "region:global",
+          "type": "hole_pattern"
+        },
+        "candidate_source_ref": null,
+        "change_id": "change_7657e762450c639aec76f6315f41ff78f4c35e65fc33a6cd0e4c40f0fdb1bbf9",
+        "change_type": "geometry_feature_removed",
+        "determinability": "determined",
+        "rationale": "Geometry feature feature:hole_pattern:7c08c061b8 was removed; existing records remain immutable and require review.",
+        "required_action": "human_review",
+        "severity": "high",
+        "source_hashes": {
+          "baseline": "4414b888abb5c41bb4f4664adf38fb3fb7ec556284bb9b4ca0de854d529d8b72",
+          "candidate": null
+        },
+        "unit": null
+      },
+      {
+        "affected_entity_id": "feature:hole_pattern:cd5c293952",
+        "after_value": {
+          "critical": null,
+          "details": {
+            "hole_count": 4,
+            "hole_diameter_mm": 5.2,
+            "pcd_mm": 119.013
+          },
+          "region_ref": "region:global",
+          "type": "hole_pattern"
+        },
+        "baseline_source_ref": null,
+        "before_value": null,
+        "candidate_source_ref": "input/5dd1ab1d1daa4a51/review-pack.json",
+        "change_id": "change_d42b36207d8379e3a15cbcc999b00bac1fbd50884a51b54ca31bca59c18f3ae5",
+        "change_type": "geometry_feature_added",
+        "determinability": "determined",
+        "rationale": "Geometry feature feature:hole_pattern:cd5c293952 was added with explicit stable identity.",
+        "required_action": "reinspect",
+        "severity": "high",
+        "source_hashes": {
+          "baseline": null,
+          "candidate": "5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87"
+        },
+        "unit": null
+      }
+    ],
+    "canonical_delta_item": {
+      "plan_item_id": "ipi:3b81de1e20a54a03d0368891",
+      "characteristic_id": "feature:hole_pattern:cd5c293952",
+      "feature_id": null,
+      "package_slug": "usb-hub-plate-simulated",
+      "revision": "B",
+      "characteristic_name": "feature:hole_pattern:cd5c293952",
+      "inspection_purpose": "Resolve revision-affected or removed characteristic requirements.",
+      "revision_impact_change_ids": [
+        "change_d42b36207d8379e3a15cbcc999b00bac1fbd50884a51b54ca31bca59c18f3ae5"
+      ],
+      "nominal_value": null,
+      "lower_limit": null,
+      "upper_limit": null,
+      "unit": null,
+      "datum_reference": null,
+      "specification_reference": null,
+      "required_method": null,
+      "suggested_method": null,
+      "required_equipment_class": null,
+      "suggested_equipment_class": null,
+      "required_sampling": null,
+      "suggested_sampling": null,
+      "acceptance_rule": null,
+      "required_result_fields": [
+        "measured_value",
+        "measured_unit",
+        "result",
+        "completion_status",
+        "final_status"
+      ],
+      "required_provenance_fields": [
+        "inspector_reference",
+        "reviewer_reference",
+        "source_file_sha256"
+      ],
+      "source_artifact_refs": [
+        "config:bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+        "inspection_requirements:c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+        "review_pack:5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87",
+        "revision_impact_report:ffde287c769e7ec76d3af4e7d204bdcbe8615c6431b3c871747431d8512f3bff"
+      ],
+      "field_authority": {
+        "nominal_value": "unresolved",
+        "lower_limit": "unresolved",
+        "upper_limit": "unresolved",
+        "unit": "unresolved",
+        "datum_reference": "unresolved",
+        "specification_reference": "unresolved",
+        "required_method": "unresolved",
+        "required_equipment_class": "unresolved",
+        "required_sampling": "unresolved",
+        "revision_impact_change_ids": "revision_impact_requirement"
+      },
+      "human_review_required": true,
+      "human_release_required": true,
+      "current_status": "not_started",
+      "evidence_state_changed": false
+    },
+    "canonical_full_item_count": 17,
+    "canonical_delta_item_count": 9,
+    "canonical_plan_status": "review_required",
+    "canonical_plans_modified": false,
+    "description": "One summary of the same four hole roles with changed rectangular span; not a fifth physical hole or an independently released inspection requirement."
+  },
+  "geometry": {
+    "A": {
+      "holes_by_role": {
+        "D1": {
+          "x": 12,
+          "y": 12,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        },
+        "D2": {
+          "x": 12,
+          "y": 62,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        },
+        "H1": {
+          "x": 130,
+          "y": 12,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        },
+        "H2": {
+          "x": 130,
+          "y": 62,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        }
+      },
+      "bbox_mm": [
+        142,
+        74,
+        4
+      ],
+      "volume_mm3": 41692.20533858773,
+      "horizontal_pitch_mm": 118,
+      "vertical_pitch_mm": 50,
+      "horizontal_clear_ligament_mm": 112.8,
+      "vertical_clear_ligament_mm": 44.8,
+      "left_edge_ligament_mm": 9.4,
+      "right_edge_ligament_mm": 9.4,
+      "bottom_edge_ligament_mm": 9.4,
+      "top_edge_ligament_mm": 9.4,
+      "gross_section_area_mm2": 296,
+      "section_area_through_two_holes_mm2": 254.4,
+      "assumed_cantilever_length_mm": 118,
+      "gross_I_mm4": 394.6666666666667,
+      "gross_bending_stress_per_unit_load_MPa_per_N": 0.5979729729729729,
+      "E_times_tip_compliance_per_mm": 1387.695945945946
+    },
+    "B": {
+      "holes_by_role": {
+        "D1": {
+          "x": 12,
+          "y": 12,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        },
+        "D2": {
+          "x": 12,
+          "y": 62,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        },
+        "H1": {
+          "x": 120,
+          "y": 12,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        },
+        "H2": {
+          "x": 120,
+          "y": 62,
+          "diameter": 5.2,
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "z_min": 0,
+          "z_max": 4
+        }
+      },
+      "bbox_mm": [
+        142,
+        74,
+        4
+      ],
+      "volume_mm3": 41692.20533858772,
+      "horizontal_pitch_mm": 108,
+      "vertical_pitch_mm": 50,
+      "horizontal_clear_ligament_mm": 102.8,
+      "vertical_clear_ligament_mm": 44.8,
+      "left_edge_ligament_mm": 9.4,
+      "right_edge_ligament_mm": 19.4,
+      "bottom_edge_ligament_mm": 9.4,
+      "top_edge_ligament_mm": 9.4,
+      "gross_section_area_mm2": 296,
+      "section_area_through_two_holes_mm2": 254.4,
+      "assumed_cantilever_length_mm": 108,
+      "gross_I_mm4": 394.6666666666667,
+      "gross_bending_stress_per_unit_load_MPa_per_N": 0.5472972972972973,
+      "E_times_tip_compliance_per_mm": 1063.945945945946
+    }
+  },
+  "sensitivity": {
+    "length_ratio_B_over_A": 0.9152542372881356,
+    "bending_stress_ratio_B_over_A_same_load": 0.9152542372881356,
+    "tip_deflection_ratio_B_over_A_same_load_E_and_gross_section": 0.7666996138845744,
+    "assumed_model": "Uniform gross rectangular beam, full-width clamp at the D-hole centerline and centered transverse resultant at the H-hole line; small-deflection linear elasticity. Actual two-bolt support, holes, contact, local bearing, torsion and plate action are not modeled.",
+    "E_MPa": null,
+    "load_N": null,
+    "material": null,
+    "safety_factor": null
+  },
+  "physical_inspection_performed": false,
+  "FEA_performed": false,
+  "human_release": false,
+  "prior_report": {
+    "path": "output/portfolio-closeout-studio-20260925/jobs/df44fe09-2de4-4963-b649-f561fb392251/artifacts/usb_hub_surrogate_B_report_summary.json",
+    "sha256": "1aaf2da393f46f9e75a863ec690182717120ac09d0a296327e87a7c417a12ea2",
+    "overall_status": "incomplete",
+    "overall_score": null,
+    "ready_for_manufacturing_review": null,
+    "warnings": [
+      "create quality data is not available.",
+      "drawing quality data is not available.",
+      "dfm data is not available."
+    ],
+    "surfaces": {
+      "create_quality": {
+        "available": false,
+        "status": "not_available"
+      },
+      "drawing_quality": {
+        "available": false,
+        "status": "not_available"
+      },
+      "dfm": {
+        "available": false,
+        "status": "not_run"
+      },
+      "fem": {
+        "available": false,
+        "status": "not_available"
+      },
+      "tolerance": {
+        "available": false,
+        "status": "not_available"
+      }
+    }
+  },
+  "source_artifacts": [
+    {
+      "path": "output/portfolio-closeout-studio-20260925/jobs/df44fe09-2de4-4963-b649-f561fb392251/artifacts/usb_hub_surrogate_B_report_summary.json",
+      "sha256": "1aaf2da393f46f9e75a863ec690182717120ac09d0a296327e87a7c417a12ea2"
+    },
+    {
+      "path": "output/usb-hub-engineering-review-WRU6p3/rev-b/dfm.json",
+      "sha256": "29e8b7aae96c0c31577c06bf88066253969aa72cf52c013ffade55b55ed9db45"
+    },
+    {
+      "path": "output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report_summary.json",
+      "sha256": "ab1ca6c3bb776f560a1b2b2ab9e25f7a133b1c8b4c276a45a9133f6581386a6d"
+    },
+    {
+      "path": "output/usb-hub-engineering-review-WRU6p3/rev-b/usb_hub_surrogate_B_report.pdf",
+      "sha256": "e61f6c21f8a118e44bae8dae918e7e9fde7d216b7ac999479086b879f474b4e1"
+    },
+    {
+      "path": "output/usb-hub-portfolio-VAokFT/revision-review/revision-impact.json",
+      "sha256": "ffde287c769e7ec76d3af4e7d204bdcbe8615c6431b3c871747431d8512f3bff"
+    },
+    {
+      "path": "output/usb-hub-portfolio-VAokFT/revision-review/inspection-full.json",
+      "sha256": "a1c83cae3e5a36271724d2286194e179744721133144ebabde6750036563bbd3"
+    },
+    {
+      "path": "output/usb-hub-portfolio-VAokFT/revision-review/inspection-delta.json",
+      "sha256": "27cd948c1b1fae4538355692784cebe69a0b65460694b0d8f127b480de9cb112"
+    },
+    {
+      "path": "output/usb-hub-engineering-review-WRU6p3/source-measurement/measurements.json",
+      "sha256": "a1e8d898a50b468fa057b879aab412688b44a61430e7b9b15bfa05dfc97b0089"
+    }
+  ],
+  "primary_technical_references": [
+    {
+      "title": "MIT 1.050 Solid Mechanics, Stresses: Beams in Bending, pp.244 and 251",
+      "url": "https://ocw.mit.edu/courses/1-050-solid-mechanics-fall-2004/8f0200f4ca3236383a2ef048c7ec4c40_emech9_04.pdf",
+      "used_for": "sigma=My/I and I=bh^3/12"
+    },
+    {
+      "title": "MIT 1.050 Solid Mechanics, Problem Set 11, reference sheet page 2",
+      "url": "https://ocw.mit.edu/courses/1-050-solid-mechanics-fall-2004/fd4eff39aec922b8c07660006f40686e_pset04_11.pdf",
+      "used_for": "End-loaded cantilever deflection PL^3/(3EI)"
+    }
+  ],
+  "presentation_review": {
+    "pdf_pages": 3,
+    "all_pages_rendered_and_inspected": true,
+    "raw_report_pdf_polished_for_publication": false,
+    "observed_layout_issues": [
+      "Header/timestamp spacing overlaps",
+      "Page 3 recommendations heading and error/warning count line overlap"
+    ],
+    "canonical_pdf_modified": false
+  }
+}

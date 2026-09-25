@@ -1,0 +1,99 @@
+- link "작업 영역으로 건너뛰기":
+  - /url: "#workspace-root"
+- navigation "기본 탐색":
+  - paragraph: 만들기, 검토하기, 다시 열기
+  - heading "자동화 스튜디오" [level=1]
+  - paragraph: 목표를 선택하고 실행 내용을 확인한 뒤 결과를 엽니다.
+  - list "주요 탐색":
+    - link "홈 만들기, 검토하기, 다시 열기 중 원하는 목표를 선택합니다.":
+      - /url: "#start"
+      - generic: 홈
+      - generic: 만들기, 검토하기, 다시 열기 중 원하는 목표를 선택합니다.
+    - link "실행 내역 최근 모델, 도면, 보고서, 검토 결과로 돌아갑니다.":
+      - /url: "#history"
+      - generic: 실행 내역
+      - generic: 최근 모델, 도면, 보고서, 검토 결과로 돌아갑니다.
+    - link "결과 파일 생성된 모델, 도면, 보고서와 보조 파일을 엽니다.":
+      - /url: "#artifacts?job=7f84c1b8-9102-4b72-8480-8981d24f05ab"
+      - generic: 결과 파일
+      - generic: 생성된 모델, 도면, 보고서와 보조 파일을 엽니다.
+  - generic "고급 작업 편집, 준비 상태, 검사, API, 진단 기능을 엽니다. +":
+    - generic: 고급 작업
+    - generic: 편집, 준비 상태, 검사, API, 진단 기능을 엽니다.
+    - text: +
+- banner:
+  - paragraph: 목표 우선 작업 영역
+  - heading "FreeCAD 자동화 스튜디오" [level=2]
+  - paragraph: 생성된 모델, 도면, 보고서와 보조 파일을 엽니다.
+  - status:
+    - generic "FreeCAD 준비됨"
+  - generic: 언어
+  - combobox "언어":
+    - option "English"
+    - option "한국어" [selected]
+- status:
+  - paragraph: 추적 생성 완료
+  - paragraph: 작업이 성공했습니다.
+  - paragraph: 생성 파일과 품질 출력을 검토하려면 산출물을 여세요.
+  - button "산출물 열기"
+  - button "닫기"
+- main [active]:
+  - paragraph: 이전 결과
+  - heading "결과 파일" [level=2]
+  - paragraph: 먼저 주요 결과를 열고, 필요할 때만 보조 파일이나 고급 도구를 사용하세요.
+  - article:
+    - paragraph: 결과 요약
+    - heading "이 실행의 주요 결과" [level=3]
+    - paragraph: 완료된 실행을 품질 검토 통과로 오해하지 않도록 실행과 품질을 따로 표시합니다.
+    - term: 실행
+    - definition:
+      - generic: usb_hub_surrogate_B
+    - term: 주요 결과
+    - definition:
+      - generic: STEP 모델
+    - term: 실행
+    - definition:
+      - generic: 완료
+    - term: 품질
+    - definition:
+      - generic: 결과 없음
+    - term: 기타 결과 파일
+    - definition:
+      - generic: "2"
+    - article:
+      - heading "STEP 모델" [level=3]
+      - paragraph: 사용 가능 · 12.4 KB
+      - paragraph: usb_hub_surrogate_B.step
+      - button "결과 보기"
+      - 'button "추가 작업: STEP 모델"': ⋯
+  - article:
+    - paragraph: 보조 결과
+    - heading "기타 결과 파일" [level=3]
+    - paragraph: 내부 패키지 구조가 아니라 사용 목적에 따라 파일을 묶었습니다.
+    - region "기술 파일":
+      - heading "기술 파일" [level=3]
+      - article:
+        - heading "inline-config.json" [level=3]
+        - paragraph: 사용 가능 · 2.8 KB
+        - paragraph: inline-config.json
+        - button "세부 정보"
+        - 'button "추가 작업: inline-config.json"': ⋯
+      - article:
+        - heading "effective-config.json" [level=3]
+        - paragraph: 사용 가능 · 2.8 KB
+        - paragraph: effective-config.json
+        - button "세부 정보"
+        - 'button "추가 작업: effective-config.json"': ⋯
+  - article:
+    - paragraph: 선택한 결과
+    - heading "결과 미리보기와 파일 정보" [level=3]
+    - paragraph: 기존의 브라우저 안전 결과 경로만 사용해 미리보기를 표시합니다.
+    - heading "STEP 모델" [level=3]
+    - generic: ›
+    - heading "결과를 확인할 준비가 되었습니다" [level=3]
+    - paragraph: 위의 결과 보기를 선택하면 여기에서 주요 출력을 엽니다.
+    - generic "선택 작업"
+    - generic "기술 세부 정보와 출처"
+  - generic "고급 결과 도구 상세 검토, 비교, 유지관리 도구를 확인합니다.":
+    - generic: 고급 결과 도구
+    - generic: 상세 검토, 비교, 유지관리 도구를 확인합니다.

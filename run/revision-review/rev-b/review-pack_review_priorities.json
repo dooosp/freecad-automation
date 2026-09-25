@@ -1,0 +1,235 @@
+{
+  "artifact_type": "review_priorities",
+  "schema_version": "1.0",
+  "analysis_version": "d1",
+  "generated_at": "2026-09-25T12:06:00Z",
+  "part_id": "USB-HUB-PLATE-SIM",
+  "revision": "B",
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ],
+  "coverage": {
+    "source_artifact_count": 4,
+    "source_file_count": 3,
+    "hotspot_count": 4,
+    "inspection_record_count": 0,
+    "quality_issue_count": 0,
+    "review_priority_count": 4
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.72,
+    "rationale": "Priority ranking combines geometry, inspection, and quality evidence through auditable scoring rules."
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/config.toml",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "role": "evidence",
+      "label": "Context source file"
+    }
+  ],
+  "records": [
+    {
+      "priority_rank": 1,
+      "hotspot_id": "hotspot:complexity:63e8edf2ba",
+      "category": "complexity",
+      "hotspot_title": "High complexity review",
+      "score": 1,
+      "title": "Review High complexity review",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 1,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.512,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:complexity:63e8edf2ba"
+        }
+      ],
+      "rationale": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    },
+    {
+      "priority_rank": 2,
+      "hotspot_id": "hotspot:slenderness:0c165ba17b",
+      "category": "slenderness",
+      "hotspot_title": "Slender geometry review",
+      "score": 1,
+      "title": "Review Slender geometry review",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 1,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.512,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:slenderness:0c165ba17b"
+        }
+      ],
+      "rationale": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    },
+    {
+      "priority_rank": 3,
+      "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+      "category": "wall_thickness",
+      "hotspot_title": "Thin-wall candidate",
+      "score": 0.8,
+      "title": "Review Thin-wall candidate",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 0.8,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.443,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:wall_thickness:18df6aadd6"
+        }
+      ],
+      "rationale": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    },
+    {
+      "priority_rank": 4,
+      "hotspot_id": "hotspot:patterning:9f1f2b69ae",
+      "category": "patterning",
+      "hotspot_title": "Repeated hole pattern",
+      "score": 0.7,
+      "title": "Review Repeated hole pattern",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 0.7,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.407,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:patterning:9f1f2b69ae"
+        }
+      ],
+      "rationale": "Repeated hole pattern carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    }
+  ],
+  "recommended_actions": [
+    {
+      "action_id": "action-hotspot:complexity:63e8edf2ba",
+      "action_type": "design_review",
+      "priority_rank": 1,
+      "target_hotspot_id": "hotspot:complexity:63e8edf2ba",
+      "category": "complexity",
+      "based_on": "complexity",
+      "owner_role": "design_engineer",
+      "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
+      "why": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:complexity:63e8edf2ba"
+        }
+      ],
+      "confidence": 0.512,
+      "expected_effect": "Reduces avoidable downstream review churn and setup risk."
+    },
+    {
+      "action_id": "action-hotspot:slenderness:0c165ba17b",
+      "action_type": "fixture_review",
+      "priority_rank": 2,
+      "target_hotspot_id": "hotspot:slenderness:0c165ba17b",
+      "category": "slenderness",
+      "based_on": "slenderness",
+      "owner_role": "manufacturing_engineer",
+      "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
+      "why": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:slenderness:0c165ba17b"
+        }
+      ],
+      "confidence": 0.512,
+      "expected_effect": "Reduces handling-induced variation and fixture instability."
+    },
+    {
+      "action_id": "action-hotspot:wall_thickness:18df6aadd6",
+      "action_type": "process_control_review",
+      "priority_rank": 3,
+      "target_hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+      "category": "wall_thickness",
+      "based_on": "wall_thickness",
+      "owner_role": "manufacturing_engineer",
+      "recommended_action": "Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.",
+      "why": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:wall_thickness:18df6aadd6"
+        }
+      ],
+      "confidence": 0.443,
+      "expected_effect": "Reduces repeat distortion and clarifies whether design or process containment is needed."
+    }
+  ]
+}

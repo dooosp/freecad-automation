@@ -1,0 +1,6 @@
+Inspection plan: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/inspection-delta.json
+Checksheet: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/checksheet-delta.csv
+Manifest: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/inspection-delta_artifact-manifest.json
+  Status: review_required
+  Human release required: yes
+

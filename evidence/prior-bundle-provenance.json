@@ -1,0 +1,489 @@
+{
+  "kind": "Local synthetic software portfolio presentation; not inspection evidence or approval",
+  "source_head": "4dba0d32fe1b10f2266f27501165e56df9f943af",
+  "source_state": "Uncommitted F01/F03/F04 product fixes plus F02 portfolio sources; no commit/push/PR/deploy",
+  "cli_run_completed_at": "2026-09-25T12:06:04.463Z",
+  "node": "v25.8.0",
+  "freecad": [
+    "1",
+    "1",
+    "3",
+    "20260725 (Git shallow)",
+    "Unknown",
+    "2026/07/25 04:52:02",
+    "grafted,grafted",
+    "145529fe741292ff0b3977a01195bf0247425794"
+  ],
+  "ui": {
+    "job_executed_on": "2026-09-25",
+    "screenshot_captured_on": "2026-09-25",
+    "job_id": "9171a201-a4ca-432e-acae-2bb4a2c9b092",
+    "screenshot": "evidence/studio-fail.png",
+    "dom": "evidence/studio-fail-dom.txt",
+    "editing": "No image edits; browser viewport capture of new JSON-source draw job"
+  },
+  "f01_validation": {
+    "npm_test": "Prior F01 full suite passed2026-09-24; full combined suite passed2026-09-25.",
+    "prior_final_verification_sha256": "14116bed0e507801a3dcd3f2250649d42a900e1c2067a8081ad14063ce4704cf",
+    "modified_source_sha256": {
+      "public/js/i18n/en.js": "cb75e348366d5935510be752f62ca28e049947953083acf3f47aba1825a03f15",
+      "public/js/i18n/ko.js": "4ee13d9a5b9fb1872d123fc20c5cc3839c1a3c5f6186970a1dcbd75b465595ee",
+      "public/js/studio/artifacts-workspace.js": "e4bf602b8f351a10c6a5ae663294353fdc64be5ee73872ecf02b79583869f52a",
+      "public/js/studio/recent-job-quality-status.js": "8ffe5585c1e49a2da75134700ee6f0d2dabdf1c0124cfbc45bf8e23b90fbd272",
+      "public/js/studio/result-files.js": "26c01c936f58e5947cd644451f6e1de259571dbd4b4c1e230e143be02c030bc3",
+      "tests/result-files.test.js": "2c12f4167a9f3f6539a20df075f84b5eb9eb251851ed3b626fb62a73bc6a5dcc",
+      "tests/studio-jobs-center.test.js": "b446c6c1c4294e3c6b42e407c575395c27f1e2257acda9e889760c484440ad04"
+    },
+    "patch": "source/portfolio-software-fixes.patch"
+  },
+  "sources_and_raw_artifacts_copied_byte_identically": [
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/CLOSEOUT.ko.md",
+      "sha256": "ca4ef144b9802ceef32b41825681fd207c61df1b03800b00f72bd0240eedf02d",
+      "bytes": 5267
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/DEMO.ko.md",
+      "sha256": "1926c3151893941a3eaa9ba0ca43a4630bd998c4ea04c6d33fb2e4af10553143",
+      "bytes": 7043
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/README.ko.md",
+      "sha256": "6383ce4506125d1009460533f2bd597145aeec7576cb86ae085d6971034a0f81",
+      "bytes": 7605
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/inputs/rev-a.toml",
+      "sha256": "20a93256842c0a0ddc2c9f0b2a992f18aeeba0fc891c27442504f380600c6743",
+      "bytes": 1922
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/inputs/rev-b.toml",
+      "sha256": "ac608510fa095235af18d32d50c42abc81faec52a21bb93c0cb8f12179d03be3",
+      "bytes": 1946
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "sha256": "bcee36f9a6f663220b892223210e3f0987926791a17ba6c8cf04acd632dbfd08",
+      "bytes": 6081
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/measure.py",
+      "sha256": "785cb6fc57e07039ab99da088810525ff80b4c1876ddbdb1db884fa74b8b745c",
+      "bytes": 7010
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/reproduce.mjs",
+      "sha256": "b8d5f0c6890433f62b9eee887850abda068d93828d582a909ff33d348738f2b7",
+      "bytes": 6835
+    },
+    {
+      "file": "source/docs/portfolio/usb-hub-plate-change/revision-case.mjs",
+      "sha256": "fbcd088e1a0a97abff9d5532919456b7025a25531c21cc876a94aefc49338042",
+      "bytes": 10647
+    },
+    {
+      "file": "run/rev-a/usb_hub_surrogate_A.step",
+      "sha256": "abd417b3051167232004bf07470df0766524b1ae3e455a9eb345bc116bbdfb3d",
+      "bytes": 12652
+    },
+    {
+      "file": "run/rev-a/usb_hub_surrogate_A_drawing.svg",
+      "sha256": "0f51b097f760dbbd99580d0946bf342f7d471032b984db8ec54cd940ee0a8739",
+      "bytes": 37592
+    },
+    {
+      "file": "run/rev-b/usb_hub_surrogate_B.step",
+      "sha256": "729e4e755265e7e386040bc5f820b8034235eb10a811e2ef0c036bdbb03eeabe",
+      "bytes": 12652
+    },
+    {
+      "file": "run/rev-b/usb_hub_surrogate_B_drawing.svg",
+      "sha256": "3d391e14581e9a0440b5009dc0119fdccfd133966d4e16499884ece9b91916a1",
+      "bytes": 37989
+    },
+    {
+      "file": "run/case-result.json",
+      "sha256": "f3e78fa70647c5be3b6847eddb6fed52f9ca3805887de9069c9ad6999d0ba78a",
+      "bytes": 4460
+    },
+    {
+      "file": "run/measurements.json",
+      "sha256": "a1e8d898a50b468fa057b879aab412688b44a61430e7b9b15bfa05dfc97b0089",
+      "bytes": 4732
+    },
+    {
+      "file": "evidence/studio-fail.png",
+      "sha256": "2a5c7febef3d940fb57780e846e98095d3d7273efba5efd229f1966281ded459",
+      "bytes": 50581
+    },
+    {
+      "file": "evidence/studio-fail-dom.txt",
+      "sha256": "9a87902deca7274ffc48321b773389b53786db68adf49f81166879b83d5827eb",
+      "bytes": 9364
+    },
+    {
+      "file": "run/revision-review/case-review-result.json",
+      "sha256": "e5c22e7b01a3275d2e46b1824c6bc0a041703795265e35665fafc4dbbba898d7",
+      "bytes": 2839
+    },
+    {
+      "file": "run/revision-review/checksheet-delta.csv",
+      "sha256": "6fbcbf1b63f851f1e46a40f057c1a265c32098d02d5928196e44a4baf2dd8841",
+      "bytes": 3397
+    },
+    {
+      "file": "run/revision-review/checksheet-full.csv",
+      "sha256": "7c601cca2726cc053b005acc709b8a2ff3dd34159f57a777439072bd9031ac12",
+      "bytes": 4260
+    },
+    {
+      "file": "run/revision-review/inspection-delta.json",
+      "sha256": "27cd948c1b1fae4538355692784cebe69a0b65460694b0d8f127b480de9cb112",
+      "bytes": 33207
+    },
+    {
+      "file": "run/revision-review/inspection-full.json",
+      "sha256": "a1c83cae3e5a36271724d2286194e179744721133144ebabde6750036563bbd3",
+      "bytes": 53859
+    },
+    {
+      "file": "run/revision-review/rev-a/comparison-config.json",
+      "sha256": "8292c51e36110b41f78b68daa1fefb5af008a5064b734111f3d02630cb820d37",
+      "bytes": 9457
+    },
+    {
+      "file": "run/revision-review/rev-a/context.json",
+      "sha256": "b4a35d3232dbe2916ae112086b5b5f2f0ffe09fa734f6d6a7fd3daafd76e941e",
+      "bytes": 1836
+    },
+    {
+      "file": "run/revision-review/rev-a/inspection-requirements.json",
+      "sha256": "29a8340ebc27e7ef6e9131d1e8918bd2497ab355a595f2965ca9e963e4566974",
+      "bytes": 7279
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack.json",
+      "sha256": "4414b888abb5c41bb4f4664adf38fb3fb7ec556284bb9b4ca0de854d529d8b72",
+      "bytes": 25427
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_bootstrap_summary.json",
+      "sha256": "a1707b1bf0a644b02af5c0c37bcab431915a8b223cd4b032b4075509cee7feb1",
+      "bytes": 1308
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_bootstrap_warnings.json",
+      "sha256": "6f70573dd9a1a9c2e14b1792d0ccc55063dad9833d4e3234ac9d84d3cc40d1bd",
+      "bytes": 239
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_confidence_map.json",
+      "sha256": "57507da855b58e1f4b49cc00ff402b6afa2e8a16ffb3ce645e64674531bc8bef",
+      "bytes": 1029
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_context.json",
+      "sha256": "fd7497b847c3f97f078efbae6bd268efec987304e3e4c24960c602368333a361",
+      "bytes": 11057
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_engineering_context.json",
+      "sha256": "fd7497b847c3f97f078efbae6bd268efec987304e3e4c24960c602368333a361",
+      "bytes": 11057
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_geometry_intelligence.json",
+      "sha256": "930d6eb98a8d52daf320f9b0ba252c9fc1a2bb678f132ac46749b277efe35e0f",
+      "bytes": 27352
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_import_diagnostics.json",
+      "sha256": "6eecd31086a870b2f341e42d8baa095d40a833af8326358e3f2f223073edb977",
+      "bytes": 706
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_ingest_log.json",
+      "sha256": "1991c0aa26960de4e15d12723abbaf58bb2087c20f64ff39ec24a0efd10351aa",
+      "bytes": 359
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_inspection_linkage.json",
+      "sha256": "093c19d203e2cbf68c86c814592cda89aeed8cc1b54b47d1619d4522ee83a128",
+      "bytes": 1702
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_inspection_outliers.json",
+      "sha256": "6c1db664439054b14cf5baade95beb5c1b194266ecf60003a2aab24c85fd8359",
+      "bytes": 20
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_manufacturing_hotspots.json",
+      "sha256": "7fd78aba7d826040dc9c61f33893cffdbac14777f804e3859d90a9c49cd81a7c",
+      "bytes": 5554
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_quality_hotspots.json",
+      "sha256": "ec92b233aa0272d6c4995905d7d19725e60b6d9a9e2b214ee0842f1b5a13a21b",
+      "bytes": 71
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_quality_linkage.json",
+      "sha256": "cda843de6fed97604d90f8f1d9f90d411bcabbdb48c209c2139061210047325d",
+      "bytes": 1598
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_review_pack.md",
+      "sha256": "5d926bf3c073bfb6e778a6962320794df1cf63a28488e305159304aa6a23c1d3",
+      "bytes": 2474
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_review_priorities.json",
+      "sha256": "af24e8d1664b3a5e8b987cd617f07bbe8083ca61362b599082d518fd7493a7cd",
+      "bytes": 7970
+    },
+    {
+      "file": "run/revision-review/rev-b/comparison-config.json",
+      "sha256": "bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa",
+      "bytes": 9481
+    },
+    {
+      "file": "run/revision-review/rev-b/context.json",
+      "sha256": "fdf5f87803252129af57b869791d35d82521fa74d9cd69b6eff04e655b5c07ad",
+      "bytes": 1836
+    },
+    {
+      "file": "run/revision-review/rev-b/inspection-requirements.json",
+      "sha256": "c5e4ad5e9a13cfe791e2a9c5740608520a531919561ebcaa6fd9531eda8c0cf5",
+      "bytes": 7279
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack.json",
+      "sha256": "5dd1ab1d1daa4a5194ba20da7b16917c26c9099f128dd1d5afec67e809d55e87",
+      "bytes": 25427
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_bootstrap_summary.json",
+      "sha256": "b90967caca06803f075e7c6cbb2892c1d8c987dcfdae160b7cbc946e8a77ec4d",
+      "bytes": 1308
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_bootstrap_warnings.json",
+      "sha256": "6f70573dd9a1a9c2e14b1792d0ccc55063dad9833d4e3234ac9d84d3cc40d1bd",
+      "bytes": 239
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_confidence_map.json",
+      "sha256": "57507da855b58e1f4b49cc00ff402b6afa2e8a16ffb3ce645e64674531bc8bef",
+      "bytes": 1029
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_context.json",
+      "sha256": "c89bf65e7bc83f88cac9bd4c9bb6978ce2e9cf5b7df7d31e075896bb0ed55203",
+      "bytes": 11057
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_engineering_context.json",
+      "sha256": "c89bf65e7bc83f88cac9bd4c9bb6978ce2e9cf5b7df7d31e075896bb0ed55203",
+      "bytes": 11057
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_geometry_intelligence.json",
+      "sha256": "4c56c3521241172c5f6c083732a67962530e2cb07d536db76f435756cdbd75e7",
+      "bytes": 27352
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_import_diagnostics.json",
+      "sha256": "4b304a699f548dd7f923c087887845e76d7b135d1b0866b30dbb84a14de6d246",
+      "bytes": 706
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_ingest_log.json",
+      "sha256": "1991c0aa26960de4e15d12723abbaf58bb2087c20f64ff39ec24a0efd10351aa",
+      "bytes": 359
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_inspection_linkage.json",
+      "sha256": "8df1a2ba321edc57d6c1d7bdc5405a338029ab1b71fe63fd0d3b8ce575ec895c",
+      "bytes": 1702
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_inspection_outliers.json",
+      "sha256": "6c1db664439054b14cf5baade95beb5c1b194266ecf60003a2aab24c85fd8359",
+      "bytes": 20
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_manufacturing_hotspots.json",
+      "sha256": "e7a9e198343fabad9647adeb9f836f1b7a39d2d9a266cd92089882e0ade81a63",
+      "bytes": 5554
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_quality_hotspots.json",
+      "sha256": "ec92b233aa0272d6c4995905d7d19725e60b6d9a9e2b214ee0842f1b5a13a21b",
+      "bytes": 71
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_quality_linkage.json",
+      "sha256": "cbfb4310bff0e89524996f68ca8e11526bb8251af803ce71d1e2bc90f0310681",
+      "bytes": 1598
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_review_pack.md",
+      "sha256": "9ff1f70a423944d8778179073b5678c73aeddb829bc51b9d952bcb6da83032a8",
+      "bytes": 2474
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_review_priorities.json",
+      "sha256": "60e6092abfe52e7a545f3cc6fc8b6e7e481aa6e30f1c25c12cf0b28cbc9aec46",
+      "bytes": 7970
+    },
+    {
+      "file": "run/revision-review/revision-impact.json",
+      "sha256": "ffde287c769e7ec76d3af4e7d204bdcbe8615c6431b3c871747431d8512f3bff",
+      "bytes": 36161
+    },
+    {
+      "file": "run/revision-review/revision-impact.md",
+      "sha256": "0a9122d39b0507a981500a9660f9bcaf896d8a9835aff77d1c203c46519b2cf4",
+      "bytes": 38190
+    },
+    {
+      "file": "evidence/browser-workflow.json",
+      "sha256": "baa8e8c0af225a1de4ab9fefb30d53a801a47a10ab0622e9876394b34df490f0",
+      "bytes": 2819
+    },
+    {
+      "file": "evidence/browser-json-model-handoff.txt",
+      "sha256": "a5d022c0e3a7edcb92e6683e74b670bf0ab4fe473ae22e9daaca14165e394dd5",
+      "bytes": 5713
+    },
+    {
+      "file": "evidence/browser-json-tracked-create-complete.txt",
+      "sha256": "3dd4e6d9e52bf4cd3fa732600fdaebc9010aae1f024f2d0df249f969ddfa32b1",
+      "bytes": 4353
+    },
+    {
+      "file": "evidence/browser-json-drawing-preview.txt",
+      "sha256": "8bb6bd22445f6d18f3ffab3165d78207a6ceff1725944b6716d139d064a302f0",
+      "bytes": 9491
+    },
+    {
+      "file": "evidence/browser-json-tracked-draw.txt",
+      "sha256": "89e243cb6f7c25f3da457fb2ecd3f0fa720ec107fbdd030fec11da19f15160ad",
+      "bytes": 9101
+    },
+    {
+      "file": "evidence/browser-json-annotation-150.txt",
+      "sha256": "7e2da41cb853c4b5534010636da86e30eb826c5bf5be1a8f9adc93c2371e5bde",
+      "bytes": 9546
+    },
+    {
+      "file": "evidence/browser-json-report.txt",
+      "sha256": "24a892c8b34dc2412bde1bce700aeda4d3daf7512012f3f5411b0ebfa9acd7bb",
+      "bytes": 5004
+    },
+    {
+      "file": "evidence/browser-input/rev-b.json",
+      "sha256": "1739e1fc112c14d3a9ed11c1d1da2e15f8ee4a4e7e40516f60664b0bb253917b",
+      "bytes": 2837
+    }
+  ],
+  "presentation_transformations": [
+    "run/commands.json and command logs replace repository/executable installation paths with portable placeholders. Original bytes remain in the local run; source hashes are listed.",
+    "run/quality-observations.json selects status, score, traceability and blockers from original quality JSON; hashes identify those original local files.",
+    "index.html comparison diagrams are drawn from saved STEP measurements and labelled as explanatory figures. Full generated SVG files are copied unchanged.",
+    "Root case/demo Markdown links are adjusted for this bundle. The source/docs copies are unchanged."
+  ],
+  "original_command_ledger_sha256": "a246d5c614fb2988a2d8988e65d203934919baf5e5217f81e212ddc1b6b759b2",
+  "not_run": [
+    "physical inspection",
+    "fabrication",
+    "actual hub fit test",
+    "paid product AI API call",
+    "video recording"
+  ],
+  "incomplete": [
+    "Physical fit/material/load/manufacturing tolerances/inspection methods and inspection remain unverified.",
+    "Full and delta plans require human review; one content-derived auto pattern is not linked to a stable requirement.",
+    "Personal contribution/understanding requires the user; paid product AI and video recording were not run."
+  ],
+  "software_patch": {
+    "file": "source/portfolio-software-fixes.patch",
+    "sha256": "9273fd0fffb20f8735a7ea83ce556f5210c7a2892d951c5012b3abc04b081b99",
+    "base": "4dba0d32fe1b10f2266f27501165e56df9f943af",
+    "source_sha256": {
+      "public/js/i18n/en.js": "cb75e348366d5935510be752f62ca28e049947953083acf3f47aba1825a03f15",
+      "public/js/i18n/ko.js": "4ee13d9a5b9fb1872d123fc20c5cc3839c1a3c5f6186970a1dcbd75b465595ee",
+      "public/js/studio/artifacts-workspace.js": "e4bf602b8f351a10c6a5ae663294353fdc64be5ee73872ecf02b79583869f52a",
+      "public/js/studio/recent-job-quality-status.js": "8ffe5585c1e49a2da75134700ee6f0d2dabdf1c0124cfbc45bf8e23b90fbd272",
+      "public/js/studio/result-files.js": "26c01c936f58e5947cd644451f6e1de259571dbd4b4c1e230e143be02c030bc3",
+      "scripts/step_feature_detector.py": "5cbea10ab35e43bff739e8189a668513f39adf9e6d14357a38de5c0ab8b0dc6b",
+      "src/server/routes/local-api-studio-routes.js": "dc54ceda4473c2107211cc19aa80a6a610ee640466a221bb587fd6245b5f19d6",
+      "src/server/studio-drawing-service.js": "3c1337114ccc28e864c953aad8a944c5b5cd7a996e552ccffc05af2c51949da4",
+      "src/server/studio-job-bridge.js": "376555f3bfebcff9f08b9af34dd46a5f2d8a18ff7125672a9749ed9216077815",
+      "src/server/studio-model-service.js": "ea45ace4de5be92cffa92652793f2e9d761d01bd57ea6c0e2c711a8788f331ca",
+      "tests/local-api-studio-drawing.test.js": "c866c4458bbcc3e9df4d1d4cb7b0e08a2b172fedf892fe1ba05b936fa60383d9",
+      "tests/local-api-studio-model.test.js": "756a81cd286314d510f83a5ca420c1249c5324feeb6a9bfe83c3cb039787c379",
+      "tests/result-files.test.js": "2c12f4167a9f3f6539a20df075f84b5eb9eb251851ed3b626fb62a73bc6a5dcc",
+      "tests/studio-drawing-service.test.js": "f0246405c0b75c6b65c5d24b30dfdbf8d79980b15266fc64fa0d671d40c1f290",
+      "tests/studio-job-bridge.test.js": "f57a3436e4520bab4c5caf8e128e7933519858a318dddd2ae01b6a110fcbf569",
+      "tests/studio-jobs-center.test.js": "b446c6c1c4294e3c6b42e407c575395c27f1e2257acda9e889760c484440ad04",
+      "tests/test_step_feature_detector_entrypoint.py": "0e0146f662cc33a2d4914b77d3133411b05cd3d3ba6db2837f38b433bdcae9f5"
+    }
+  },
+  "original_log_sha256": {
+    "rev-a-create.log": "a078e719ba561161ea0f805b2e43841be03464df2fff47f115769daef3909a46",
+    "rev-a-draw.log": "ddec18f0579ef1e74c1b9f7993c4b5061aac43f1d367dc8f6a977c5705322cad",
+    "rev-b-create.log": "bdaa91d1b2773cf1364f6ab971c3142dd4f37d98ff291e385889e20c767d758c",
+    "rev-b-draw.log": "24e4f4db993b435dcc6b1ae50580b0b50338158c53f6e51a234fa89213918b00",
+    "annotation-warning.log": "f20bf8a5cf09c22d1e3c2c73dbed70d356f7c3f4a0bd5704d49b70a4eafb0467",
+    "annotation-strict.log": "6348425f88e8a933fa7569346bd120f392dad7b45b8f9af45343236312d0d331",
+    "measure.log": "22a4cef278b5e87255fd7be7fb440cf7220c0872a216e40b306b34894c619040",
+    "review-a.log": "efc7ca0d07f9ccfbe97bfd4079941685a4f41161c136c7702cb784c3f7c76ab9",
+    "review-b.log": "8c26f4814b9663444d4cfdf2f7cf6e5ac5a6a8381ce866eb959f56ffcd7a758f",
+    "compare-revisions.log": "c250fd43f2ea165c8676895e5a47952aa997fd09158e2ad9a07c52e88b4e4595",
+    "inspection-full.log": "31043d46b75e1f944b6b920e7a0dd5af1dc8ecd1a6a93f34681694a4abb7b52c",
+    "inspection-delta.log": "7339cad74f8dc4606d875c27ad1300456dd8814e04e7ff0bc2609f88e039d5a0"
+  },
+  "revision_review": {
+    "summary": "run/revision-review/case-review-result.json",
+    "impact": "run/revision-review/revision-impact.json",
+    "full_plan": "run/revision-review/inspection-full.json",
+    "delta_plan": "run/revision-review/inspection-delta.json",
+    "readiness_or_evidence_modified": false,
+    "requirement_authority_note": "authoritative_released_requirement is the existing CLI field classification for --requirements. This is a synthetic production_trust:false input, not a released real manufacturing specification."
+  },
+  "json_browser_input": "evidence/browser-input/rev-b.json",
+  "excluded_from_bundle": [
+    {
+      "file": "run/revision-review/revision-comparison.json",
+      "original_sha256": "a9d3f520423a1aace1c23fc542fb0b47937e5ec2633003e2a00c05593eb9d054",
+      "reason": "Machine-specific paths; original retained only in local run. Canonical impact/plans and source hashes are included separately."
+    },
+    {
+      "file": "run/revision-review/inspection-full_artifact-manifest.json",
+      "original_sha256": "e4f5845ef14b02251d709a4dea057456e7cad7d22bb2845bd01aa507c811e749",
+      "reason": "Machine-specific paths; original retained only in local run. Canonical impact/plans and source hashes are included separately."
+    },
+    {
+      "file": "run/revision-review/revision-comparison_artifact-manifest.json",
+      "original_sha256": "86f03101588fa3db89e71f81869a998c580dd19d50367f03196ab535337f2137",
+      "reason": "Machine-specific paths; original retained only in local run. Canonical impact/plans and source hashes are included separately."
+    },
+    {
+      "file": "run/revision-review/inspection-delta_artifact-manifest.json",
+      "original_sha256": "71692d28aa8d861d6793860501dfaed8573f54d96a180166a84643013635b7e5",
+      "reason": "Machine-specific paths; original retained only in local run. Canonical impact/plans and source hashes are included separately."
+    },
+    {
+      "file": "run/revision-review/rev-a/review-pack_artifact-manifest.json",
+      "original_sha256": "2b27bd9690b86a25fdf51532e272daea497caca2ad2e233d72b3cd823c73a138",
+      "reason": "Machine-specific paths; original retained only in local run. Canonical impact/plans and source hashes are included separately."
+    },
+    {
+      "file": "run/revision-review/rev-b/review-pack_artifact-manifest.json",
+      "original_sha256": "237875b96c8f10f63ec1dd2b65f8f096877648ff6a158cf59afe13210b1f3925",
+      "reason": "Machine-specific paths; original retained only in local run. Canonical impact/plans and source hashes are included separately."
+    }
+  ]
+}

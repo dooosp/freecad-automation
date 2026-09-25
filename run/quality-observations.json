@@ -1,0 +1,97 @@
+{
+  "kind": "Selected original quality fields; downstream presentation, not a new quality report",
+  "observations": [
+    {
+      "original_run_file": "rev-a/usb_hub_surrogate_A_create_quality.json",
+      "original_sha256": "bd2d949f2d9d92e006cb5cd0cfa2e93be527d63b9a6a3410ea39ce12873710bb",
+      "fields": {
+        "status": "pass",
+        "blocking_issues": []
+      }
+    },
+    {
+      "original_run_file": "rev-a/usb_hub_surrogate_A_drawing_quality.json",
+      "original_sha256": "4a6b02fdd5a1f12e08f4afa98607cfbbee78d1d63a060f1c610497b15935ade8",
+      "fields": {
+        "status": "pass",
+        "score": 89,
+        "traceability": {
+          "coverage_percent": 100,
+          "unmapped_required_entities": []
+        },
+        "blocking_issues": []
+      }
+    },
+    {
+      "original_run_file": "rev-b/usb_hub_surrogate_B_create_quality.json",
+      "original_sha256": "80e88d1be243f1f7d47a6b4886e7ca476f897006d4e1e49bf074dd1f84af1887",
+      "fields": {
+        "status": "pass",
+        "blocking_issues": []
+      }
+    },
+    {
+      "original_run_file": "rev-b/usb_hub_surrogate_B_drawing_quality.json",
+      "original_sha256": "0d53357c6b24f824b7d9649773e7e3a44e762a8b0fd7f9a7e7479f37f09cf07f",
+      "fields": {
+        "status": "pass",
+        "score": 89,
+        "traceability": {
+          "coverage_percent": 100,
+          "unmapped_required_entities": []
+        },
+        "blocking_issues": []
+      }
+    },
+    {
+      "original_run_file": "annotation-warning/usb_hub_surrogate_B_drawing_quality.json",
+      "original_sha256": "3f8588d9c45f5669a1849c445274849ebce8ec9ece6fa2cc8b997258f09a0f57",
+      "fields": {
+        "status": "fail",
+        "score": 89,
+        "traceability": {
+          "coverage_percent": 80,
+          "unmapped_required_entities": [
+            "WIDTH"
+          ]
+        },
+        "blocking_issues": [
+          {
+            "code": "traceability-coverage",
+            "message": "Traceability coverage is 80% and must be at least 95%.",
+            "details": {
+              "unmapped_required_entities": [
+                "WIDTH"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "original_run_file": "annotation-strict/usb_hub_surrogate_B_drawing_quality.json",
+      "original_sha256": "05fceeb3b91a15e4ebfe9d6960ae44278726b4e8e389cac9bb06fe41e60fb6dc",
+      "fields": {
+        "status": "fail",
+        "score": 89,
+        "traceability": {
+          "coverage_percent": 80,
+          "unmapped_required_entities": [
+            "WIDTH"
+          ]
+        },
+        "blocking_issues": [
+          {
+            "code": "traceability-coverage",
+            "message": "Traceability coverage is 80% and must be at least 95%.",
+            "details": {
+              "unmapped_required_entities": [
+                "WIDTH"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

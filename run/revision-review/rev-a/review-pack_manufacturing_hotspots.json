@@ -1,0 +1,183 @@
+{
+  "artifact_type": "manufacturing_hotspots",
+  "schema_version": "1.0",
+  "analysis_version": "d1",
+  "generated_at": "2026-09-25T12:05:58Z",
+  "part_id": "USB-HUB-PLATE-SIM",
+  "revision": "A",
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ],
+  "coverage": {
+    "source_artifact_count": 4,
+    "source_file_count": 3,
+    "hotspot_count": 4
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.62,
+    "rationale": "Hotspot scores are rule-based derivatives of geometry metrics and inferred features."
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-a/config.toml",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "role": "evidence",
+      "label": "Context source file"
+    }
+  ],
+  "part": {
+    "part_id": "USB-HUB-PLATE-SIM",
+    "name": "USB hub synthetic plate",
+    "description": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record.",
+    "revision": "A",
+    "material": null,
+    "process": null,
+    "package_slug": "usb-hub-plate-simulated"
+  },
+  "bootstrap": {
+    "import_diagnostics": {
+      "format": "step",
+      "import_kind": "part",
+      "body_count": 1,
+      "conditions": {
+        "empty_import": false,
+        "partial_import": false,
+        "unsupported_import": false,
+        "unstable_import": false
+      },
+      "part_vs_assembly": {
+        "classification": "part",
+        "source": "solid-body-count",
+        "confidence": 0.78
+      },
+      "unit_assumption": {
+        "unit": "mm",
+        "source": "step-default",
+        "assumed": true,
+        "confidence": 0.72,
+        "rationale": "STEP imports default to millimeter assumptions unless stronger unit metadata is available."
+      },
+      "warnings": []
+    },
+    "bootstrap_summary": {},
+    "confidence_map": {
+      "overall": {
+        "level": "high",
+        "score": 0.82,
+        "rationale": "STEP bootstrap confidence is derived from direct shape interrogation without reconstructing design intent."
+      },
+      "feature_extraction": {
+        "level": "high",
+        "score": 0.86,
+        "rationale": "Feature hints came from direct STEP surface interrogation heuristics."
+      }
+    },
+    "warnings": []
+  },
+  "hotspots": [
+    {
+      "hotspot_id": "hotspot:complexity:63e8edf2ba",
+      "title": "High complexity review",
+      "category": "complexity",
+      "region_ref": "region:global",
+      "feature_refs": [],
+      "entity_refs": [],
+      "severity": "high",
+      "score": 1,
+      "reason_codes": [
+        "geometry.complexity.high",
+        "geometry.complexity.critical"
+      ],
+      "evidence_refs": [],
+      "rationale": "Geometry complexity is high enough to justify focused review sequencing.",
+      "evidence": {
+        "complexity_score": 100
+      }
+    },
+    {
+      "hotspot_id": "hotspot:slenderness:0c165ba17b",
+      "title": "Slender geometry review",
+      "category": "slenderness",
+      "region_ref": "region:global",
+      "feature_refs": [],
+      "entity_refs": [],
+      "severity": "high",
+      "score": 1,
+      "reason_codes": [
+        "geometry.aspect_ratio.elevated",
+        "geometry.aspect_ratio.critical"
+      ],
+      "evidence_refs": [],
+      "rationale": "Large aspect ratio can increase review focus on stiffness, handling, and fixture strategy.",
+      "evidence": {
+        "max_aspect_ratio": 35.5
+      }
+    },
+    {
+      "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+      "title": "Thin-wall candidate",
+      "category": "wall_thickness",
+      "region_ref": "region:global",
+      "feature_refs": [
+        "feature:thin_wall_candidate:fba03a3e7d"
+      ],
+      "entity_refs": [],
+      "severity": "high",
+      "score": 0.8,
+      "reason_codes": [
+        "geometry.thinness.low",
+        "geometry.thinness.critical"
+      ],
+      "evidence_refs": [],
+      "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
+      "evidence": {
+        "thinness_ratio": 0.0282,
+        "max_aspect_ratio": 35.5
+      }
+    },
+    {
+      "hotspot_id": "hotspot:patterning:1a69052a3d",
+      "title": "Repeated hole pattern",
+      "category": "patterning",
+      "region_ref": "region:global",
+      "feature_refs": [
+        "feature:hole_pattern:7c08c061b8"
+      ],
+      "entity_refs": [
+        "entity:bolt_circle_count4_d5p2_pcd128p156_c71_37_n01"
+      ],
+      "severity": "medium",
+      "score": 0.7,
+      "reason_codes": [
+        "geometry.hole_pattern.repeated",
+        "geometry.hole_pattern.dense"
+      ],
+      "evidence_refs": [],
+      "rationale": "Repeated hole patterns are good candidates for inspection and datum review.",
+      "evidence": {
+        "hole_count": 4,
+        "hole_diameter_mm": 5.2,
+        "pcd_mm": 128.156
+      }
+    }
+  ]
+}

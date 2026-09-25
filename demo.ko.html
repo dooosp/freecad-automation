@@ -1,0 +1,124 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>준비와 3분 시연 대본</title><style>
+:root{color-scheme:light;--ink:#183144;--muted:#566e7b;--line:#dbe3e5;--teal:#006d63}*{box-sizing:border-box}body{margin:0;background:#f6f8f8;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.65}a{color:var(--teal);text-underline-offset:4px}main{max-width:1120px;margin:auto;padding:42px 32px 56px}header{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:17px;color:var(--muted);font-size:13px;letter-spacing:.06em}.tag{background:#e5f0ed;color:var(--teal);padding:3px 10px;border-radius:20px;font-weight:650}h1{font-size:clamp(28px,4vw,46px);line-height:1.28;margin:26px 0 16px;letter-spacing:-.045em}h2{font-size:23px;letter-spacing:-.03em;margin:0 0 12px}h3{margin:0;font-size:18px}.lead{max-width:800px;font-size:18px;color:#425c6a}.note{font-size:13px;color:var(--muted)}.pair{display:grid;grid-template-columns:1fr 1fr;gap:22px}.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:23px}.panel svg{width:100%;display:block;margin:14px 0}.rev{display:flex;justify-content:space-between;align-items:center}.rev span{font-size:13px;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:22px 0 42px}.metric{padding:17px 19px;background:#eaf1f1;border-radius:12px}.metric strong{display:block;font-size:24px;line-height:1.4}.metric span{font-size:13px;color:var(--muted)}.section{margin-top:32px}.failure{display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;align-items:center}.failure img{width:100%;border-radius:12px;border:1px solid #bbc6ce}.badge{display:inline-block;background:#f8e9e7;color:#9b372d;border-radius:6px;padding:3px 9px;font-size:13px;font-weight:650}.values{padding:14px 0;border-block:1px solid var(--line);font-size:18px;font-weight:600}.limits{border-left:3px solid #82968d;padding:4px 0 4px 18px}.links{display:flex;flex-wrap:wrap;gap:14px}.cmd{font-family:ui-monospace,monospace;background:#eaf1f1;padding:14px;border-radius:10px;overflow-wrap:anywhere;font-size:13px}footer{border-top:1px solid var(--line);margin-top:35px;padding-top:18px;font-size:12px;color:var(--muted)}@media(max-width:720px){main{padding:24px 18px}.pair,.failure{grid-template-columns:1fr}.metrics{grid-template-columns:1fr}header{display:block}.tag{display:inline-block;margin-top:8px}}@media print{body{background:white}main{padding:0}.panel,.failure,.limits{break-inside:avoid}a{color:inherit}header{font-size:11px}}
+
+article{max-width:920px;margin:auto}article h2{margin-top:36px}article h3{margin-top:26px}table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;font-size:14px}td,th{border:1px solid var(--line);padding:10px;text-align:left}th{background:#eaf1f1}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#eaf1f1;border-radius:12px}code{overflow-wrap:anywhere}blockquote{margin:20px 0;padding:4px 20px;border-left:3px solid var(--teal);background:#eaf1f1}</style></head><body><main><header><a href="index.html">포트폴리오 첫 화면</a><a href="https://github.com/dooosp/freecad-automation/pull/203">소스 변경 PR</a></header><article><h1 id="준비와-3분-시연-대본">준비와 3분 시연 대본</h1>
+<h2 id="한-번-준비하기">한 번 준비하기</h2>
+<p>이 폴더가 포함된 <code>freecad-automation</code> 저장소 루트에서 실행한다. <a href="https://github.com/dooosp/freecad-automation/blob/ed317324c9f5ee4152a8d0ad6d6bebdbfb620e88/README.md">저장소 설치·런타임 안내</a>를 따른다. 이 재현은 macOS의 Node 25.8.0 / FreeCAD 1.1.3에서 확인했다. 다른 OS의 성공을 주장하지 않으며, 이 보조 스크립트는 WSL→Windows 런타임 연결을 지원하지 않는다.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> ci</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run check:runtime</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> docs/portfolio/usb-hub-plate-change/reproduce.mjs</span></code></pre></div>
+<p>macOS에서 FreeCAD가 감지되지 않으면 실제 설치 위치에 맞게 <code>FREECAD_APP</code>을 설정한다. 예: <code>/Applications/FreeCAD.app</code>. 원래 A/B 입력은 고치지 않는다. 재현 스크립트가 매번 새로운 <code>output/usb-hub-portfolio-*</code> 폴더에 입력을 복사하고 <code>export.directory</code>만 바꾼다. 전체 테스트 실행·의존성 업그레이드·외부 AI 호출은 이 명령에 포함하지 않는다.</p>
+<p>스크립트는 기존 CLI의 A/B <code>create --strict-quality</code>·<code>draw --strict-quality</code>와 별도 STEP/SVG 측정을 호출한다. B에서 실제 생성된 도면 계획의 WIDTH 주석만 150으로 바꾼 입력을 두 벌 만들어 기본/strict 실행도 확인한다. 형상 설정은 그대로 둔다. <strong>주석 변경은 실제 판 폭 변경 기능이 아니다.</strong></p>
+<p>이어서 합성 요구사항과 STEP 측정값을 대조하고, 같은 부품 ID와 A/B 리비전으로 <code>review-context</code> → <code>compare-rev</code> → <code>inspection-plan</code>의 전체·변경 계획을 만든다. 비교용 설정 사본만 식별·요구 메타데이터를 보완한다. 원본 CAD 설정과 이미 생성된 결과 JSON의 ID를 고치지 않는다.</p>
+<p>콘솔의 <code>Output:</code> 경로에서 다음 파일을 연다.</p>
+<table>
+<thead>
+<tr>
+<th>파일</th>
+<th>확인할 내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>case-result.json</code></td>
+<td>실행 시각, 입력 해시, A/B pass, 주석 불일치 fail, 전체 <code>pass: true</code></td>
+</tr>
+<tr>
+<td><code>commands.json</code> 및 명령별 <code>.log</code></td>
+<td>실제 명령·exit code. <code>annotation-strict</code>의 기대 exit는 <strong>1</strong></td>
+</tr>
+<tr>
+<td><code>measurements.json</code></td>
+<td>STEP 재측정과 SVG 측정, 오차 한계, 동일 커널 사용 한계</td>
+</tr>
+<tr>
+<td><code>rev-a/</code>, <code>rev-b/</code>의 STEP·SVG</td>
+<td>각 리비전의 실제 출력</td>
+</tr>
+<tr>
+<td><code>annotation-warning/</code>, <code>annotation-strict/</code>의 품질 JSON</td>
+<td>score 89여도 <code>status: fail</code>, WIDTH 미연결</td>
+</tr>
+<tr>
+<td><code>revision-review/case-review-result.json</code></td>
+<td>명목치 변경 4개, 유지 특성 9개, 모델·비교 설정 해시</td>
+</tr>
+<tr>
+<td><code>revision-review/revision-impact.json</code></td>
+<td>원래 CLI의 변경 영향과 후속 계획. 실제 검사 증거는 없음</td>
+</tr>
+<tr>
+<td><code>revision-review/inspection-full.json</code>, <code>inspection-delta.json</code></td>
+<td>전체 17개 / 변경 9개, <code>review_required</code>, 모든 항목 <code>not_started</code>, 미확인 공차·방법은 null</td>
+</tr>
+</tbody>
+</table>
+<p>최종 <code>PASS:</code>가 없으면 완료한 시연으로 취급하지 않는다. 실패 로그와 부분 결과는 해당 새 폴더에 남는다. 실행 시간은 환경에 따라 다르므로 면접에서는 미리 실행한 결과로 3분 설명하고, 요청받으면 명령을 다시 실행한다.</p>
+<h2 id="3분-설명">3분 설명</h2>
+<table>
+<thead>
+<tr>
+<th>시간</th>
+<th>보여줄 근거</th>
+<th>말할 내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0:00–0:25</td>
+<td>사례 요약과 좌표계</td>
+<td>“시험용 평판의 오른쪽 홀 두 개를 10 mm 옮기는 사례입니다. 모든 치수는 가정이며 실제 허브를 측정한 설계는 아닙니다.”</td>
+</tr>
+<tr>
+<td>0:25–1:00</td>
+<td>A/B 도면 또는 STEP 측정값 비교도</td>
+<td>“고정점 두 개와 판·지름·Y좌표는 유지했습니다. 오른쪽 홀의 X만 130에서 120으로 바뀌어 중심 간격은 118에서 108이 됩니다.”</td>
+</tr>
+<tr>
+<td>1:00–1:25</td>
+<td><code>measurements.json</code></td>
+<td>“저장한 STEP을 다시 읽어 solid와 네 홀을 측정했습니다. 외곽과 체적만 확인하면 이 배치 변경을 놓칠 수 있습니다. 기준 형상 구성은 별도 구현이지만 커널은 같습니다.”</td>
+</tr>
+<tr>
+<td>1:25–1:55</td>
+<td><code>revision-review/case-review-result.json</code></td>
+<td>“같은 부품 ID와 17개 특성 ID로 변경을 연결했습니다. 변경 계획에는 위치가 바뀐 H홀 관련 8개 특성과 미연결 자동 패턴 1개가 들어갑니다. 모르는 공차와 검사 방법은 채우지 않아 사람 검토가 필요합니다.”</td>
+</tr>
+<tr>
+<td>1:55–2:25</td>
+<td>WIDTH 불일치 결과와 실제 Studio 실패 화면</td>
+<td>“형상은 142인데 주석만 150이면 QA 점수는 89여도 품질은 실패합니다. 기본 실행 완료와 품질 통과를 구분하고, strict 모드는 거절합니다.”</td>
+</tr>
+<tr>
+<td>2:25–2:45</td>
+<td>한계·AI 기여 설명</td>
+<td>“장착·강도·제조 공차와 실물 검사는 미검증입니다. Codex가 실행·진단·수정에 참여했으며 개인 기여는 실제 수행 범위로 구분합니다.”</td>
+</tr>
+<tr>
+<td>2:45–3:00</td>
+<td>재현 명령</td>
+<td>“입력과 명령을 보관했고, 재실행마다 새 폴더에 결과와 종료 코드를 남깁니다.”</td>
+</tr>
+</tbody>
+</table>
+<p>이 대본은 녹화본이 아니다. 열람용 묶음의 스크린샷은 실제 실행 화면의 정지 기록이며, 모델 생성과 도면 생성은 각각 별도 실행이다.</p>
+<h2 id="studio에서-직접-보여주기--선택-경로">Studio에서 직접 보여주기 — 선택 경로</h2>
+<p>F01 수정이 포함된 소스에서 로컬 서버를 실행한다. 새 시연 전용 jobs 경로를 사용하면 기존 이력을 보존할 수 있다.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> bin/fcad.js serve 3100 <span class="at">--jobs-dir</span> output/usb-hub-portfolio-studio-jobs</span></code></pre></div>
+<ol type="1">
+<li><code>http://127.0.0.1:3100/studio/</code> → 고급 작업 → <strong>도면 편집</strong> → <strong>설정 파일 열기</strong>에서 <code>inputs/rev-b.toml</code>을 선택한다. 이 경로에서는 TOML을 사용한다.</li>
+<li><strong>도면 미리보기</strong>로 미리보고 정상 도면을 <strong>추적 도면 실행</strong>한다. 결과 파일에서 실행 완료·품질 통과·주요 SVG를 확인한다.</li>
+<li>도면 편집으로 돌아와 WIDTH 주석을 150으로 바꾸고 <strong>적용</strong>한 뒤 <strong>추적 도면 실행</strong>을 다시 누른다. 결과 파일에서 실행 완료·품질 실패·80%·WIDTH를 확인한다. STEP 형상이 150으로 바뀌었다고 설명하지 않는다.</li>
+<li>정상 작업을 다시 열어 실패 설명이 남지 않는지 확인한다. 보고서 생성은 현재 불러온 원본 설정을 사용하므로, 미리보기 주석이 보고서에 자동 반영된다고 설명하지 않는다.</li>
+</ol>
+<p>첫 묶음의 F01 실패 화면은 2026-09-24 저장 작업을 다시 연 기록이다. 후속 묶음은 9월 25일 JSON 원본에서 새로 실행한 추적 도면 화면을 사용한다. JSON/TOML 모델 입력과 후속 경로는 <a href="closeout.ko.html">후속 조치</a>에 구분한다. 열람용 묶음에는 실행일·입력·소스 해시를 기록한다. 이 문서만 가져온 master에는 아직 수정이 없을 수 있으므로, 공개 자료에 명시된 소스 커밋으로 시연한다.</p>
+<h2 id="추가-공학-검토">추가 공학 검토</h2>
+<p>기본 재현의 출력 폴더를 인자로 넘겨 <a href="source/docs/portfolio/usb-hub-plate-change/engineering-review.mjs">공학 검토 스크립트</a>를 실행한다. 새 폴더에서 저장 형상을 재측정하고 strict create·draw·DFM·보고서를 실행한다. <a href="engineering.ko.html">공학 검토</a>는 자동 패턴의 대응과 보고서 분석 자료 수집을 설명하며, 실제 제조 공차·검사 승인·실물 강도를 대신하지 않는다.</p>
+<h2 id="발표-전에-본인이-답할-질문">발표 전에 본인이 답할 질문</h2>
+<ul>
+<li>어떤 요구를 고정하고 왜 H홀의 X만 바꾸었는가? 10 mm와 4 mm는 검증된 설계값인가, 시험 가정인가?</li>
+<li>왜 파일 생성·QA 점수·도면 품질·물리적 적합성을 별개로 해석하는가?</li>
+<li>본인이 작성·검토·수정한 범위와 AI가 제안·실행한 범위는 각각 무엇인가?</li>
+</ul>
+<p>이 질문의 개인 답변은 자동 생성 기록이 대신 증명할 수 없다. 실제로 설명할 수 있는 범위만 자신의 기여로 사용한다.</p>
+</article><footer>합성 소프트웨어 사례 · 실물 검사 및 제조 승인 없음 · 소스 ed31732</footer></main></body></html>

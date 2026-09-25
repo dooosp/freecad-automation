@@ -1,0 +1,42 @@
+{
+  "part": {
+    "part_id": "USB-HUB-PLATE-SIM",
+    "package_slug": "usb-hub-plate-simulated",
+    "revision": "A",
+    "name": "USB hub synthetic plate",
+    "description": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record.",
+    "material": null,
+    "process": null
+  },
+  "geometry_source": {
+    "path": "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+    "file_type": "step",
+    "revision": "A",
+    "source_sha256": "abd417b3051167232004bf07470df0766524b1ae3e455a9eb345bc116bbdfb3d"
+  },
+  "bom": [],
+  "inspection_results": [],
+  "quality_issues": [],
+  "manufacturing_context": {
+    "notes": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record."
+  },
+  "metadata": {
+    "created_at": "2026-09-25T12:05:57.707Z",
+    "source_files": [
+      "output/usb-hub-portfolio-VAokFT/rev-a/config.toml",
+      "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+      "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json"
+    ],
+    "provenance": {
+      "test_scope": "synthetic_portfolio_case",
+      "production_trust": false,
+      "original_config_sha256": "c12b68f479055a3f68abe3456e9acb7ae9fc9e81e29174296fe6f4382b17eb25",
+      "model_sha256": "abd417b3051167232004bf07470df0766524b1ae3e455a9eb345bc116bbdfb3d",
+      "requirements_sha256": "bcee36f9a6f663220b892223210e3f0987926791a17ba6c8cf04acd632dbfd08",
+      "comparison_config_sha256": "8292c51e36110b41f78b68daa1fefb5af008a5064b734111f3d02630cb820d37"
+    },
+    "warnings": [
+      "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+    ]
+  }
+}

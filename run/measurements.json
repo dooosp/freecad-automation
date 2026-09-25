@@ -1,0 +1,234 @@
+{
+  "kind": "synthetic CAD measurement; not physical inspection",
+  "linear_tolerance_mm": 1e-05,
+  "svg_rounding_tolerance_mm": 0.03,
+  "tolerance_note": "Software numeric comparison limits; not manufacturing tolerances.",
+  "independence_limit": "Separate reference construction; same FreeCAD/OCC kernel as generation.",
+  "freecad_version": [
+    "1",
+    "1",
+    "3",
+    "20260725 (Git shallow)",
+    "Unknown",
+    "2026/07/25 04:52:02",
+    "grafted,grafted",
+    "145529fe741292ff0b3977a01195bf0247425794"
+  ],
+  "revisions": {
+    "A": {
+      "step": "rev-a/usb_hub_surrogate_A.step",
+      "svg": "rev-a/usb_hub_surrogate_A_drawing.svg",
+      "bbox_mm": [
+        142.0,
+        74.0,
+        4.0
+      ],
+      "solid_count": 1,
+      "holes": [
+        {
+          "x": 12.0,
+          "y": 12.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        },
+        {
+          "x": 12.0,
+          "y": 62.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        },
+        {
+          "x": 130.0,
+          "y": 12.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        },
+        {
+          "x": 130.0,
+          "y": 62.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        }
+      ],
+      "volume_mm3": 41692.20533858773,
+      "symmetric_difference_mm3": 0.0,
+      "step_checks": {
+        "valid": true,
+        "one_solid": true,
+        "bbox": true,
+        "holes": true,
+        "reference_symmetric_difference_zero": true
+      },
+      "svg_scale_xy": [
+        1.0,
+        1.0
+      ],
+      "svg_holes_mm": [
+        [
+          12.0,
+          12.0,
+          5.2
+        ],
+        [
+          12.0,
+          62.0,
+          5.2
+        ],
+        [
+          130.0,
+          12.0,
+          5.2
+        ],
+        [
+          130.0,
+          62.0,
+          5.2
+        ]
+      ],
+      "svg_checks": {
+        "page_mm_mapping": true,
+        "geometry_untransformed": true,
+        "scale_1_1": true,
+        "holes": true,
+        "revision_table": true,
+        "drawing_number": true,
+        "synthetic_notice": true,
+        "center_spacing_text": true,
+        "right_edge_to_center_text": true
+      },
+      "pass": true
+    },
+    "B": {
+      "step": "rev-b/usb_hub_surrogate_B.step",
+      "svg": "rev-b/usb_hub_surrogate_B_drawing.svg",
+      "bbox_mm": [
+        142.0,
+        74.0,
+        4.0
+      ],
+      "solid_count": 1,
+      "holes": [
+        {
+          "x": 12.0,
+          "y": 12.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        },
+        {
+          "x": 12.0,
+          "y": 62.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        },
+        {
+          "x": 120.0,
+          "y": 12.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        },
+        {
+          "x": 120.0,
+          "y": 62.0,
+          "diameter": 5.2,
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "z_min": 0.0,
+          "z_max": 4.0
+        }
+      ],
+      "volume_mm3": 41692.20533858772,
+      "symmetric_difference_mm3": 0.0,
+      "step_checks": {
+        "valid": true,
+        "one_solid": true,
+        "bbox": true,
+        "holes": true,
+        "reference_symmetric_difference_zero": true
+      },
+      "svg_scale_xy": [
+        1.0,
+        1.0
+      ],
+      "svg_holes_mm": [
+        [
+          12.0,
+          12.0,
+          5.2
+        ],
+        [
+          12.0,
+          62.0,
+          5.2
+        ],
+        [
+          120.0,
+          12.0,
+          5.2
+        ],
+        [
+          120.0,
+          62.0,
+          5.2
+        ]
+      ],
+      "svg_checks": {
+        "page_mm_mapping": true,
+        "geometry_untransformed": true,
+        "scale_1_1": true,
+        "holes": true,
+        "revision_table": true,
+        "drawing_number": true,
+        "synthetic_notice": true,
+        "center_spacing_text": true,
+        "right_edge_to_center_text": true
+      },
+      "pass": true
+    }
+  },
+  "pass": true
+}

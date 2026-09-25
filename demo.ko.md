@@ -1,0 +1,73 @@
+# 준비와 3분 시연 대본
+
+## 한 번 준비하기
+
+이 폴더가 포함된 `freecad-automation` 저장소 루트에서 실행한다. [저장소 설치·런타임 안내](https://github.com/dooosp/freecad-automation/blob/ed317324c9f5ee4152a8d0ad6d6bebdbfb620e88/README.md)를 따른다. 이 재현은 macOS의 Node 25.8.0 / FreeCAD 1.1.3에서 확인했다. 다른 OS의 성공을 주장하지 않으며, 이 보조 스크립트는 WSL→Windows 런타임 연결을 지원하지 않는다.
+
+```bash
+npm ci
+npm run check:runtime
+node docs/portfolio/usb-hub-plate-change/reproduce.mjs
+```
+
+macOS에서 FreeCAD가 감지되지 않으면 실제 설치 위치에 맞게 `FREECAD_APP`을 설정한다. 예: `/Applications/FreeCAD.app`. 원래 A/B 입력은 고치지 않는다. 재현 스크립트가 매번 새로운 `output/usb-hub-portfolio-*` 폴더에 입력을 복사하고 `export.directory`만 바꾼다. 전체 테스트 실행·의존성 업그레이드·외부 AI 호출은 이 명령에 포함하지 않는다.
+
+스크립트는 기존 CLI의 A/B `create --strict-quality`·`draw --strict-quality`와 별도 STEP/SVG 측정을 호출한다. B에서 실제 생성된 도면 계획의 WIDTH 주석만 150으로 바꾼 입력을 두 벌 만들어 기본/strict 실행도 확인한다. 형상 설정은 그대로 둔다. **주석 변경은 실제 판 폭 변경 기능이 아니다.**
+
+이어서 합성 요구사항과 STEP 측정값을 대조하고, 같은 부품 ID와 A/B 리비전으로 `review-context` → `compare-rev` → `inspection-plan`의 전체·변경 계획을 만든다. 비교용 설정 사본만 식별·요구 메타데이터를 보완한다. 원본 CAD 설정과 이미 생성된 결과 JSON의 ID를 고치지 않는다.
+
+콘솔의 `Output:` 경로에서 다음 파일을 연다.
+
+| 파일 | 확인할 내용 |
+| --- | --- |
+| `case-result.json` | 실행 시각, 입력 해시, A/B pass, 주석 불일치 fail, 전체 `pass: true` |
+| `commands.json` 및 명령별 `.log` | 실제 명령·exit code. `annotation-strict`의 기대 exit는 **1** |
+| `measurements.json` | STEP 재측정과 SVG 측정, 오차 한계, 동일 커널 사용 한계 |
+| `rev-a/`, `rev-b/`의 STEP·SVG | 각 리비전의 실제 출력 |
+| `annotation-warning/`, `annotation-strict/`의 품질 JSON | score 89여도 `status: fail`, WIDTH 미연결 |
+| `revision-review/case-review-result.json` | 명목치 변경 4개, 유지 특성 9개, 모델·비교 설정 해시 |
+| `revision-review/revision-impact.json` | 원래 CLI의 변경 영향과 후속 계획. 실제 검사 증거는 없음 |
+| `revision-review/inspection-full.json`, `inspection-delta.json` | 전체 17개 / 변경 9개, `review_required`, 모든 항목 `not_started`, 미확인 공차·방법은 null |
+
+최종 `PASS:`가 없으면 완료한 시연으로 취급하지 않는다. 실패 로그와 부분 결과는 해당 새 폴더에 남는다. 실행 시간은 환경에 따라 다르므로 면접에서는 미리 실행한 결과로 3분 설명하고, 요청받으면 명령을 다시 실행한다.
+
+## 3분 설명
+
+| 시간 | 보여줄 근거 | 말할 내용 |
+| --- | --- | --- |
+| 0:00–0:25 | 사례 요약과 좌표계 | “시험용 평판의 오른쪽 홀 두 개를 10 mm 옮기는 사례입니다. 모든 치수는 가정이며 실제 허브를 측정한 설계는 아닙니다.” |
+| 0:25–1:00 | A/B 도면 또는 STEP 측정값 비교도 | “고정점 두 개와 판·지름·Y좌표는 유지했습니다. 오른쪽 홀의 X만 130에서 120으로 바뀌어 중심 간격은 118에서 108이 됩니다.” |
+| 1:00–1:25 | `measurements.json` | “저장한 STEP을 다시 읽어 solid와 네 홀을 측정했습니다. 외곽과 체적만 확인하면 이 배치 변경을 놓칠 수 있습니다. 기준 형상 구성은 별도 구현이지만 커널은 같습니다.” |
+| 1:25–1:55 | `revision-review/case-review-result.json` | “같은 부품 ID와 17개 특성 ID로 변경을 연결했습니다. 변경 계획에는 위치가 바뀐 H홀 관련 8개 특성과 미연결 자동 패턴 1개가 들어갑니다. 모르는 공차와 검사 방법은 채우지 않아 사람 검토가 필요합니다.” |
+| 1:55–2:25 | WIDTH 불일치 결과와 실제 Studio 실패 화면 | “형상은 142인데 주석만 150이면 QA 점수는 89여도 품질은 실패합니다. 기본 실행 완료와 품질 통과를 구분하고, strict 모드는 거절합니다.” |
+| 2:25–2:45 | 한계·AI 기여 설명 | “장착·강도·제조 공차와 실물 검사는 미검증입니다. Codex가 실행·진단·수정에 참여했으며 개인 기여는 실제 수행 범위로 구분합니다.” |
+| 2:45–3:00 | 재현 명령 | “입력과 명령을 보관했고, 재실행마다 새 폴더에 결과와 종료 코드를 남깁니다.” |
+
+이 대본은 녹화본이 아니다. 열람용 묶음의 스크린샷은 실제 실행 화면의 정지 기록이며, 모델 생성과 도면 생성은 각각 별도 실행이다.
+
+## Studio에서 직접 보여주기 — 선택 경로
+
+F01 수정이 포함된 소스에서 로컬 서버를 실행한다. 새 시연 전용 jobs 경로를 사용하면 기존 이력을 보존할 수 있다.
+
+```bash
+node bin/fcad.js serve 3100 --jobs-dir output/usb-hub-portfolio-studio-jobs
+```
+
+1. `http://127.0.0.1:3100/studio/` → 고급 작업 → **도면 편집** → **설정 파일 열기**에서 `inputs/rev-b.toml`을 선택한다. 이 경로에서는 TOML을 사용한다.
+2. **도면 미리보기**로 미리보고 정상 도면을 **추적 도면 실행**한다. 결과 파일에서 실행 완료·품질 통과·주요 SVG를 확인한다.
+3. 도면 편집으로 돌아와 WIDTH 주석을 150으로 바꾸고 **적용**한 뒤 **추적 도면 실행**을 다시 누른다. 결과 파일에서 실행 완료·품질 실패·80%·WIDTH를 확인한다. STEP 형상이 150으로 바뀌었다고 설명하지 않는다.
+4. 정상 작업을 다시 열어 실패 설명이 남지 않는지 확인한다. 보고서 생성은 현재 불러온 원본 설정을 사용하므로, 미리보기 주석이 보고서에 자동 반영된다고 설명하지 않는다.
+
+첫 묶음의 F01 실패 화면은 2026-09-24 저장 작업을 다시 연 기록이다. 후속 묶음은 9월 25일 JSON 원본에서 새로 실행한 추적 도면 화면을 사용한다. JSON/TOML 모델 입력과 후속 경로는 [후속 조치](closeout.ko.md)에 구분한다. 열람용 묶음에는 실행일·입력·소스 해시를 기록한다. 이 문서만 가져온 master에는 아직 수정이 없을 수 있으므로, 공개 자료에 명시된 소스 커밋으로 시연한다.
+
+## 추가 공학 검토
+
+기본 재현의 출력 폴더를 인자로 넘겨 [공학 검토 스크립트](source/docs/portfolio/usb-hub-plate-change/engineering-review.mjs)를 실행한다. 새 폴더에서 저장 형상을 재측정하고 strict create·draw·DFM·보고서를 실행한다. [공학 검토](engineering.ko.md)는 자동 패턴의 대응과 보고서 분석 자료 수집을 설명하며, 실제 제조 공차·검사 승인·실물 강도를 대신하지 않는다.
+
+## 발표 전에 본인이 답할 질문
+
+- 어떤 요구를 고정하고 왜 H홀의 X만 바꾸었는가? 10 mm와 4 mm는 검증된 설계값인가, 시험 가정인가?
+- 왜 파일 생성·QA 점수·도면 품질·물리적 적합성을 별개로 해석하는가?
+- 본인이 작성·검토·수정한 범위와 AI가 제안·실행한 범위는 각각 무엇인가?
+
+이 질문의 개인 답변은 자동 생성 기록이 대신 증명할 수 없다. 실제로 설명할 수 있는 범위만 자신의 기여로 사용한다.

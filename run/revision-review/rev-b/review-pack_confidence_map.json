@@ -1,0 +1,31 @@
+{
+  "artifact_type": "confidence_map",
+  "generated_at": "2026-09-25T12:05:57.707Z",
+  "import_bootstrap": {
+    "overall": {
+      "level": "high",
+      "score": 0.82,
+      "rationale": "STEP bootstrap confidence is derived from direct shape interrogation without reconstructing design intent."
+    },
+    "feature_extraction": {
+      "level": "high",
+      "score": 0.86,
+      "rationale": "Feature hints came from direct STEP surface interrogation heuristics."
+    }
+  },
+  "geometry_intelligence": {
+    "level": "heuristic",
+    "score": 0.66,
+    "rationale": "Derived from model metadata and feature hints without exact CAD feature interrogation."
+  },
+  "manufacturing_hotspots": {
+    "level": "heuristic",
+    "score": 0.62,
+    "rationale": "Hotspot scores are rule-based derivatives of geometry metrics and inferred features."
+  },
+  "review_pack": {
+    "level": "heuristic",
+    "score": 0.76,
+    "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+  }
+}

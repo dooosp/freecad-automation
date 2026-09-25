@@ -1,0 +1,504 @@
+{
+  "part": {
+    "part_id": "USB-HUB-PLATE-SIM",
+    "package_slug": "usb-hub-plate-simulated",
+    "revision": "A",
+    "name": "USB hub synthetic plate",
+    "description": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record.",
+    "material": null,
+    "process": null
+  },
+  "geometry_source": {
+    "path": "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+    "file_type": "step",
+    "revision": "A",
+    "source_sha256": "abd417b3051167232004bf07470df0766524b1ae3e455a9eb345bc116bbdfb3d",
+    "model_metadata": {
+      "valid_shape": true,
+      "volume": 41692.21,
+      "area": 22835.48,
+      "solid_count": 1,
+      "face_count": 10,
+      "edge_count": 24,
+      "vertex_count": 16,
+      "faces": 10,
+      "edges": 24,
+      "vertices": 16,
+      "bbox": {
+        "min": [
+          0,
+          0,
+          0
+        ],
+        "max": [
+          142,
+          74,
+          4
+        ],
+        "size": [
+          142,
+          74,
+          4
+        ]
+      },
+      "bounding_box": {
+        "min": [
+          0,
+          0,
+          0
+        ],
+        "max": [
+          142,
+          74,
+          4
+        ],
+        "size": [
+          142,
+          74,
+          4
+        ]
+      },
+      "cylindrical_faces": [
+        {
+          "face_index": 7,
+          "surface_type": "Cylinder",
+          "radius_mm": 2.6,
+          "diameter_mm": 5.2,
+          "center_mm": [
+            12,
+            12,
+            -1
+          ],
+          "center_of_mass_mm": [
+            12,
+            12,
+            2
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": {
+            "min": [
+              9.4,
+              9.4,
+              0
+            ],
+            "max": [
+              14.6,
+              14.6,
+              4
+            ],
+            "size": [
+              5.2,
+              5.2,
+              4
+            ]
+          },
+          "area_mm2": 65.3451
+        },
+        {
+          "face_index": 8,
+          "surface_type": "Cylinder",
+          "radius_mm": 2.6,
+          "diameter_mm": 5.2,
+          "center_mm": [
+            130,
+            12,
+            -1
+          ],
+          "center_of_mass_mm": [
+            130,
+            12,
+            2
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": {
+            "min": [
+              127.4,
+              9.4,
+              0
+            ],
+            "max": [
+              132.6,
+              14.6,
+              4
+            ],
+            "size": [
+              5.2,
+              5.2,
+              4
+            ]
+          },
+          "area_mm2": 65.3451
+        },
+        {
+          "face_index": 9,
+          "surface_type": "Cylinder",
+          "radius_mm": 2.6,
+          "diameter_mm": 5.2,
+          "center_mm": [
+            12,
+            62,
+            -1
+          ],
+          "center_of_mass_mm": [
+            12,
+            62,
+            2
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": {
+            "min": [
+              9.4,
+              59.4,
+              0
+            ],
+            "max": [
+              14.6,
+              64.6,
+              4
+            ],
+            "size": [
+              5.2,
+              5.2,
+              4
+            ]
+          },
+          "area_mm2": 65.3451
+        },
+        {
+          "face_index": 10,
+          "surface_type": "Cylinder",
+          "radius_mm": 2.6,
+          "diameter_mm": 5.2,
+          "center_mm": [
+            130,
+            62,
+            -1
+          ],
+          "center_of_mass_mm": [
+            130,
+            62,
+            2
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": {
+            "min": [
+              127.4,
+              59.4,
+              0
+            ],
+            "max": [
+              132.6,
+              64.6,
+              4
+            ],
+            "size": [
+              5.2,
+              5.2,
+              4
+            ]
+          },
+          "area_mm2": 65.3451
+        }
+      ],
+      "file": "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+      "format": "step"
+    },
+    "feature_hints": {
+      "cylinders": [
+        {
+          "index": 6,
+          "radius": 2.6,
+          "diameter": 5.2,
+          "center": [
+            12,
+            12,
+            -1
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "height": 4,
+          "is_hole": true
+        },
+        {
+          "index": 7,
+          "radius": 2.6,
+          "diameter": 5.2,
+          "center": [
+            130,
+            12,
+            -1
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "height": 4,
+          "is_hole": true
+        },
+        {
+          "index": 8,
+          "radius": 2.6,
+          "diameter": 5.2,
+          "center": [
+            12,
+            62,
+            -1
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "height": 4,
+          "is_hole": true
+        },
+        {
+          "index": 9,
+          "radius": 2.6,
+          "diameter": 5.2,
+          "center": [
+            130,
+            62,
+            -1
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "height": 4,
+          "is_hole": true
+        }
+      ],
+      "bolt_circles": [
+        {
+          "count": 4,
+          "hole_radius": 2.6,
+          "hole_diameter": 5.2,
+          "pcd": 128.156,
+          "center": [
+            71,
+            37
+          ],
+          "holes": [
+            {
+              "index": 6,
+              "radius": 2.6,
+              "diameter": 5.2,
+              "center": [
+                12,
+                12,
+                -1
+              ],
+              "axis": [
+                0,
+                0,
+                1
+              ],
+              "height": 4,
+              "is_hole": true
+            },
+            {
+              "index": 7,
+              "radius": 2.6,
+              "diameter": 5.2,
+              "center": [
+                130,
+                12,
+                -1
+              ],
+              "axis": [
+                0,
+                0,
+                1
+              ],
+              "height": 4,
+              "is_hole": true
+            },
+            {
+              "index": 8,
+              "radius": 2.6,
+              "diameter": 5.2,
+              "center": [
+                12,
+                62,
+                -1
+              ],
+              "axis": [
+                0,
+                0,
+                1
+              ],
+              "height": 4,
+              "is_hole": true
+            },
+            {
+              "index": 9,
+              "radius": 2.6,
+              "diameter": 5.2,
+              "center": [
+                130,
+                62,
+                -1
+              ],
+              "axis": [
+                0,
+                0,
+                1
+              ],
+              "height": 4,
+              "is_hole": true
+            }
+          ]
+        }
+      ],
+      "central_bore": null,
+      "fillets": [
+        {
+          "index": 9,
+          "radius": 2.6
+        },
+        {
+          "index": 10,
+          "radius": 2.6
+        },
+        {
+          "index": 11,
+          "radius": 2.6
+        },
+        {
+          "index": 12,
+          "radius": 2.6
+        },
+        {
+          "index": 16,
+          "radius": 2.6
+        },
+        {
+          "index": 17,
+          "radius": 2.6
+        },
+        {
+          "index": 18,
+          "radius": 2.6
+        },
+        {
+          "index": 19,
+          "radius": 2.6
+        }
+      ],
+      "chamfers": [],
+      "face_count": 10,
+      "edge_count": 24
+    },
+    "runtime_diagnostics": [],
+    "import_diagnostics": {
+      "format": "step",
+      "import_kind": "part",
+      "body_count": 1,
+      "conditions": {
+        "empty_import": false,
+        "partial_import": false,
+        "unsupported_import": false,
+        "unstable_import": false
+      },
+      "part_vs_assembly": {
+        "classification": "part",
+        "source": "solid-body-count",
+        "confidence": 0.78
+      },
+      "unit_assumption": {
+        "unit": "mm",
+        "source": "step-default",
+        "assumed": true,
+        "confidence": 0.72,
+        "rationale": "STEP imports default to millimeter assumptions unless stronger unit metadata is available."
+      },
+      "warnings": []
+    },
+    "bootstrap_summary": null,
+    "bootstrap_warnings": [],
+    "confidence_map": {
+      "overall": {
+        "level": "high",
+        "score": 0.82,
+        "rationale": "STEP bootstrap confidence is derived from direct shape interrogation without reconstructing design intent."
+      },
+      "feature_extraction": {
+        "level": "high",
+        "score": 0.86,
+        "rationale": "Feature hints came from direct STEP surface interrogation heuristics."
+      }
+    },
+    "suggested_config": {
+      "name": "imported_block",
+      "export": {
+        "step": true,
+        "stl": true
+      },
+      "drawing": {
+        "scale": "auto",
+        "title": "Imported Block"
+      },
+      "manufacturing": {
+        "process": "machining"
+      },
+      "tolerance": {
+        "pairs": [
+          {
+            "bore": 5.2,
+            "shaft": 5.2,
+            "spec": "H7/g6"
+          }
+        ]
+      }
+    },
+    "analysis_mode": "runtime_backed"
+  },
+  "bom": [],
+  "inspection_results": [],
+  "quality_issues": [],
+  "manufacturing_context": {
+    "notes": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record."
+  },
+  "metadata": {
+    "created_at": "2026-09-25T12:05:57.707Z",
+    "source_files": [
+      "output/usb-hub-portfolio-VAokFT/rev-a/config.toml",
+      "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+      "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json"
+    ],
+    "provenance": {
+      "test_scope": "synthetic_portfolio_case",
+      "production_trust": false,
+      "original_config_sha256": "c12b68f479055a3f68abe3456e9acb7ae9fc9e81e29174296fe6f4382b17eb25",
+      "model_sha256": "abd417b3051167232004bf07470df0766524b1ae3e455a9eb345bc116bbdfb3d",
+      "requirements_sha256": "bcee36f9a6f663220b892223210e3f0987926791a17ba6c8cf04acd632dbfd08",
+      "comparison_config_sha256": "8292c51e36110b41f78b68daa1fefb5af008a5064b734111f3d02630cb820d37"
+    },
+    "warnings": [
+      "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+    ],
+    "runtime_diagnostics": []
+  }
+}

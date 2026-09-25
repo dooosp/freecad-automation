@@ -1,0 +1,74 @@
+{
+  "pass": true,
+  "source": "actual browser file upload and actions; owned local Studio server",
+  "input_json_sha256": "1739e1fc112c14d3a9ed11c1d1da2e15f8ee4a4e7e40516f60664b0bb253917b",
+  "input_toml_sha256": "ac608510fa095235af18d32d50c42abc81faec52a21bb93c0cb8f12179d03be3",
+  "model_json_toml_preview": {
+    "json_file": "json-input/rev-b.json",
+    "toml_file": "docs/portfolio/usb-hub-plate-change/inputs/rev-b.toml",
+    "json_preview_completed": true,
+    "toml_preview_completed": true,
+    "json_console_errors": [],
+    "toml_console_errors": []
+  },
+  "jobs": [
+    {
+      "job_id": "7f84c1b8-9102-4b72-8480-8981d24f05ab",
+      "type": "create",
+      "execution": "succeeded",
+      "drawing_quality": null,
+      "drawing_traceability": null,
+      "annotation_width_mm": null,
+      "shape_width_mm": 142,
+      "report_overall": null,
+      "job_sha256": "d9e50a41084bd3168e3c60cefcb201db4c9ed8f73153407343c0459885699063",
+      "effective_config_sha256": "1739e1fc112c14d3a9ed11c1d1da2e15f8ee4a4e7e40516f60664b0bb253917b"
+    },
+    {
+      "job_id": "fec5482e-74b1-4635-92db-98b298103883",
+      "type": "draw",
+      "execution": "succeeded",
+      "drawing_quality": "pass",
+      "drawing_traceability": {
+        "coverage_percent": 100,
+        "unmapped_required_entities": []
+      },
+      "annotation_width_mm": 142,
+      "shape_width_mm": 142,
+      "report_overall": null,
+      "job_sha256": "7fa94392baf5906555b0579e53da0a3dbdc7deff2627d9e9ec802a0c8e4fa7ad",
+      "effective_config_sha256": "5d005a448ed3617b15e750454b6d4ebdaa7f9abf25b60ae07c3e5d1e5ac5557a"
+    },
+    {
+      "job_id": "9171a201-a4ca-432e-acae-2bb4a2c9b092",
+      "type": "draw",
+      "execution": "succeeded",
+      "drawing_quality": "fail",
+      "drawing_traceability": {
+        "coverage_percent": 80,
+        "unmapped_required_entities": [
+          "WIDTH"
+        ]
+      },
+      "annotation_width_mm": 150,
+      "shape_width_mm": 142,
+      "report_overall": null,
+      "job_sha256": "fe5ce7db8ce66396114ea20f610562acc0b86e4fab7a3012708aac9c27a0a007",
+      "effective_config_sha256": "bbab44a4305aec964e1dce28e03fb7d6458d81f27412a07cc26334372f40e9ee"
+    },
+    {
+      "job_id": "df44fe09-2de4-4963-b649-f561fb392251",
+      "type": "report",
+      "execution": "succeeded",
+      "drawing_quality": null,
+      "drawing_traceability": null,
+      "annotation_width_mm": null,
+      "shape_width_mm": 142,
+      "report_overall": "incomplete",
+      "job_sha256": "eef300d7616d4963cd4bb9e5779e9691334a8a325392f66bb27c0d4832e14b05",
+      "effective_config_sha256": "1739e1fc112c14d3a9ed11c1d1da2e15f8ee4a4e7e40516f60664b0bb253917b"
+    }
+  ],
+  "browser_console_errors": [],
+  "report_contract": "Uses original142config; edited150preview is excluded as UI states. Report remains incomplete."
+}

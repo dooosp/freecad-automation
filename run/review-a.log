@@ -1,0 +1,11 @@
+Context JSON: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack_context.json
+Geometry intelligence: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack_geometry_intelligence.json
+Review priorities: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack_review_priorities.json
+Review pack JSON: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack.json
+Review pack Markdown: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack_review_pack.md
+Review pack PDF: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack_review_pack.pdf
+Manifest: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack_artifact-manifest.json
+
+[freecad] Inspecting: output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step
+[freecad] FreeCAD 1.1.3 initialized via /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd on darwin
+[freecad] FreeCAD 1.1.3 initialized via /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd on darwin

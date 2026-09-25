@@ -1,0 +1,15 @@
+{
+  "created_at": "2026-09-25T12:05:57.707Z",
+  "sources": [],
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ],
+  "summary": {
+    "bom_entries": 0,
+    "inspection_results": 0,
+    "quality_issues": 0,
+    "diagnostics": 0
+  },
+  "mode": "prebuilt_context",
+  "diagnostics": []
+}

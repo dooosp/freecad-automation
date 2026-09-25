@@ -1,0 +1,242 @@
+[
+  {
+    "label": "rev-a-create",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "create",
+      "output/usb-hub-portfolio-VAokFT/rev-a/config.toml",
+      "--strict-quality"
+    ],
+    "started_at": "2026-09-25T12:05:47.626Z",
+    "finished_at": "2026-09-25T12:05:49.427Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "rev-a-create.log"
+  },
+  {
+    "label": "rev-a-draw",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "draw",
+      "output/usb-hub-portfolio-VAokFT/rev-a/config.toml",
+      "--strict-quality"
+    ],
+    "started_at": "2026-09-25T12:05:49.427Z",
+    "finished_at": "2026-09-25T12:05:51.182Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "rev-a-draw.log"
+  },
+  {
+    "label": "rev-b-create",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "create",
+      "output/usb-hub-portfolio-VAokFT/rev-b/config.toml",
+      "--strict-quality"
+    ],
+    "started_at": "2026-09-25T12:05:51.183Z",
+    "finished_at": "2026-09-25T12:05:52.795Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "rev-b-create.log"
+  },
+  {
+    "label": "rev-b-draw",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "draw",
+      "output/usb-hub-portfolio-VAokFT/rev-b/config.toml",
+      "--strict-quality"
+    ],
+    "started_at": "2026-09-25T12:05:52.795Z",
+    "finished_at": "2026-09-25T12:05:54.345Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "rev-b-draw.log"
+  },
+  {
+    "label": "annotation-warning",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "draw",
+      "output/usb-hub-portfolio-VAokFT/annotation-warning/config.json"
+    ],
+    "started_at": "2026-09-25T12:05:54.347Z",
+    "finished_at": "2026-09-25T12:05:55.875Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "annotation-warning.log"
+  },
+  {
+    "label": "annotation-strict",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "draw",
+      "output/usb-hub-portfolio-VAokFT/annotation-strict/config.json",
+      "--strict-quality"
+    ],
+    "started_at": "2026-09-25T12:05:55.876Z",
+    "finished_at": "2026-09-25T12:05:57.381Z",
+    "exit_code": 1,
+    "expected_exit": 1,
+    "signal": null,
+    "error": null,
+    "log": "annotation-strict.log"
+  },
+  {
+    "label": "measure",
+    "command": "FREECAD_CMD",
+    "args": [
+      "${REPO_ROOT}/docs/portfolio/usb-hub-plate-change/measure.py"
+    ],
+    "started_at": "2026-09-25T12:05:57.382Z",
+    "finished_at": "2026-09-25T12:05:57.706Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "measure.log"
+  },
+  {
+    "label": "review-a",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "review-context",
+      "--context",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-a/context.json",
+      "--out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack.json"
+    ],
+    "started_at": "2026-09-25T12:05:57.708Z",
+    "finished_at": "2026-09-25T12:05:59.650Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "review-a.log"
+  },
+  {
+    "label": "review-b",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "review-context",
+      "--context",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/context.json",
+      "--out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/review-pack.json"
+    ],
+    "started_at": "2026-09-25T12:05:59.652Z",
+    "finished_at": "2026-09-25T12:06:01.627Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "review-b.log"
+  },
+  {
+    "label": "compare-revisions",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "compare-rev",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-a/review-pack.json",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/review-pack.json",
+      "--out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/revision-comparison.json",
+      "--impact-out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/revision-impact.json",
+      "--baseline-config",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-a/comparison-config.json",
+      "--candidate-config",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/comparison-config.json",
+      "--generated-at",
+      "2026-09-25T12:05:57.707Z"
+    ],
+    "started_at": "2026-09-25T12:06:01.628Z",
+    "finished_at": "2026-09-25T12:06:02.601Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "compare-revisions.log"
+  },
+  {
+    "label": "inspection-full",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "inspection-plan",
+      "--review-pack",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/review-pack.json",
+      "--config",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/comparison-config.json",
+      "--requirements",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/inspection-requirements.json",
+      "--scope",
+      "full",
+      "--out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/inspection-full.json",
+      "--checksheet-out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/checksheet-full.csv",
+      "--generated-at",
+      "2026-09-25T12:05:57.707Z"
+    ],
+    "started_at": "2026-09-25T12:06:02.603Z",
+    "finished_at": "2026-09-25T12:06:03.505Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "inspection-full.log"
+  },
+  {
+    "label": "inspection-delta",
+    "command": "node",
+    "args": [
+      "bin/fcad.js",
+      "inspection-plan",
+      "--review-pack",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/review-pack.json",
+      "--config",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/comparison-config.json",
+      "--requirements",
+      "output/usb-hub-portfolio-VAokFT/revision-review/rev-b/inspection-requirements.json",
+      "--revision-impact",
+      "output/usb-hub-portfolio-VAokFT/revision-review/revision-impact.json",
+      "--scope",
+      "delta",
+      "--out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/inspection-delta.json",
+      "--checksheet-out",
+      "output/usb-hub-portfolio-VAokFT/revision-review/checksheet-delta.csv",
+      "--generated-at",
+      "2026-09-25T12:05:57.707Z"
+    ],
+    "started_at": "2026-09-25T12:06:03.506Z",
+    "finished_at": "2026-09-25T12:06:04.461Z",
+    "exit_code": 0,
+    "expected_exit": 0,
+    "signal": null,
+    "error": null,
+    "log": "inspection-delta.log"
+  }
+]

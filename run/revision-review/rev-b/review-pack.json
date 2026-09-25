@@ -1,0 +1,815 @@
+{
+  "artifact_type": "review_pack",
+  "schema_version": "1.0",
+  "analysis_version": "d1",
+  "generated_at": "2026-09-25T12:06:00Z",
+  "part_id": "USB-HUB-PLATE-SIM",
+  "revision": "B",
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ],
+  "coverage": {
+    "source_artifact_count": 4,
+    "source_file_count": 3,
+    "hotspot_count": 4,
+    "inspection_record_count": 0,
+    "inspection_outlier_count": 0,
+    "quality_issue_count": 0,
+    "quality_hotspot_count": 0,
+    "review_priority_count": 4
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.76,
+    "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/config.toml",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "role": "evidence",
+      "label": "Context source file"
+    }
+  ],
+  "canonical_artifact": {
+    "type": "review_pack.json",
+    "version": "2.0",
+    "json_is_source_of_truth": true,
+    "derived_renderers": [
+      "markdown",
+      "pdf"
+    ]
+  },
+  "part": {
+    "package_slug": "usb-hub-plate-simulated",
+    "part_id": "USB-HUB-PLATE-SIM",
+    "name": "USB hub synthetic plate",
+    "description": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record.",
+    "revision": "B",
+    "material": null,
+    "process": null
+  },
+  "executive_summary": {
+    "headline": "USB hub synthetic plate revision B shows 4 prioritized review topics led by complexity, slenderness, wall_thickness.",
+    "part_revision": "B",
+    "top_risk_categories": [
+      "complexity",
+      "slenderness",
+      "wall_thickness"
+    ],
+    "priority_count": 4,
+    "geometry_hotspot_count": 4,
+    "inspection_anomaly_count": 0,
+    "quality_signal_count": 0,
+    "recommended_action_count": 3,
+    "confidence": {
+      "label": "heuristic",
+      "numeric_score": 0.62
+    }
+  },
+  "prioritized_hotspots": [
+    {
+      "priority_rank": 1,
+      "hotspot_id": "hotspot:complexity:63e8edf2ba",
+      "category": "complexity",
+      "title": "Review High complexity review",
+      "score": 1,
+      "rationale": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 1,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "geometry_hotspot_titles": [
+        "High complexity review"
+      ],
+      "inspection_record_ids": [],
+      "quality_issue_ids": [],
+      "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release."
+    },
+    {
+      "priority_rank": 2,
+      "hotspot_id": "hotspot:slenderness:0c165ba17b",
+      "category": "slenderness",
+      "title": "Review Slender geometry review",
+      "score": 1,
+      "rationale": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 1,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "geometry_hotspot_titles": [
+        "Slender geometry review"
+      ],
+      "inspection_record_ids": [],
+      "quality_issue_ids": [],
+      "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot."
+    },
+    {
+      "priority_rank": 3,
+      "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+      "category": "wall_thickness",
+      "title": "Review Thin-wall candidate",
+      "score": 0.8,
+      "rationale": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 0.8,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "geometry_hotspot_titles": [
+        "Thin-wall candidate"
+      ],
+      "inspection_record_ids": [],
+      "quality_issue_ids": [],
+      "recommended_action": "Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot."
+    },
+    {
+      "priority_rank": 4,
+      "hotspot_id": "hotspot:patterning:9f1f2b69ae",
+      "category": "patterning",
+      "title": "Review Repeated hole pattern",
+      "score": 0.7,
+      "rationale": "Repeated hole pattern carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 0.7,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "geometry_hotspot_titles": [
+        "Repeated hole pattern"
+      ],
+      "inspection_record_ids": [],
+      "quality_issue_ids": [],
+      "recommended_action": null
+    }
+  ],
+  "inspection_anomaly_linkage": {
+    "summary": {
+      "record_count": 0,
+      "linked_record_count": 0,
+      "unmatched_record_count": 0
+    },
+    "records": []
+  },
+  "quality_pattern_linkage": {
+    "summary": {
+      "issue_count": 0,
+      "matched_categories": 0,
+      "matched_issue_count": 0,
+      "ambiguous_issue_count": 0,
+      "linked_record_count": 0,
+      "hotspot_count": 0
+    },
+    "records": [],
+    "hotspots": []
+  },
+  "evidence_ledger": {
+    "record_count": 4,
+    "counts_by_type": {
+      "geometry_hotspot": 4,
+      "inspection_anomaly": 0,
+      "quality_pattern": 0
+    },
+    "records": [
+      {
+        "evidence_id": "geometry:complexity:high_complexity_review",
+        "type": "geometry_hotspot",
+        "category": "complexity",
+        "title": "High complexity review",
+        "score": 1,
+        "rationale": "Geometry complexity is high enough to justify focused review sequencing.",
+        "confidence": 0.6
+      },
+      {
+        "evidence_id": "geometry:slenderness:slender_geometry_review",
+        "type": "geometry_hotspot",
+        "category": "slenderness",
+        "title": "Slender geometry review",
+        "score": 1,
+        "rationale": "Large aspect ratio can increase review focus on stiffness, handling, and fixture strategy.",
+        "confidence": 0.6
+      },
+      {
+        "evidence_id": "geometry:wall_thickness:thin-wall_candidate",
+        "type": "geometry_hotspot",
+        "category": "wall_thickness",
+        "title": "Thin-wall candidate",
+        "score": 0.8,
+        "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
+        "confidence": 0.6
+      },
+      {
+        "evidence_id": "geometry:patterning:repeated_hole_pattern",
+        "type": "geometry_hotspot",
+        "category": "patterning",
+        "title": "Repeated hole pattern",
+        "score": 0.7,
+        "rationale": "Repeated hole patterns are good candidates for inspection and datum review.",
+        "confidence": 0.6
+      }
+    ]
+  },
+  "uncertainty_coverage_report": {
+    "analysis_confidence": "heuristic",
+    "numeric_score": 0.62,
+    "partial_evidence": true,
+    "missing_inputs": [
+      "inspection_evidence",
+      "quality_evidence"
+    ],
+    "coverage": {
+      "source_file_count": 3,
+      "geometry_hotspot_count": 4,
+      "inspection_anomaly_count": 0,
+      "inspection_evidence_record_count": 0,
+      "quality_pattern_count": 0,
+      "package_quality_evidence_count": 0,
+      "drawing_evidence_count": 0,
+      "design_traceability_evidence_count": 0,
+      "review_priority_count": 4,
+      "evidence_record_count": 4
+    },
+    "warnings": [
+      "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+    ]
+  },
+  "recommended_actions": [
+    {
+      "action_id": "action-hotspot:complexity:63e8edf2ba",
+      "action_type": "design_review",
+      "priority_rank": 1,
+      "target_hotspot_id": "hotspot:complexity:63e8edf2ba",
+      "category": "complexity",
+      "based_on": "complexity",
+      "owner_role": "design_engineer",
+      "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
+      "why": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:complexity:63e8edf2ba"
+        }
+      ],
+      "confidence": 0.512,
+      "expected_effect": "Reduces avoidable downstream review churn and setup risk."
+    },
+    {
+      "action_id": "action-hotspot:slenderness:0c165ba17b",
+      "action_type": "fixture_review",
+      "priority_rank": 2,
+      "target_hotspot_id": "hotspot:slenderness:0c165ba17b",
+      "category": "slenderness",
+      "based_on": "slenderness",
+      "owner_role": "manufacturing_engineer",
+      "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
+      "why": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:slenderness:0c165ba17b"
+        }
+      ],
+      "confidence": 0.512,
+      "expected_effect": "Reduces handling-induced variation and fixture instability."
+    },
+    {
+      "action_id": "action-hotspot:wall_thickness:18df6aadd6",
+      "action_type": "process_control_review",
+      "priority_rank": 3,
+      "target_hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+      "category": "wall_thickness",
+      "based_on": "wall_thickness",
+      "owner_role": "manufacturing_engineer",
+      "recommended_action": "Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.",
+      "why": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s).",
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:wall_thickness:18df6aadd6"
+        }
+      ],
+      "confidence": 0.443,
+      "expected_effect": "Reduces repeat distortion and clarifies whether design or process containment is needed."
+    }
+  ],
+  "data_quality_notes": [
+    {
+      "severity": "warning",
+      "message": "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+    },
+    {
+      "severity": "info",
+      "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+    },
+    {
+      "severity": "info",
+      "message": "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    }
+  ],
+  "geometry_summary": {
+    "bounding_box_mm": {
+      "x": 142,
+      "y": 74,
+      "z": 4,
+      "diagonal": 160.175
+    },
+    "size_band": "small",
+    "volume_mm3": 41692.21,
+    "surface_area_mm2": 22835.48,
+    "face_count": 10,
+    "edge_count": 24,
+    "vertex_count": 16,
+    "bbox_volume_mm3": 42032,
+    "compactness_ratio": 0.9919,
+    "surface_to_volume_ratio": 0.5477,
+    "max_aspect_ratio": 35.5,
+    "mid_to_min_ratio": 18.5,
+    "planar_spread_ratio": 1.9189,
+    "thinness_ratio": 0.0282,
+    "face_density": 0.0002,
+    "edge_density": 0.0006
+  },
+  "geometry_features": {
+    "hole_like_feature_count": 4,
+    "hole_pattern_count": 1,
+    "thin_wall_candidates": [
+      {
+        "feature_type": "thin_wall",
+        "confidence": 0.8,
+        "evidence": "thinness_ratio=0.0282"
+      }
+    ],
+    "deep_pocket_candidates": [],
+    "inner_corner_risk_candidates": [],
+    "fillet_density": 0.8,
+    "chamfer_density": 0,
+    "feature_density": 1.2,
+    "complexity_score": 100,
+    "records": [
+      {
+        "feature_id": "feature:thin_wall_candidate:fba03a3e7d",
+        "feature_type": "thin_wall_candidate",
+        "region_ref": "region:global",
+        "entity_refs": [],
+        "score": 0.8,
+        "confidence": 0.8,
+        "reason_codes": [
+          "geometry.thinness.low",
+          "geometry.thinness.critical"
+        ],
+        "evidence_refs": [],
+        "match_tokens": [
+          "thin",
+          "wall",
+          "thickness"
+        ],
+        "details": {
+          "thinness_ratio": 0.0282,
+          "max_aspect_ratio": 35.5
+        }
+      },
+      {
+        "feature_id": "feature:hole_pattern:cd5c293952",
+        "feature_type": "hole_pattern",
+        "region_ref": "region:global",
+        "entity_refs": [
+          "entity:bolt_circle_count4_d5p2_pcd119p013_c66_37_n01"
+        ],
+        "score": 0.7,
+        "confidence": 0.7,
+        "reason_codes": [
+          "geometry.hole_pattern.repeated",
+          "geometry.hole_pattern.dense"
+        ],
+        "evidence_refs": [],
+        "match_tokens": [
+          "hole",
+          "pattern",
+          "bore"
+        ],
+        "details": {
+          "hole_count": 4,
+          "hole_diameter_mm": 5.2,
+          "pcd_mm": 119.013
+        }
+      }
+    ],
+    "derived_feature_count": 2
+  },
+  "geometry_hotspots": [
+    {
+      "hotspot_id": "hotspot:complexity:63e8edf2ba",
+      "title": "High complexity review",
+      "category": "complexity",
+      "region_ref": "region:global",
+      "feature_refs": [],
+      "entity_refs": [],
+      "severity": "high",
+      "score": 1,
+      "reason_codes": [
+        "geometry.complexity.high",
+        "geometry.complexity.critical"
+      ],
+      "evidence_refs": [],
+      "rationale": "Geometry complexity is high enough to justify focused review sequencing.",
+      "evidence": {
+        "complexity_score": 100
+      }
+    },
+    {
+      "hotspot_id": "hotspot:slenderness:0c165ba17b",
+      "title": "Slender geometry review",
+      "category": "slenderness",
+      "region_ref": "region:global",
+      "feature_refs": [],
+      "entity_refs": [],
+      "severity": "high",
+      "score": 1,
+      "reason_codes": [
+        "geometry.aspect_ratio.elevated",
+        "geometry.aspect_ratio.critical"
+      ],
+      "evidence_refs": [],
+      "rationale": "Large aspect ratio can increase review focus on stiffness, handling, and fixture strategy.",
+      "evidence": {
+        "max_aspect_ratio": 35.5
+      }
+    },
+    {
+      "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+      "title": "Thin-wall candidate",
+      "category": "wall_thickness",
+      "region_ref": "region:global",
+      "feature_refs": [
+        "feature:thin_wall_candidate:fba03a3e7d"
+      ],
+      "entity_refs": [],
+      "severity": "high",
+      "score": 0.8,
+      "reason_codes": [
+        "geometry.thinness.low",
+        "geometry.thinness.critical"
+      ],
+      "evidence_refs": [],
+      "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
+      "evidence": {
+        "thinness_ratio": 0.0282,
+        "max_aspect_ratio": 35.5
+      }
+    },
+    {
+      "hotspot_id": "hotspot:patterning:9f1f2b69ae",
+      "title": "Repeated hole pattern",
+      "category": "patterning",
+      "region_ref": "region:global",
+      "feature_refs": [
+        "feature:hole_pattern:cd5c293952"
+      ],
+      "entity_refs": [
+        "entity:bolt_circle_count4_d5p2_pcd119p013_c66_37_n01"
+      ],
+      "severity": "medium",
+      "score": 0.7,
+      "reason_codes": [
+        "geometry.hole_pattern.repeated",
+        "geometry.hole_pattern.dense"
+      ],
+      "evidence_refs": [],
+      "rationale": "Repeated hole patterns are good candidates for inspection and datum review.",
+      "evidence": {
+        "hole_count": 4,
+        "hole_diameter_mm": 5.2,
+        "pcd_mm": 119.013
+      }
+    }
+  ],
+  "inspection_linkage": {
+    "summary": {
+      "count": 0,
+      "out_of_tolerance": 0,
+      "in_tolerance": 0,
+      "unknown": 0
+    },
+    "records": []
+  },
+  "inspection_anomalies": [],
+  "quality_linkage": {
+    "summary": {
+      "issue_count": 0,
+      "matched_categories": 0,
+      "matched_issue_count": 0,
+      "ambiguous_issue_count": 0
+    },
+    "records": []
+  },
+  "quality_hotspots": [],
+  "review_priorities": [
+    {
+      "priority_rank": 1,
+      "hotspot_id": "hotspot:complexity:63e8edf2ba",
+      "category": "complexity",
+      "hotspot_title": "High complexity review",
+      "score": 1,
+      "title": "Review High complexity review",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 1,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.512,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:complexity:63e8edf2ba"
+        }
+      ],
+      "rationale": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    },
+    {
+      "priority_rank": 2,
+      "hotspot_id": "hotspot:slenderness:0c165ba17b",
+      "category": "slenderness",
+      "hotspot_title": "Slender geometry review",
+      "score": 1,
+      "title": "Review Slender geometry review",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 1,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.512,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:slenderness:0c165ba17b"
+        }
+      ],
+      "rationale": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    },
+    {
+      "priority_rank": 3,
+      "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+      "category": "wall_thickness",
+      "hotspot_title": "Thin-wall candidate",
+      "score": 0.8,
+      "title": "Review Thin-wall candidate",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 0.8,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.443,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:wall_thickness:18df6aadd6"
+        }
+      ],
+      "rationale": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    },
+    {
+      "priority_rank": 4,
+      "hotspot_id": "hotspot:patterning:9f1f2b69ae",
+      "category": "patterning",
+      "hotspot_title": "Repeated hole pattern",
+      "score": 0.7,
+      "title": "Review Repeated hole pattern",
+      "evidence_count": 1,
+      "score_breakdown": {
+        "geometry_evidence_score": 0.7,
+        "inspection_anomaly_score": 0,
+        "quality_recurrence_score": 0,
+        "process_sensitivity_score": 0,
+        "data_quality_penalty": 0,
+        "ambiguity_penalty": 0
+      },
+      "confidence": 0.407,
+      "ambiguity": {
+        "inspection_records": 0,
+        "quality_records": 0
+      },
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "evidence_refs": [
+        {
+          "source_type": "geometry_hotspot",
+          "source_id": "hotspot:patterning:9f1f2b69ae"
+        }
+      ],
+      "rationale": "Repeated hole pattern carries geometry evidence plus 0 inspection and 0 quality link(s)."
+    }
+  ],
+  "evidence_appendix": {
+    "geometry_metrics": {
+      "bounding_box_mm": {
+        "x": 142,
+        "y": 74,
+        "z": 4,
+        "diagonal": 160.175
+      },
+      "size_band": "small",
+      "volume_mm3": 41692.21,
+      "surface_area_mm2": 22835.48,
+      "face_count": 10,
+      "edge_count": 24,
+      "vertex_count": 16,
+      "bbox_volume_mm3": 42032,
+      "compactness_ratio": 0.9919,
+      "surface_to_volume_ratio": 0.5477,
+      "max_aspect_ratio": 35.5,
+      "mid_to_min_ratio": 18.5,
+      "planar_spread_ratio": 1.9189,
+      "thinness_ratio": 0.0282,
+      "face_density": 0.0002,
+      "edge_density": 0.0006
+    },
+    "geometry_feature_summary": {
+      "hole_like_feature_count": 4,
+      "hole_pattern_count": 1,
+      "thin_wall_candidates": [
+        {
+          "feature_type": "thin_wall",
+          "confidence": 0.8,
+          "evidence": "thinness_ratio=0.0282"
+        }
+      ],
+      "deep_pocket_candidates": [],
+      "inner_corner_risk_candidates": [],
+      "fillet_density": 0.8,
+      "chamfer_density": 0,
+      "feature_density": 1.2,
+      "complexity_score": 100,
+      "records": [
+        {
+          "feature_id": "feature:thin_wall_candidate:fba03a3e7d",
+          "feature_type": "thin_wall_candidate",
+          "region_ref": "region:global",
+          "entity_refs": [],
+          "score": 0.8,
+          "confidence": 0.8,
+          "reason_codes": [
+            "geometry.thinness.low",
+            "geometry.thinness.critical"
+          ],
+          "evidence_refs": [],
+          "match_tokens": [
+            "thin",
+            "wall",
+            "thickness"
+          ],
+          "details": {
+            "thinness_ratio": 0.0282,
+            "max_aspect_ratio": 35.5
+          }
+        },
+        {
+          "feature_id": "feature:hole_pattern:cd5c293952",
+          "feature_type": "hole_pattern",
+          "region_ref": "region:global",
+          "entity_refs": [
+            "entity:bolt_circle_count4_d5p2_pcd119p013_c66_37_n01"
+          ],
+          "score": 0.7,
+          "confidence": 0.7,
+          "reason_codes": [
+            "geometry.hole_pattern.repeated",
+            "geometry.hole_pattern.dense"
+          ],
+          "evidence_refs": [],
+          "match_tokens": [
+            "hole",
+            "pattern",
+            "bore"
+          ],
+          "details": {
+            "hole_count": 4,
+            "hole_diameter_mm": 5.2,
+            "pcd_mm": 119.013
+          }
+        }
+      ],
+      "derived_feature_count": 2
+    },
+    "source_files": [
+      "output/usb-hub-portfolio-VAokFT/rev-b/config.toml",
+      "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+      "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json"
+    ],
+    "package_evidence": [],
+    "warnings": [
+      "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+    ],
+    "inspection_record_count": 0,
+    "quality_issue_count": 0,
+    "canonical_json_note": "review_pack.json is the canonical decision artifact; markdown/pdf are derived renderers."
+  },
+  "metadata": {
+    "analysis_confidence": "heuristic",
+    "artifact_provenance": {
+      "workflow": [
+        "context-input",
+        "analyze-part",
+        "quality-link",
+        "review-pack"
+      ],
+      "source_files": [
+        "output/usb-hub-portfolio-VAokFT/rev-b/config.toml",
+        "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+        "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json"
+      ],
+      "context_created_at": "2026-09-25T12:05:57.707Z",
+      "warnings": [
+        "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+      ]
+    },
+    "renderers": [
+      "markdown",
+      "pdf"
+    ],
+    "available_sections": [
+      "executive_summary",
+      "prioritized_hotspots",
+      "inspection_anomaly_linkage",
+      "quality_pattern_linkage",
+      "evidence_ledger",
+      "uncertainty_coverage_report",
+      "recommended_actions",
+      "data_quality_notes",
+      "package_evidence"
+    ],
+    "package_evidence": {
+      "record_count": 0,
+      "classifications": []
+    },
+    "renderers_derived_from_canonical_json": [
+      "markdown",
+      "pdf"
+    ]
+  }
+}

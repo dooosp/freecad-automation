@@ -1,0 +1,29 @@
+Loading config: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/rev-a/config.toml
+Creating model: usb_hub_surrogate_A
+  Shapes: 5
+  Operations: 4
+
+Model created successfully!
+  Volume: 41692.21 mm³
+  Faces: 10, Edges: 24
+  Bounding box: 142 × 74 × 4 mm
+  Exports:
+    step: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step (12652 bytes)
+  Create quality: pass
+  Create quality report: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A_create_quality.json
+  Manifest: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A_artifact-manifest.json
+
+[freecad] Creating model: usb_hub_surrogate_A
+[freecad] FreeCAD 1.1.3 initialized via /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd on darwin
+[freecad]   Shape 'plate' created (box)
+[freecad]   Shape 'hole_D1' created (cylinder)
+[freecad]   Shape 'hole_D2' created (cylinder)
+[freecad]   Shape 'hole_H1' created (cylinder)
+[freecad]   Shape 'hole_H2' created (cylinder)
+[freecad]   Boolean 'cut' → 'cut_1'
+[freecad]   Boolean 'cut' → 'cut_2'
+[freecad]   Boolean 'cut' → 'cut_3'
+[freecad]   Boolean 'cut' → 'final'
+[freecad]   Exported 1 format(s) to output/usb-hub-portfolio-VAokFT/rev-a
+[freecad] Inspecting: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step
+[freecad] FreeCAD 1.1.3 initialized via /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd on darwin

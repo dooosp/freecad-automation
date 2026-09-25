@@ -1,0 +1,785 @@
+diff --git a/public/js/i18n/en.js b/public/js/i18n/en.js
+index 2c3367d..65d62c1 100644
+--- a/public/js/i18n/en.js
++++ b/public/js/i18n/en.js
+@@ -138,6 +138,9 @@ const en = {
+     'studio.artifacts.summary.primary': 'Primary result',
+     'studio.artifacts.summary.execution': 'Execution',
+     'studio.artifacts.summary.quality': 'Quality',
++    'studio.artifacts.summary.blockers': 'Quality blockers',
++    'studio.artifacts.summary.unmapped-dimensions': 'Required dimensions without drawing evidence',
++    'studio.artifacts.summary.traceability-blocker': 'Drawing evidence coverage is {coverage}%, below the required threshold.',
+     'studio.artifacts.summary.other': 'Other result files',
+     'studio.artifacts.groups.kicker': 'Supporting results',
+     'studio.artifacts.groups.title': 'Other result files',
+diff --git a/public/js/i18n/ko.js b/public/js/i18n/ko.js
+index 51db2de..a946fa3 100644
+--- a/public/js/i18n/ko.js
++++ b/public/js/i18n/ko.js
+@@ -221,6 +221,9 @@ const ko = {
+     'studio.artifacts.summary.primary': '주요 결과',
+     'studio.artifacts.summary.execution': '실행',
+     'studio.artifacts.summary.quality': '품질',
++    'studio.artifacts.summary.blockers': '품질 통과를 막는 문제',
++    'studio.artifacts.summary.unmapped-dimensions': '도면 근거가 연결되지 않은 필수 치수',
++    'studio.artifacts.summary.traceability-blocker': '도면 근거 연결률이 {coverage}%로 필수 기준을 충족하지 못했습니다.',
+     'studio.artifacts.summary.other': '기타 결과 파일',
+     'studio.artifacts.groups.kicker': '보조 결과',
+     'studio.artifacts.groups.title': '기타 결과 파일',
+diff --git a/public/js/studio/artifacts-workspace.js b/public/js/studio/artifacts-workspace.js
+index d99c986..a5463e5 100644
+--- a/public/js/studio/artifacts-workspace.js
++++ b/public/js/studio/artifacts-workspace.js
+@@ -49,6 +49,7 @@ import {
+   deriveRecentJobDecisionState,
+   deriveRecentJobQualityStatus,
+   formatRecentJobQualityLine,
++  qualitySummaryFromJob,
+ } from './recent-job-quality-status.js';
+ import {
+   collectResultFileGroups,
+@@ -1521,7 +1522,7 @@ function createResultArtifactCard(artifact, { primarySummary = false } = {}) {
+   });
+ }
+ 
+-function renderResultSummary(activeJob, { hydrating = false } = {}) {
++export function renderResultSummary(activeJob, { hydrating = false } = {}) {
+   if (hydrating || activeJob?.status === 'loading') {
+     return createEmptyState({
+       icon: '…',
+@@ -1551,6 +1552,21 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
+     });
+   }
+ 
++  const quality = ['draw', 'create'].includes(activeJob.summary.type)
++    ? qualitySummaryFromJob(activeJob.summary)
++    : {};
++  const blockers = (Array.isArray(quality.blocking_issues) ? quality.blocking_issues : [])
++    .map((issue) => {
++      if (issue?.code === 'traceability-coverage' && Number.isFinite(quality.traceability?.coverage_percent)) {
++        return t('studio.artifacts.summary.traceability-blocker', { coverage: quality.traceability.coverage_percent });
++      }
++      return typeof issue === 'string' ? issue : issue?.message;
++    })
++    .filter((message) => typeof message === 'string' && message.trim());
++  const unmapped = Array.isArray(quality.traceability?.unmapped_required_entities)
++    ? quality.traceability.unmapped_required_entities.filter((id) => typeof id === 'string' && id.trim())
++    : [];
++
+   return createCard({
+     kicker: t('studio.artifacts.summary.kicker'),
+     title: t('studio.artifacts.summary.title'),
+@@ -1562,6 +1578,8 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
+         { label: t('studio.artifacts.summary.primary'), value: resultFileTitle(primaryArtifact) },
+         { label: t('studio.artifacts.summary.execution'), value: localizedExecutionStatus(activeJob.summary) },
+         { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },
++        ...(blockers.length ? [{ label: t('studio.artifacts.summary.blockers'), value: blockers.join(' · ') }] : []),
++        ...(unmapped.length ? [{ label: t('studio.artifacts.summary.unmapped-dimensions'), value: unmapped.join(', ') }] : []),
+         { label: t('studio.artifacts.summary.other'), value: String(Math.max(0, artifacts.length - 1)) },
+       ]),
+       createResultArtifactCard(primaryArtifact, { primarySummary: true }),
+diff --git a/public/js/studio/recent-job-quality-status.js b/public/js/studio/recent-job-quality-status.js
+index 77dc92c..4d3b7dd 100644
+--- a/public/js/studio/recent-job-quality-status.js
++++ b/public/js/studio/recent-job-quality-status.js
+@@ -57,6 +57,13 @@ function reportSummaryFromJob(job = {}) {
+   );
+ }
+ 
++export function qualitySummaryFromJob(job = {}) {
++  const result = asObject(job.result);
++  if (job.type === 'draw') return asObject(result.drawing_quality);
++  if (job.type === 'create') return asObject(result.create_quality);
++  return reportSummaryFromJob(job);
++}
++
+ function firstObjectWithAnyKey(candidates = [], keys = []) {
+   return candidates
+     .map((candidate) => asObject(candidate))
+@@ -180,7 +187,10 @@ export function formatReadyForManufacturingReview(value) {
+ 
+ export function deriveRecentJobQualityStatus(job = {}) {
+   const reportSummary = reportSummaryFromJob(job);
+-  const qualityStatus = formatQualityStatus(reportSummary.overall_status);
++  const qualitySummary = qualitySummaryFromJob(job);
++  const qualityStatus = formatQualityStatus(
++    job.type === 'draw' || job.type === 'create' ? qualitySummary.status : qualitySummary.overall_status
++  );
+   const readyForManufacturingReview = readinessHoldLabel(job, reportSummary)
+     || formatReadyForManufacturingReview(reportSummary.ready_for_manufacturing_review);
+ 
+@@ -194,7 +204,7 @@ export function deriveRecentJobQualityStatus(job = {}) {
+ }
+ 
+ function hasDecisionPayload(job = {}) {
+-  const reportSummary = reportSummaryFromJob(job);
++  const reportSummary = qualitySummaryFromJob(job);
+   const readinessSummary = readinessSummaryFromJob(job, reportSummary);
+   return Object.keys(reportSummary).length > 0 || Object.keys(readinessSummary).length > 0;
+ }
+diff --git a/public/js/studio/result-files.js b/public/js/studio/result-files.js
+index e5c44ff..5151062 100644
+--- a/public/js/studio/result-files.js
++++ b/public/js/studio/result-files.js
+@@ -43,7 +43,11 @@ export function classifyResultFilePurpose(artifact = {}) {
+     return 'system';
+   }
+ 
++  if (extension === '.svg' || extension === '.dxf') return 'immediate';
++
+   if (includesAny(search, [
++    'drawing.qa-report',
++    'drawing.qa-issues',
+     'quality',
+     'readiness',
+     'review-pack',
+@@ -101,7 +105,7 @@ function jobTypePreferenceScore(artifact = {}, jobType = '') {
+   )) return -250;
+   if (normalizedType === 'draw' && (
+     ['.svg', '.dxf', '.pdf'].includes(extension)
+-    || search.includes('drawing')
++    || ['drawing.svg', 'drawing.dxf', 'drawing.pdf'].includes(artifact.type)
+   )) return -250;
+   if (normalizedType === 'report' && (extension === '.pdf' || search.includes('report'))) return -250;
+   if (includesAny(normalizedType, ['review', 'inspect', 'readiness', 'compare', 'stabilization'])
+@@ -169,12 +173,13 @@ export function resultFileLabelKey(artifact = {}) {
+   const extension = artifactExtension(artifact);
+ 
+   if (extension === '.pdf') return 'studio.artifacts.file.report';
++  if (extension === '.svg' || extension === '.dxf') return 'studio.artifacts.file.drawing';
+   if (extension === '.fcstd' || extension === '.brep' || extension === '.brp') return 'studio.artifacts.file.model';
+   if (extension === '.step' || extension === '.stp') return 'studio.artifacts.file.step';
+   if (extension === '.stl') return 'studio.artifacts.file.stl';
+   if (includesAny(search, ['bom', 'bill of material'])) return 'studio.artifacts.file.bom';
+   if (includesAny(search, ['readiness'])) return 'studio.artifacts.file.readiness';
+-  if (includesAny(search, ['quality', 'dfm', 'inspection', 'review', 'revision', 'stabilization', 'report_summary', 'report summary'])) {
++  if (includesAny(search, ['quality', 'drawing.qa-report', 'drawing.qa-issues', 'dfm', 'inspection', 'review', 'revision', 'stabilization', 'report_summary', 'report summary'])) {
+     return 'studio.artifacts.file.quality';
+   }
+   if (extension === '.svg' || extension === '.dxf' || search.includes('drawing')) return 'studio.artifacts.file.drawing';
+diff --git a/scripts/step_feature_detector.py b/scripts/step_feature_detector.py
+index 06c256b..a0ea772 100644
+--- a/scripts/step_feature_detector.py
++++ b/scripts/step_feature_detector.py
+@@ -340,5 +340,11 @@ def main():
+     respond(result)
+ 
+ 
+-if __name__ == "__main__":
++# FreeCADCmd imports its CLI script by stem instead of setting __name__ to __main__.
++# Match the selected script path as well so ordinary module imports stay inert.
++if __name__ == "__main__" or (
++    __name__ == os.path.splitext(os.path.basename(__file__))[0]
++    and len(sys.argv) > 1
++    and os.path.realpath(sys.argv[1]) == os.path.realpath(__file__)
++):
+     main()
+diff --git a/src/server/routes/local-api-studio-routes.js b/src/server/routes/local-api-studio-routes.js
+index 93ba76d..1370a2a 100644
+--- a/src/server/routes/local-api-studio-routes.js
++++ b/src/server/routes/local-api-studio-routes.js
+@@ -169,7 +169,7 @@ export function registerStudioRoutes(app, {
+       }));
+     } catch (error) {
+       const rawMessage = errorMessage(error);
+-      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
++      const status = /(?:TOML|JSON) parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
+       const response = createErrorResponse(
+         'model_preview_failed',
+         [publicErrorMessage(error)],
+@@ -231,7 +231,7 @@ export function registerStudioRoutes(app, {
+       }));
+     } catch (error) {
+       const rawMessage = errorMessage(error);
+-      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
++      const status = /(?:TOML|JSON) parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
+       const response = createErrorResponse(
+         'drawing_preview_failed',
+         [publicErrorMessage(error)],
+diff --git a/src/server/studio-drawing-service.js b/src/server/studio-drawing-service.js
+index d0e048b..8d17a39 100644
+--- a/src/server/studio-drawing-service.js
++++ b/src/server/studio-drawing-service.js
+@@ -2,10 +2,9 @@ import { randomUUID } from 'node:crypto';
+ import { mkdtemp, readFile, rm } from 'node:fs/promises';
+ import { tmpdir } from 'node:os';
+ import { basename, dirname, join, resolve } from 'node:path';
+-import { parse as parseTOML } from 'smol-toml';
+ 
+ import { deepMerge } from '../../lib/config-loader.js';
+-import { validateConfigDocument } from '../../lib/config-schema.js';
++import { parseConfigText, validateConfigDocument } from '../../lib/config-schema.js';
+ import { updateDimIntent, readDimIntents } from '../../lib/toml-writer.js';
+ import { runScript } from '../../lib/runner.js';
+ import { createDrawingService } from '../api/drawing.js';
+@@ -164,9 +163,9 @@ export function createStudioDrawingService({
+     }
+   }
+ 
+-  function parseAndValidateConfigToml(configToml) {
+-    const raw = parseTOML(configToml);
+-    const validation = validateConfigDocument(raw, { filepath: 'studio:drawing-preview' });
++  function parseAndValidateConfig(configText, format) {
++    const { parsed } = parseConfigText(configText, `studio:drawing-preview.${format}`);
++    const validation = validateConfigDocument(parsed, { filepath: 'studio:drawing-preview' });
+     return {
+       config: validation.config,
+       summary: validation.summary,
+@@ -198,11 +197,12 @@ export function createStudioDrawingService({
+       throw new Error('Config TOML is required.');
+     }
+ 
++    const format = source.startsWith('{') ? 'json' : 'toml';
+     let parsed;
+     try {
+-      parsed = parseAndValidateConfigToml(source);
++      parsed = parseAndValidateConfig(source, format);
+     } catch (error) {
+-      throw new Error(`TOML parse error: ${error instanceof Error ? error.message : String(error)}`);
++      throw new Error(`${format.toUpperCase()} parse error: ${error instanceof Error ? error.message : String(error)}`);
+     }
+ 
+     const { config, summary, overview, valid } = parsed;
+diff --git a/src/server/studio-job-bridge.js b/src/server/studio-job-bridge.js
+index 876b2e3..71fe0a8 100644
+--- a/src/server/studio-job-bridge.js
++++ b/src/server/studio-job-bridge.js
+@@ -1,6 +1,4 @@
+-import { parse as parseTOML } from 'smol-toml';
+-
+-import { validateConfigDocument } from '../../lib/config-schema.js';
++import { parseConfigText, validateConfigDocument } from '../../lib/config-schema.js';
+ import {
+   findPreferredConfigArtifact,
+   findPreferredDocsManifestArtifact,
+@@ -197,12 +195,13 @@ function buildResolvedPairOptions(request, baselineArtifact, candidateArtifact)
+   return options;
+ }
+ 
+-function parseStudioConfigToml(configToml) {
++function parseStudioConfig(configText) {
++  const format = configText.startsWith('{') ? 'json' : 'toml';
+   let parsed;
+   try {
+-    parsed = parseTOML(configToml);
++    ({ parsed } = parseConfigText(configText, `studio:tracked-job.${format}`));
+   } catch (error) {
+-    throw new Error(`TOML parse error: ${error instanceof Error ? error.message : String(error)}`);
++    throw new Error(`${format.toUpperCase()} parse error: ${error instanceof Error ? error.message : String(error)}`);
+   }
+   const validation = validateConfigDocument(parsed, { filepath: 'studio:tracked-job' });
+   if (!validation.valid) {
+@@ -1115,7 +1114,7 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef }
+ 
+   let config;
+   try {
+-    config = parseStudioConfigToml(request.config_toml.trim());
++    config = parseStudioConfig(request.config_toml.trim());
+   } catch (error) {
+     return {
+       ok: false,
+diff --git a/src/server/studio-model-service.js b/src/server/studio-model-service.js
+index 58478b9..942f54c 100644
+--- a/src/server/studio-model-service.js
++++ b/src/server/studio-model-service.js
+@@ -2,9 +2,8 @@ import { randomUUID } from 'node:crypto';
+ import { mkdtemp, rm } from 'node:fs/promises';
+ import { tmpdir } from 'node:os';
+ import { basename, join } from 'node:path';
+-import { parse as parseTOML } from 'smol-toml';
+ 
+-import { validateConfigDocument } from '../../lib/config-schema.js';
++import { parseConfigText, validateConfigDocument } from '../../lib/config-schema.js';
+ import { runScript } from '../../lib/runner.js';
+ import { createDesignService } from '../api/design.js';
+ import { createModel } from '../api/model.js';
+@@ -73,9 +72,9 @@ export function createStudioModelService({ projectRoot }) {
+     }
+   }
+ 
+-  function parseAndValidateConfigToml(configToml) {
+-    const raw = parseTOML(configToml);
+-    const validation = validateConfigDocument(raw, { filepath: 'studio:model-preview' });
++  function parseAndValidateConfig(configText, format) {
++    const { parsed } = parseConfigText(configText, `studio:model-preview.${format}`);
++    const validation = validateConfigDocument(parsed, { filepath: 'studio:model-preview' });
+     return {
+       config: validation.config,
+       summary: validation.summary,
+@@ -111,11 +110,13 @@ export function createStudioModelService({ projectRoot }) {
+         throw new Error('Config TOML is required.');
+       }
+ 
++      // The legacy API supplies text without a filename; JSON configs have an object root.
++      const format = source.startsWith('{') ? 'json' : 'toml';
+       let parsed;
+       try {
+-        parsed = parseAndValidateConfigToml(source);
++        parsed = parseAndValidateConfig(source, format);
+       } catch (error) {
+-        throw new Error(`TOML parse error: ${error instanceof Error ? error.message : String(error)}`);
++        throw new Error(`${format.toUpperCase()} parse error: ${error instanceof Error ? error.message : String(error)}`);
+       }
+ 
+       if (!parsed.valid) {
+diff --git a/tests/local-api-studio-drawing.test.js b/tests/local-api-studio-drawing.test.js
+index c8a19a2..a97c670 100644
+--- a/tests/local-api-studio-drawing.test.js
++++ b/tests/local-api-studio-drawing.test.js
+@@ -26,6 +26,27 @@ async function listen(server) {
+   return typeof address === 'object' && address ? address.port : 0;
+ }
+ 
++async function verifyMalformedJsonDrawingStatus() {
++  const { server: validationServer } = createLocalApiServer({
++    projectRoot: ROOT,
++    jobsDir: join(tmpRoot, 'validation-jobs'),
++  });
++  try {
++    const port = await listen(validationServer);
++    const response = await fetch(`http://127.0.0.1:${port}/api/studio/drawing-preview`, {
++      method: 'POST',
++      headers: { accept: 'application/json', 'content-type': 'application/json' },
++      body: JSON.stringify({ config_toml: '{"name":"broken",}' }),
++    });
++    assert.equal(response.status, 400, 'malformed JSON drawing config is an input error');
++    const payload = await response.json();
++    assert.equal(payload.error.code, 'drawing_preview_failed');
++    assert.match(payload.error.messages.join('\n'), /JSON parse error:.*(?:position|line|property name)/i);
++  } finally {
++    await new Promise((resolveClose) => validationServer.close(resolveClose));
++  }
++}
++
+ const configToml = 'name = "demo"\n[[shapes]]\nid = "body"\ntype = "box"\nlength = 10\nwidth = 10\nheight = 10\n';
+ 
+ const fakeDrawingService = {
+@@ -270,6 +291,8 @@ try {
+   assert.equal(trackedPayload.job.request.options.studio.preview_plan.preserved, true);
+   assert.equal(trackedPayload.job.request.options.studio.preview_plan.reason, 'preserved');
+ 
++  await verifyMalformedJsonDrawingStatus();
++
+   console.log('local-api-studio-drawing.test.js: ok');
+ } finally {
+   await new Promise((resolveClose) => server.close(resolveClose));
+diff --git a/tests/local-api-studio-model.test.js b/tests/local-api-studio-model.test.js
+index 024d808..7de4f84 100644
+--- a/tests/local-api-studio-model.test.js
++++ b/tests/local-api-studio-model.test.js
+@@ -23,6 +23,93 @@ async function listen(server) {
+   return typeof address === 'object' && address ? address.port : 0;
+ }
+ 
++async function verifyConfigFormats() {
++  const { server: configServer, studioModelService } = createLocalApiServer({
++    projectRoot: ROOT,
++    jobsDir: join(tmpRoot, 'config-jobs'),
++  });
++  try {
++    const port = await listen(configServer);
++    const configToml = `
++name = "format-compat"
++material = "AL6061"
++[[shapes]]
++id = "body"
++type = "box"
++length = 20
++width = 10
++height = 4
++[[operations]]
++type = "fillet"
++target = "body"
++radius = 1
++[drawing]
++views = ["front"]
++[export]
++step = true
++`;
++    const configJson = JSON.stringify({
++      name: 'format-compat',
++      material: 'AL6061',
++      shapes: [{ id: 'body', type: 'box', length: 20, width: 10, height: 4 }],
++      operations: [{ type: 'fillet', target: 'body', radius: 1 }],
++      drawing: { views: ['front'] },
++      export: { step: true },
++    });
++    const tomlValidation = await studioModelService.validateConfigToml(configToml);
++    const jsonValidation = await studioModelService.validateConfigToml(` \n${configJson}\n `);
++    assert.deepEqual(jsonValidation, tomlValidation,
++      'JSON and TOML must share canonical normalization and diagnostics');
++    assert.equal(jsonValidation.config.config_version, 1);
++    assert.equal(jsonValidation.config.operations[0].op, 'fillet');
++    assert.equal(jsonValidation.config.manufacturing.material, 'AL6061');
++    assert.equal(jsonValidation.config.drawing.units, 'mm');
++    assert.deepEqual(jsonValidation.config.export.formats, ['step']);
++    assert.equal(jsonValidation.overview.shape_count, 1);
++    assert.equal(jsonValidation.overview.operation_count, 1);
++    assert.ok(jsonValidation.summary.deprecated_fields.length > 0);
++
++    const tableFirst = await studioModelService.validateConfigToml('[export]\nformats = ["step"]');
++    assert.deepEqual(tableFirst.config.export.formats, ['step'], 'TOML tables must not be treated as JSON arrays');
++
++    for (const configText of ['shapes = "not-an-array"', '{"shapes":"not-an-array"}']) {
++      await assert.rejects(studioModelService.validateConfigToml(configText), /root\.shapes must be array/);
++      await assert.rejects(studioModelService.buildPreview({ configToml: configText }), /root\.shapes must be array/);
++    }
++    for (const key of ['__proto__', 'constructor', 'prototype']) {
++      for (const configText of [`[metadata]\n${key} = "unsafe"`, `{"metadata":{"${key}":"unsafe"}}`]) {
++        await assert.rejects(studioModelService.validateConfigToml(configText), /Unsafe config key/);
++        await assert.rejects(studioModelService.buildPreview({ configToml: configText }), /Unsafe config key/);
++      }
++    }
++
++    async function postConfig(route, configText) {
++      const response = await fetch(`http://127.0.0.1:${port}/api/studio/${route}`, {
++        method: 'POST',
++        headers: { accept: 'application/json', 'content-type': 'application/json' },
++        body: JSON.stringify({ config_toml: configText }),
++      });
++      return { status: response.status, payload: await response.json() };
++    }
++    const tomlResponse = await postConfig('validate-config', configToml);
++    const jsonResponse = await postConfig('validate-config', configJson);
++    assert.equal(jsonResponse.status, 200);
++    assert.equal(validateLocalApiResponse('studio_validate_config', jsonResponse.payload).ok, true);
++    assert.deepEqual(jsonResponse, tomlResponse, 'legacy config_toml API field accepts either format');
++
++    const malformedJson = '{"name":"format-compat",}';
++    for (const [route, code] of [['validate-config', 'invalid_config'], ['model-preview', 'model_preview_failed']]) {
++      const invalidResponse = await postConfig(route, malformedJson);
++      assert.equal(invalidResponse.status, 400, `${route} must classify malformed JSON as an input error`);
++      assert.equal(invalidResponse.payload.error.code, code);
++      assert.match(invalidResponse.payload.error.messages.join('\n'), /JSON parse error:.*(?:position|line|property name)/i);
++    }
++  } finally {
++    await new Promise((resolveClose) => configServer.close(resolveClose));
++    await studioModelService.dispose();
++  }
++}
++
+ const fakeModelService = {
+   async buildPreview() {
+     return {
+@@ -197,6 +284,8 @@ try {
+   const missingPayload = await missingAssetResponse.json();
+   assert.equal(missingPayload.ok, false);
+ 
++  await verifyConfigFormats();
++
+   console.log('local-api-studio-model.test.js: ok');
+ } finally {
+   await new Promise((resolveClose) => server.close(resolveClose));
+diff --git a/tests/result-files.test.js b/tests/result-files.test.js
+index 765f529..4f48439 100644
+--- a/tests/result-files.test.js
++++ b/tests/result-files.test.js
+@@ -1,4 +1,7 @@
+ import assert from 'node:assert/strict';
++import { renderResultSummary } from '../public/js/studio/artifacts-workspace.js';
++import { getLocale, setLocale } from '../public/js/i18n/index.js';
++import { installDrawingTestDom } from './helpers/drawing-test-dom.js';
+ 
+ import {
+   collectResultFileGroups,
+@@ -144,4 +147,82 @@ const missingReport = artifact({
+ });
+ assert.equal(selectPrimaryResultArtifact([missingReport, step])?.id, 'step');
+ 
++// The real SVG is download-only; its previewable QA JSON must not outrank it.
++const drawingSvgDownload = artifact({
++  id: 'drawing-svg-0', type: 'drawing.svg',
++  fileName: 'usb_hub_surrogate_B_drawing.svg', extension: '.svg', canOpen: false,
++});
++const drawingQa = artifact({
++  id: 'drawing-qa-report', type: 'drawing.qa-report',
++  fileName: 'usb_hub_surrogate_B_drawing_qa.json', extension: '.json',
++});
++const drawingPlan = artifact({
++  id: 'drawing-planner', type: 'drawing.planner',
++  fileName: 'usb_hub_surrogate_B_drawing_planner.json', extension: '.json',
++});
++for (const artifacts of [
++  [drawingQa, drawingPlan, drawingQuality, drawingSvgDownload],
++  [drawingSvgDownload, drawingQuality, drawingPlan, drawingQa],
++]) {
++  assert.equal(selectPrimaryResultArtifact(artifacts, { jobType: 'draw' }).id, 'drawing-svg-0');
++}
++assert.equal(collectResultFileGroups([drawingQa]).find((group) => group.id === 'quality').artifacts[0], drawingQa);
++assert.equal(resultFileLabelKey(drawingQa), 'studio.artifacts.file.quality');
++
++const qualityNamedDrawing = { ...drawingSvgDownload, file_name: 'quality_pass_bracket_drawing.svg' };
++assert.equal(resultFileLabelKey(qualityNamedDrawing), 'studio.artifacts.file.drawing');
++assert.equal(collectResultFileGroups([qualityNamedDrawing]).find((group) => group.id === 'immediate').artifacts[0], qualityNamedDrawing);
++
++// Render the same summary used by Packs, including the actual draw result shape.
++const restoreDom = installDrawingTestDom();
++const previousLocale = getLocale();
++try {
++  const activeJob = {
++    status: 'ready',
++    summary: {
++      id: 'annotation-only', type: 'draw', status: 'succeeded',
++      request: { config: { name: 'usb_hub_surrogate_B' } },
++      result: {
++        success: true,
++        drawing_quality: {
++          status: 'fail', score: 89,
++          traceability: { coverage_percent: 80, unmapped_required_entities: ['WIDTH'] },
++          blocking_issues: [{
++            code: 'traceability-coverage',
++            message: 'Traceability coverage is 80% and must be at least 95%.',
++            details: { unmapped_required_entities: ['WIDTH'] },
++          }],
++        },
++      },
++    },
++    artifacts: [drawingQa, drawingSvgDownload, drawingQuality],
++  };
++  for (const [locale, execution, quality, blockerText] of [
++    ['en', 'Completed', 'Failed', 'Drawing evidence coverage is 80%'],
++    ['ko', '완료', '실패', '도면 근거 연결률이 80%'],
++  ]) {
++    setLocale(locale, { persist: false });
++    const summary = renderResultSummary(activeJob);
++    const text = summary.textContent;
++    assert.ok(text.includes(execution), text);
++    assert.ok(text.includes(quality), text);
++    assert.ok(text.includes('WIDTH'), 'The unmapped required dimension must be visible in the summary');
++    assert.ok(text.includes(blockerText), text);
++    assert.ok(text.includes('usb_hub_surrogate_B_drawing.svg'), text);
++    assert.equal(text.includes('usb_hub_surrogate_B_drawing_qa.json'), false);
++  }
++  activeJob.summary.result.drawing_quality = {
++    status: 'pass', score: 89,
++    traceability: { coverage_percent: 100, unmapped_required_entities: [] },
++    blocking_issues: [],
++  };
++  const passing = renderResultSummary(activeJob).textContent;
++  assert.ok(passing.includes('통과'), passing);
++  assert.equal(passing.includes('WIDTH'), false);
++  assert.equal(passing.includes('80%'), false);
++} finally {
++  setLocale(previousLocale, { persist: false });
++  restoreDom();
++}
++
+ console.log('result-files.test.js: ok');
+diff --git a/tests/studio-drawing-service.test.js b/tests/studio-drawing-service.test.js
+index 7e95636..7e5274e 100644
+--- a/tests/studio-drawing-service.test.js
++++ b/tests/studio-drawing-service.test.js
+@@ -176,6 +176,43 @@ function fullConfigToml() {
+   return stringifyTOML(config);
+ }
+ 
++test('JSON and TOML drawing previews share normalization and editable plan persistence', async (t) => {
++  const service = parityService(t);
++  const configToml = partialConfigToml();
++  const configJson = JSON.stringify(parseTOML(configToml));
++  const tomlResult = await service.buildPreview({ configToml });
++  const tomlConfig = generatedConfigs.at(-1);
++  const jsonResult = await service.buildPreview({ configToml: ` \n${configJson}\n ` });
++  const jsonConfig = generatedConfigs.at(-1);
++  assert.deepEqual({ ...jsonConfig, export: { ...jsonConfig.export, directory: tomlConfig.export.directory } }, tomlConfig,
++    'renderer receives the same normalized config apart from its isolated export directory');
++  assert.notEqual(jsonConfig.export.directory, tomlConfig.export.directory);
++  assert.deepEqual(jsonResult.preview.validation, tomlResult.preview.validation);
++  assert.deepEqual(jsonResult.preview.overview, tomlResult.preview.overview);
++  assert.deepEqual(jsonResult.preview.dimensions, tomlResult.preview.dimensions);
++  assert.equal(jsonResult.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 120);
++  assert.deepEqual(
++    parseTOML(readFileSync(jsonResult.preview.plan_path, 'utf8')),
++    parseTOML(readFileSync(tomlResult.preview.plan_path, 'utf8')),
++    'JSON input must still persist a valid editable TOML plan'
++  );
++});
++
++test('malformed, schema-invalid and unsafe JSON drawing inputs reject before preview allocation', async (t) => {
++  const service = parityService(t, {
++    mkdtempFn() { throw new Error('Invalid config reached preview allocation'); },
++  });
++  for (const [configToml, expectedError] of [
++    ['{"name":"broken",}', /JSON parse error:.*(?:position|line|property name)/i],
++    ['{"shapes":"not-an-array"}', /root\.shapes must be array/],
++    ...['__proto__', 'constructor', 'prototype'].map((key) => [
++      `{"metadata":{"${key}":"unsafe"}}`, /Unsafe config key/,
++    ]),
++  ]) {
++    await assert.rejects(service.buildPreview({ configToml }), expectedError);
++  }
++});
++
+ test('partial plans receive compiled editable dimensions without losing explicit notes', async (t) => {
+   const service = parityService(t);
+   const { preview } = await service.buildPreview({ configToml: partialConfigToml() });
+@@ -185,9 +222,9 @@ test('partial plans receive compiled editable dimensions without losing explicit
+   assert.equal(toPublicDrawingPreviewPayload({ preview }).preview.editable_plan_available, true);
+ });
+ 
+-test('edited full plans survive actual TOML loading and the tracked job coordinator', async (t) => {
++for (const format of ['TOML', 'JSON']) test(`edited full plans survive ${format} source reloading and the tracked job coordinator`, async (t) => {
+   const service = parityService(t);
+-  const configToml = fullConfigToml();
++  const configToml = format === 'JSON' ? JSON.stringify(parseTOML(fullConfigToml())) : fullConfigToml();
+   const first = await service.buildPreview({ configToml });
+   const edited = await service.updateDimension({ previewId: first.preview.id, dimId: 'WIDTH', valueMm: 150 });
+   assert.equal(edited.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 150);
+diff --git a/tests/studio-job-bridge.test.js b/tests/studio-job-bridge.test.js
+index 1c96ee8..99ef6f3 100644
+--- a/tests/studio-job-bridge.test.js
++++ b/tests/studio-job-bridge.test.js
+@@ -20,6 +20,42 @@ formats = ["step"]
+ directory = "output/studio-bridge"
+ `;
+ 
++const baseJson = JSON.stringify({
++  name: 'studio_bridge',
++  shapes: [{ id: 'body', type: 'box', length: 20, width: 10, height: 5 }],
++  export: { formats: ['step'], directory: 'output/studio-bridge' },
++});
++
++for (const type of ['create', 'draw', 'report']) {
++  const options = type === 'draw'
++    ? { drawing_settings: { views: ['front', 'iso'], scale: '1:2' } }
++    : type === 'report' ? { report_options: { style: 'summary' } } : {};
++  const tomlSubmission = await translateStudioJobSubmission({ type, config_toml: baseToml, ...options });
++  const jsonSubmission = await translateStudioJobSubmission({ type, config_toml: ` \n${baseJson}\n `, ...options });
++  assert.equal(jsonSubmission.ok, true, jsonSubmission.errors?.join('\n'));
++  assert.deepEqual(jsonSubmission, tomlSubmission, `${type} must normalize JSON and TOML identically`);
++  assert.equal(jsonSubmission.request.config.config_version, 1);
++  assert.equal(jsonSubmission.request.config.name, 'studio_bridge');
++  assert.equal(jsonSubmission.request.config.shapes[0].length, 20);
++  assert.equal(Object.hasOwn(jsonSubmission.request, 'config_toml'), false,
++    'tracked storage must receive a validated config object instead of raw source text');
++  assert.equal(Object.hasOwn(jsonSubmission.request, 'config_path'), false,
++    'inline JSON must use the existing inline config persistence path');
++
++  for (const [configText, expectedError] of [
++    ['{"name":"broken",}', /JSON parse error:.*(?:position|line|property name)/i],
++    ['{"shapes":"not-an-array"}', /root\.shapes must be array/],
++    ...['__proto__', 'constructor', 'prototype'].map((key) => [
++      `{"metadata":{"${key}":"unsafe"}}`, /Unsafe config key/,
++    ]),
++  ]) {
++    const rejected = await translateStudioJobSubmission({ type, config_toml: configText });
++    assert.equal(rejected.ok, false, `${type} must reject invalid JSON config before enqueue`);
++    assert.match(rejected.errors.join('\n'), expectedError);
++    assert.equal(rejected.request, undefined);
++  }
++}
++
+ const drawSubmission = await translateStudioJobSubmission({
+   type: 'draw',
+   config_toml: baseToml,
+diff --git a/tests/studio-jobs-center.test.js b/tests/studio-jobs-center.test.js
+index 335cc19..ad0bd7a 100644
+--- a/tests/studio-jobs-center.test.js
++++ b/tests/studio-jobs-center.test.js
+@@ -233,4 +233,40 @@ assert.deepEqual(
+   }
+ );
+ 
++// Runtime jobs publish canonical quality next to success, not in report_summary.
++for (const type of ['draw', 'create']) {
++  const key = type === 'draw' ? 'drawing_quality' : 'create_quality';
++  for (const [quality, label, attention] of [
++    ['fail', 'Quality failed', true],
++    ['pass', 'Quality passed', false],
++    ['warning', 'Quality warning', true],
++    ['not_run', 'Quality Unknown', true],
++  ]) {
++    const job = {
++      type,
++      status: 'succeeded',
++      request: { config: { name: 'usb_hub_surrogate_B' } },
++      result: { success: true, [key]: { status: quality, score: 89 } },
++    };
++    const status = deriveRecentJobQualityStatus(job);
++    assert.equal(status.jobExecutionStatus, 'Job succeeded');
++    assert.equal(status.qualityStatus, label, `${type}: ${quality}`);
++    assert.equal(status.readyForManufacturingReview, 'Ready Unknown');
++    assert.equal(deriveRecentJobDecisionState(job).needsAttention, attention);
++  }
++  const noQuality = { type, status: 'succeeded', result: { success: true, score: 100 } };
++  assert.equal(deriveRecentJobQualityStatus(noQuality).qualityStatus, 'Quality Unknown');
++}
++
++// Passing components cannot replace the report's incomplete overall decision.
++assert.equal(deriveRecentJobQualityStatus({
++  type: 'report',
++  status: 'succeeded',
++  result: {
++    report_summary: { overall_status: 'incomplete' },
++    create_quality: { status: 'pass' },
++    drawing_quality: { status: 'pass' },
++  },
++}).qualityStatus, 'Quality Unknown');
++
+ console.log('studio-jobs-center.test.js: ok');
+diff --git a/tests/test_step_feature_detector_entrypoint.py b/tests/test_step_feature_detector_entrypoint.py
+new file mode 100644
+index 0000000..b07f17d
+--- /dev/null
++++ b/tests/test_step_feature_detector_entrypoint.py
+@@ -0,0 +1,60 @@
++"""The STEP detector must handle FreeCADCmd entry without running on imports."""
++
++import json
++import subprocess
++import sys
++from pathlib import Path
++
++import pytest
++
++
++ROOT = Path(__file__).resolve().parents[1]
++DETECTOR = ROOT / "scripts" / "step_feature_detector.py"
++IMPORT_DETECTOR = """
++import importlib
++import json
++import sys
++from pathlib import Path
++
++script = Path(sys.argv[1])
++argv = json.loads(sys.argv[2])
++sys.path.insert(0, str(script.parent))
++sys.argv = argv
++importlib.import_module(script.stem)
++print("imported")
++"""
++
++
++@pytest.mark.parametrize("launcher", ["python", "freecadcmd"])
++def test_detector_entrypoint_returns_json_for_invalid_input(launcher):
++    command = [sys.executable, str(DETECTOR)]
++    if launcher == "freecadcmd":
++        # Native FreeCADCmd imports the script by stem and keeps its path in argv[1].
++        command = [
++            sys.executable, "-c", IMPORT_DETECTOR, str(DETECTOR),
++            json.dumps(["FreeCADCmd", str(DETECTOR)]),
++        ]
++
++    completed = subprocess.run(command, input="{}", text=True, capture_output=True, cwd=ROOT)
++
++    assert completed.returncode == 1, completed.stdout + completed.stderr
++    assert json.loads(completed.stdout) == {
++        "success": False,
++        "error": "'file' field required in input",
++    }
++
++
++@pytest.mark.parametrize("argv", [
++    ["-c"],
++    ["FreeCADCmd", "other_script.py"],
++    ["FreeCADCmd", "other_directory/step_feature_detector.py"],
++])
++def test_importing_detector_does_not_consume_stdin_or_run_analysis(argv):
++    completed = subprocess.run(
++        [sys.executable, "-c", IMPORT_DETECTOR, str(DETECTOR), json.dumps(argv)],
++        input="not JSON", text=True, capture_output=True, cwd=ROOT,
++    )
++
++    assert completed.returncode == 0, completed.stdout + completed.stderr
++    assert completed.stdout.strip() == "imported"
++    assert completed.stderr == ""

@@ -1,0 +1,108 @@
+{
+  "scope": "synthetic_portfolio_case",
+  "production_trust": false,
+  "package_slug": "usb-hub-plate-simulated",
+  "part_id": "USB-HUB-PLATE-SIM",
+  "revisions": [
+    "A",
+    "B"
+  ],
+  "original_model_sha256": {
+    "A": "abd417b3051167232004bf07470df0766524b1ae3e455a9eb345bc116bbdfb3d",
+    "B": "729e4e755265e7e386040bc5f820b8034235eb10a811e2ef0c036bdbb03eeabe"
+  },
+  "comparison_config_sha256": {
+    "A": "8292c51e36110b41f78b68daa1fefb5af008a5064b734111f3d02630cb820d37",
+    "B": "bb32ae2311fce02320030988e8fbd7df49a22109125835b3325fed24aa5a4dfa"
+  },
+  "nominal_changes": [
+    {
+      "id": "HORIZONTAL.PITCH",
+      "before": 118,
+      "after": 108,
+      "change_id": "change_84e2c4acfa2a16fdc5d9669194977ab5d1fc5b61f3add1448904b07334414606"
+    },
+    {
+      "id": "H1.X",
+      "before": 130,
+      "after": 120,
+      "change_id": "change_955c2e479d9ef56eef899a321167f3bfe86a9714637ba21d0ad5a4bcb623f08d"
+    },
+    {
+      "id": "H2.X",
+      "before": 130,
+      "after": 120,
+      "change_id": "change_a5f7512311070d26884fca74a87fc14e0713b38d4389e6723c18ea65540b91a1"
+    },
+    {
+      "id": "RIGHT.CENTER_MARGIN",
+      "before": 12,
+      "after": 22,
+      "change_id": "change_b1890716e201bfe787a38373d3831d932e2a3e1f04c1dae0c42b1324ea55b2b5"
+    }
+  ],
+  "unchanged_characteristics": [
+    "PLATE.LENGTH",
+    "PLATE.WIDTH",
+    "PLATE.THICKNESS",
+    "D1.X",
+    "D1.Y",
+    "D1.DIAMETER",
+    "D2.X",
+    "D2.Y",
+    "D2.DIAMETER"
+  ],
+  "impact": "output/usb-hub-portfolio-VAokFT/revision-review/revision-impact.json",
+  "plans": {
+    "full": {
+      "file": "output/usb-hub-portfolio-VAokFT/revision-review/inspection-full.json",
+      "status": "review_required",
+      "items": [
+        "RIGHT.CENTER_MARGIN",
+        "D2.Y",
+        "H1.X",
+        "H1.DIAMETER",
+        "D2.DIAMETER",
+        "D1.X",
+        "H2.Y",
+        "D2.X",
+        "D1.Y",
+        "HORIZONTAL.PITCH",
+        "H2.X",
+        "PLATE.WIDTH",
+        "D1.DIAMETER",
+        "H2.DIAMETER",
+        "PLATE.THICKNESS",
+        "H1.Y",
+        "PLATE.LENGTH"
+      ],
+      "unresolved_codes": [
+        "inspection_method_unresolved",
+        "tolerance_unresolved"
+      ]
+    },
+    "delta": {
+      "file": "output/usb-hub-portfolio-VAokFT/revision-review/inspection-delta.json",
+      "status": "review_required",
+      "items": [
+        "RIGHT.CENTER_MARGIN",
+        "H1.X",
+        "H1.DIAMETER",
+        "feature:hole_pattern:cd5c293952",
+        "H2.Y",
+        "HORIZONTAL.PITCH",
+        "H2.X",
+        "H2.DIAMETER",
+        "H1.Y"
+      ],
+      "unresolved_codes": [
+        "inspection_method_unresolved",
+        "revision_impact_characteristic_unresolved",
+        "tolerance_unresolved"
+      ]
+    }
+  },
+  "physical_inspection_performed": false,
+  "inspection_evidence_attached": false,
+  "pass": true
+}

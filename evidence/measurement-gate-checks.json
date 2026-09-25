@@ -1,0 +1,78 @@
+{
+  "description": "Copied SVG counterexamples, not real part defects",
+  "results": [
+    {
+      "scenario": "unchanged",
+      "expected_pass": true,
+      "actual_pass": true,
+      "process_exit": 0,
+      "svg_checks": {
+        "page_mm_mapping": true,
+        "geometry_untransformed": true,
+        "scale_1_1": true,
+        "holes": true,
+        "revision_table": true,
+        "drawing_number": true,
+        "synthetic_notice": true,
+        "center_spacing_text": true,
+        "right_edge_to_center_text": true
+      },
+      "matches_expectation": true
+    },
+    {
+      "scenario": "missing_revision",
+      "expected_pass": false,
+      "actual_pass": false,
+      "process_exit": 0,
+      "svg_checks": {
+        "page_mm_mapping": true,
+        "geometry_untransformed": true,
+        "scale_1_1": true,
+        "holes": true,
+        "revision_table": false,
+        "drawing_number": false,
+        "synthetic_notice": true,
+        "center_spacing_text": true,
+        "right_edge_to_center_text": true
+      },
+      "matches_expectation": true
+    },
+    {
+      "scenario": "scaled_page",
+      "expected_pass": false,
+      "actual_pass": false,
+      "process_exit": 0,
+      "svg_checks": {
+        "page_mm_mapping": false,
+        "geometry_untransformed": true,
+        "scale_1_1": false,
+        "holes": true,
+        "revision_table": true,
+        "drawing_number": true,
+        "synthetic_notice": true,
+        "center_spacing_text": true,
+        "right_edge_to_center_text": true
+      },
+      "matches_expectation": true
+    },
+    {
+      "scenario": "scaled_view",
+      "expected_pass": false,
+      "actual_pass": false,
+      "process_exit": 0,
+      "svg_checks": {
+        "page_mm_mapping": true,
+        "geometry_untransformed": false,
+        "scale_1_1": false,
+        "holes": true,
+        "revision_table": true,
+        "drawing_number": true,
+        "synthetic_notice": true,
+        "center_spacing_text": true,
+        "right_edge_to_center_text": true
+      },
+      "matches_expectation": true
+    }
+  ],
+  "pass": true
+}

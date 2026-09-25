@@ -1,0 +1,56 @@
+{
+  "artifact_type": "quality_linkage",
+  "schema_version": "1.0",
+  "analysis_version": "d1",
+  "generated_at": "2026-09-25T12:05:58Z",
+  "part_id": "USB-HUB-PLATE-SIM",
+  "revision": "A",
+  "warnings": [
+    "SIMULATED - NOT FOR FABRICATION. No physical inspection, released tolerances, or inspection method."
+  ],
+  "coverage": {
+    "source_artifact_count": 4,
+    "source_file_count": 3,
+    "hotspot_count": 4,
+    "quality_issue_count": 0,
+    "quality_hotspot_count": 0
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.7,
+    "rationale": "Quality linkage maps recurring issue patterns to hotspot categories using explicit rules."
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-a/config.toml",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "output/usb-hub-portfolio-VAokFT/rev-a/usb_hub_surrogate_A.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json",
+      "role": "evidence",
+      "label": "Context source file"
+    }
+  ],
+  "summary": {
+    "issue_count": 0,
+    "matched_categories": 0,
+    "matched_issue_count": 0,
+    "ambiguous_issue_count": 0
+  },
+  "records": []
+}

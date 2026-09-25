@@ -1,0 +1,126 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>USB 허브 시험판 — 설계 변경과 검증을 연결한 사례</title><style>
+:root{color-scheme:light;--ink:#183144;--muted:#566e7b;--line:#dbe3e5;--teal:#006d63}*{box-sizing:border-box}body{margin:0;background:#f6f8f8;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.65}a{color:var(--teal);text-underline-offset:4px}main{max-width:1120px;margin:auto;padding:42px 32px 56px}header{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:17px;color:var(--muted);font-size:13px;letter-spacing:.06em}.tag{background:#e5f0ed;color:var(--teal);padding:3px 10px;border-radius:20px;font-weight:650}h1{font-size:clamp(28px,4vw,46px);line-height:1.28;margin:26px 0 16px;letter-spacing:-.045em}h2{font-size:23px;letter-spacing:-.03em;margin:0 0 12px}h3{margin:0;font-size:18px}.lead{max-width:800px;font-size:18px;color:#425c6a}.note{font-size:13px;color:var(--muted)}.pair{display:grid;grid-template-columns:1fr 1fr;gap:22px}.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:23px}.panel svg{width:100%;display:block;margin:14px 0}.rev{display:flex;justify-content:space-between;align-items:center}.rev span{font-size:13px;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:22px 0 42px}.metric{padding:17px 19px;background:#eaf1f1;border-radius:12px}.metric strong{display:block;font-size:24px;line-height:1.4}.metric span{font-size:13px;color:var(--muted)}.section{margin-top:32px}.failure{display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;align-items:center}.failure img{width:100%;border-radius:12px;border:1px solid #bbc6ce}.badge{display:inline-block;background:#f8e9e7;color:#9b372d;border-radius:6px;padding:3px 9px;font-size:13px;font-weight:650}.values{padding:14px 0;border-block:1px solid var(--line);font-size:18px;font-weight:600}.limits{border-left:3px solid #82968d;padding:4px 0 4px 18px}.links{display:flex;flex-wrap:wrap;gap:14px}.cmd{font-family:ui-monospace,monospace;background:#eaf1f1;padding:14px;border-radius:10px;overflow-wrap:anywhere;font-size:13px}footer{border-top:1px solid var(--line);margin-top:35px;padding-top:18px;font-size:12px;color:var(--muted)}@media(max-width:720px){main{padding:24px 18px}.pair,.failure{grid-template-columns:1fr}.metrics{grid-template-columns:1fr}header{display:block}.tag{display:inline-block;margin-top:8px}}@media print{body{background:white}main{padding:0}.panel,.failure,.limits{break-inside:avoid}a{color:inherit}header{font-size:11px}}
+
+article{max-width:920px;margin:auto}article h2{margin-top:36px}article h3{margin-top:26px}table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;font-size:14px}td,th{border:1px solid var(--line);padding:10px;text-align:left}th{background:#eaf1f1}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#eaf1f1;border-radius:12px}code{overflow-wrap:anywhere}blockquote{margin:20px 0;padding:4px 20px;border-left:3px solid var(--teal);background:#eaf1f1}</style></head><body><main><header><a href="index.html">포트폴리오 첫 화면</a><a href="https://github.com/dooosp/freecad-automation/pull/203">소스 변경 PR</a></header><article><h1 id="usb-허브-시험판--설계-변경과-검증을-연결한-사례">USB 허브 시험판 — 설계 변경과 검증을 연결한 사례</h1>
+<p><strong>오른쪽 홀 두 개를 10 mm 옮기고, 저장된 STEP·도면에서 변경과 유지 조건을 다시 확인했다.</strong> 실제 USB 허브를 측정한 장착 설계가 아니라, CAD 자동화와 검증 방법을 보여주는 합성 소프트웨어 사례다.</p>
+<h2 id="문제와-판단">문제와 판단</h2>
+<p>홀 배치를 바꾸면 모델뿐 아니라 도면과 검증 결과도 함께 갱신해야 한다. 파일 생성 성공이나 외곽 크기·체적만으로는 홀 중심이 올바르게 이동했는지 판단할 수 없다. 이 사례에서는 고정할 형상과 바꿀 형상을 먼저 나누고, 내보낸 STEP을 다시 읽어 네 홀의 지름과 중심을 측정했다.</p>
+<p>시험 가정은 책상 고정점과 기존 허브 브래킷을 연결하는 평판이다. <strong>142 × 74 × 4 mm, Ø5.2, 이동량 10 mm는 모두 시험용 가정</strong>이다. 실측·제조사 사양·강도 계산에서 얻은 값이 아니다. 좌표 원점은 위에서 본 판의 왼쪽 아래, X는 오른쪽, Y는 위쪽, Z는 두께 방향이며 단위는 mm다.</p>
+<table>
+<thead>
+<tr>
+<th>요구사항</th>
+<th>REV A</th>
+<th>REV B</th>
+<th>판단</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>판 외곽·두께</td>
+<td>142 × 74 × 4</td>
+<td>동일</td>
+<td>고정</td>
+</tr>
+<tr>
+<td>D1 / D2 중심</td>
+<td>(12,12) / (12,62)</td>
+<td>동일</td>
+<td>고정 기준</td>
+</tr>
+<tr>
+<td>H1 / H2 중심</td>
+<td>(130,12) / (130,62)</td>
+<td>(120,12) / (120,62)</td>
+<td>X만 −10</td>
+</tr>
+<tr>
+<td>구멍</td>
+<td>Ø5.2 관통 × 4</td>
+<td>동일</td>
+<td>유지</td>
+</tr>
+<tr>
+<td>좌우 홀 중심 간격</td>
+<td>118</td>
+<td>108</td>
+<td>이동에 따라 갱신</td>
+</tr>
+<tr>
+<td>오른쪽 모서리→H홀 <strong>중심</strong></td>
+<td>12</td>
+<td>22</td>
+<td>홀 가장자리까지의 거리가 아님</td>
+</tr>
+</tbody>
+</table>
+<h2 id="결과와-근거">결과와 근거</h2>
+<p>2026-09-25, Node 25.8.0 / FreeCAD 1.1.3의 실제 런타임에서 아래 흐름을 재현했다. 기준 소스 <code>4dba0d32fe1b10f2266f27501165e56df9f943af</code>에 Studio 품질 요약·JSON 입력·STEP 검출 진입점 수정을 적용한 상태로 검증했다. 수정과 사례 소스는 <code>codex/studio-quality-summary-fix</code> 브랜치의 커밋으로 관리한다.</p>
+<table>
+<thead>
+<tr>
+<th>검증</th>
+<th>관찰한 결과</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A/B <code>create</code>, <code>draw --strict-quality</code></td>
+<td>모두 exit 0 / quality <code>pass</code></td>
+<td>이 사례의 생성·도면 게이트 통과</td>
+</tr>
+<tr>
+<td>저장된 STEP 재읽기</td>
+<td>각각 유효한 solid 1개, 외곽·4홀 요구값 일치</td>
+<td>생성 메타데이터만 읽은 검사가 아님</td>
+</tr>
+<tr>
+<td>별도 기준 형상과 비교</td>
+<td>A/B 각각 대칭차 체적 0 mm³</td>
+<td>별도 구성 로직, 동일 FreeCAD/OCC 커널</td>
+</tr>
+<tr>
+<td>SVG top 뷰 측정</td>
+<td>홀 위치·지름, 1:1 배율, A/B 표기 일치</td>
+<td>실제 출력 도면을 확인</td>
+</tr>
+<tr>
+<td>주석 WIDTH만 142→150</td>
+<td>형상 142 유지, QA 89, 품질 <code>fail</code>, 근거 연결률 80%, WIDTH 미연결</td>
+<td>점수와 품질 판정을 구분</td>
+</tr>
+<tr>
+<td>같은 불일치의 실행 모드</td>
+<td>기본 exit 0 / strict exit 1</td>
+<td>경고 중심 실행과 엄격한 거절을 구분</td>
+</tr>
+<tr>
+<td>A/B 자동 변경 영향</td>
+<td>H1.X·H2.X 130→120, 중심 간격 118→108, 오른쪽 중심 여유 12→22</td>
+<td>명시적인 같은 부품·특성 ID로 연결</td>
+</tr>
+<tr>
+<td>후속 계획 생성</td>
+<td>전체 17개 / 변경 9개, 모두 <code>review_required</code>·<code>not_started</code></td>
+<td>공차·방법을 추정하거나 검사 완료로 만들지 않음</td>
+</tr>
+</tbody>
+</table>
+<p>STEP 비교 허용값 0.00001 mm, SVG 반올림 비교 허용값 0.03 mm는 소프트웨어 수치 검사 한계다. 제조 공차가 아니다. SVG 검사는 이 직선 외곽·원형 홀 사례에 한정된다.</p>
+<p>Studio는 이전에 실행 완료 뒤 실제 품질 실패를 요약에 보여주지 못했다. F01 수정 후에는 <strong>실행 완료 / 품질 실패 / WIDTH 근거 부족 / 실제 SVG 주요 결과</strong>를 표시한다. 2026-09-24에 실제 브라우저의 한국어·영어 화면과 <code>npm test</code>를 검증했고, 2026-09-25에는 해당 7개 수정 파일의 SHA-256이 그대로임을 확인했다. 이 수정은 아직 master에 반영되지 않았다.</p>
+<p>STEP 특징 검출 진입점을 수정해 원래 <code>review-context</code> CLI에서 네 Ø5.2 홀을 얻었다. 일반 모듈 import는 실행하지 않으며, 실제 입력 형상 오류 때의 metadata fallback은 유지한다. JSON 입력은 공용 설정 파서·정규화를 사용하도록 연결했다. <a href="closeout.ko.html">후속 조치와 확인 범위</a>에 수정·검증 근거를 정리한다.</p>
+<h2 id="변경-영향과-미완료-검사-계획">변경 영향과 미완료 검사 계획</h2>
+<p><a href="source/docs/portfolio/usb-hub-plate-change/inputs/revision-contract.json">합성 요구사항</a>에 같은 <code>USB-HUB-PLATE-SIM</code> 부품과 17개 특성 ID를 정의했다. 원본 CAD 입력을 보존하고 비교용 사본에 <code>name</code>·부품·패키지·리비전·치수 요구사항을 명시한다. <code>name</code>도 기존 비교 계약의 부품 ID 별칭이므로 A/B에서 통일한다. 형상은 바꾸지 않고 각 요구값을 실제 저장 STEP 측정값과 대조한 뒤 원래 CLI를 호출한다. 모델·원본 설정·비교 설정의 SHA-256도 남긴다.</p>
+<p>자동 비교는 판과 D홀의 9개 특성을 영향 없음으로 분류한다. 변경 계획에는 H홀의 X·Y·지름과 두 종속 치수 8개가 들어간다. Y·지름의 명목치는 유지되지만 같은 홀의 위치가 바뀌어 후속 확인에 포함된다. 추가 1개는 자동 검출한 홀 패턴이다. 이 패턴의 ID는 형상 내용에 따라 바뀌며 명시적 요구사항과 연결되지 않아 <code>revision_impact_characteristic_unresolved</code>로 남는다. 일반적인 BREP 특징 동일성 매칭을 완성했다고 주장하지 않는다.</p>
+<p>공차와 검사 방법은 모든 계획에서 <code>null</code>이다. 계획 상태 <code>review_required</code>는 올바른 미완료 상태이며, 사람 검토·별도 승인이 필요한 상태다. <code>field_authority</code>의 <code>authoritative_released_requirement</code>는 기존 CLI가 <code>--requirements</code> 입력에 사용하는 분류명이다. 이 입력은 <code>production_trust: false</code>인 합성 시나리오이며 <strong>실제 제조 사양이 승인·릴리스됐다는 뜻이 아니다.</strong> 검사값·판정은 작성하지 않았다.</p>
+<h2 id="설명할-수-있는-역량과-한계">설명할 수 있는 역량과 한계</h2>
+<p>이 사례로 설명할 수 있는 것은 파라미터 변경, 유지 조건 정의, CAD 출력 재측정, 도면과 형상의 불일치 감지, 실패 결과의 사용자 전달이다. <a href="engineering.ko.html">후속 공학 검토</a>에서는 홀 패턴의 대응, 모서리 여유, 단순화한 하중 관계와 실제 DFM·보고서 재실행을 다룬다. 실제 체결·간섭·하중·재질·제조 공차·생산 적합성은 검증하지 않았다. 실제 허브 장착 설계나 제조 승인으로 제시하지 않는다.</p>
+<p>기존 입력의 part/revision 연결 문제는 별도 합성 입력을 준비해 해결했다. 생성된 변경 영향·계획은 검토 자료이며 완료된 검사나 승인 기록이 아니다. 이 사례를 기존 canonical 제조 준비 패키지로 등록하거나 검사 증거를 첨부하지 않았다. USB 사례에 허용되지 않은 <code>--proof-lineage</code> 경로도 사용하지 않았다.</p>
+<p>AI 활용 기록은 Codex를 통한 재현·진단·보조 검사·수정·검증·문서화다. <a href="contribution.ko.html">사용자와 Codex의 기여 기록</a>에 확인된 역할을 구분한다. 제품 내 유료 AI API 실호출은 수행하지 않았다. 사용자의 개인 코드 기여나 설계 의사결정·이해도는 이 실행 기록으로 확인할 수 없으므로, 본인이 수행한 범위만 면접에서 설명해야 한다.</p>
+<h2 id="재현과-시연">재현과 시연</h2>
+<p>저장소 의존성과 FreeCAD를 준비한 뒤 저장소 루트에서 실행한다.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> docs/portfolio/usb-hub-plate-change/reproduce.mjs</span></code></pre></div>
+<p>매번 새 <code>output/usb-hub-portfolio-*</code> 폴더를 만든다. <code>case-result.json</code>, <code>measurements.json</code>, <code>commands.json</code>, A/B STEP·SVG·품질 JSON과 <code>revision-review/</code>의 변경 영향·검사 계획이 근거다. 생성물은 <code>output/</code>에 보관하며 소스로 커밋하지 않는다. 열람용 묶음은 이 결과의 도면·측정값·계획과 실제 검증 화면을 모은 설명 자료다.</p>
+<p><a href="source/docs/portfolio/usb-hub-plate-change/inputs/rev-a.toml">A 입력</a> · <a href="source/docs/portfolio/usb-hub-plate-change/inputs/rev-b.toml">B 입력</a> · <a href="demo.ko.html">재현 절차와 3분 대본</a> · <a href="source/docs/portfolio/usb-hub-plate-change/measure.py">저장된 형상·도면 측정 코드</a></p>
+</article><footer>합성 소프트웨어 사례 · 실물 검사 및 제조 승인 없음 · 소스 ed31732</footer></main></body></html>

@@ -1,0 +1,73 @@
+Loading config: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/annotation-warning/config.json
+  Plan: plate template applied
+Generating drawing: usb_hub_surrogate_B
+  Views: front, top, right
+
+Drawing generated!
+  Scale: 1:1
+  Views: front, top, right
+  SVG: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing.svg (38259 bytes)
+
+Post-processing SVG...
+Post-processing: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing.svg
+  remove_iso_hidden: OK (0ms)
+  normalize_strokes: OK (0ms)
+  inject_bolt_note: OK (0ms)
+  rebuild_notes: OK (0ms)
+  deoverlap_text: OK (0ms)
+  repair_overflow_scale: OK (0ms)
+  inject_pcd_circle: OK (0ms)
+  round_coords: OK (1ms)
+  simplify_iso: OK (0ms)
+  gdt_audit: OK (0ms)
+  counts: removed=0 moved=0 strokes=5 rounded=1
+  info: 1 note(s)
+  Report saved: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing_repair_report.json
+  Output: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing.svg
+
+QA Scoring...
+QA Score: 89/100  [usb_hub_surrogate_B_drawing.svg]
+  weight_profile: bracket
+  datum_coherence: True (-3)
+  dense_iso: False
+  dfm_error_count: N/A
+  dfm_warning_count: N/A
+  dim_completeness: 0
+  dim_overlap_pairs: 0
+  dim_redundancy: 3 (-6)
+  float_precision_count: 0
+  gdt_unanchored: 0
+  intent_metrics_applicable: True
+  iso_hidden_count: 0
+  note_convention: 0
+  note_semantic_mismatch: N/A
+  notes_overflow: False
+  overflow_count: 0
+  required_presence_miss: 0
+  required_presence_rate: 100
+  stroke_violations: 0
+  text_overlap_pairs: 1 (-2)
+  value_inconsistency: 0
+  view_coverage: False
+  virtual_pcd_present: N/A
+  Report: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing_qa.json
+  QA diff: 89 → 89 (+0)
+  QA issues: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing_qa_issues.json
+  Drawing quality: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing_quality.json
+  Drawing quality status: fail (score=89)
+  Run log: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_run_log.json
+Manifest: ${REPO_ROOT}/output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing_artifact-manifest.json
+
+[freecad] Generating drawing: usb_hub_surrogate_B
+[freecad] FreeCAD 1.1.3 initialized via /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd on darwin
+[freecad]   Single part: final
+[freecad]   BBox: 142.0 x 74.0 x 4.0 mm
+[freecad]   Scale: 1.0
+[freecad]   Features: 4 detected, 1 groups
+[freecad]   Dimension strategy: baseline
+[freecad]   View 'front': 32 edges
+[freecad]   View 'top': 16 edges
+[freecad]   View 'right': 40 edges
+[freecad]   Plan intent 'HOLE_DIA': rerouted front -> top for circular anchor
+[freecad]   Baseline dimensions: added to front
+[freecad]   SVG: output/usb-hub-portfolio-VAokFT/annotation-warning/usb_hub_surrogate_B_drawing.svg (38259 bytes)

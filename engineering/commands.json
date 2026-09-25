@@ -1,0 +1,81 @@
+[
+  {
+    "label": "remeasure-source-step-svg",
+    "command": "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd",
+    "args": [
+      "${REPO_ROOT}/docs/portfolio/usb-hub-plate-change/measure.py"
+    ],
+    "started_at": "2026-09-25T12:27:11.050Z",
+    "finished_at": "2026-09-25T12:27:12.060Z",
+    "exit_code": 0,
+    "signal": null,
+    "error": null,
+    "log": "remeasure-source-step-svg.log"
+  },
+  {
+    "label": "create-b",
+    "command": "/opt/homebrew/Cellar/node/25.8.0/bin/node",
+    "args": [
+      "bin/fcad.js",
+      "create",
+      "output/usb-hub-engineering-review-WRU6p3/rev-b/config.toml",
+      "--strict-quality"
+    ],
+    "started_at": "2026-09-25T12:27:12.062Z",
+    "finished_at": "2026-09-25T12:27:13.481Z",
+    "exit_code": 0,
+    "signal": null,
+    "error": null,
+    "log": "create-b.log"
+  },
+  {
+    "label": "draw-b",
+    "command": "/opt/homebrew/Cellar/node/25.8.0/bin/node",
+    "args": [
+      "bin/fcad.js",
+      "draw",
+      "output/usb-hub-engineering-review-WRU6p3/rev-b/config.toml",
+      "--strict-quality"
+    ],
+    "started_at": "2026-09-25T12:27:13.481Z",
+    "finished_at": "2026-09-25T12:27:14.941Z",
+    "exit_code": 0,
+    "signal": null,
+    "error": null,
+    "log": "draw-b.log"
+  },
+  {
+    "label": "capture-dfm",
+    "command": "/opt/homebrew/Cellar/node/25.8.0/bin/node",
+    "args": [
+      "--input-type=module",
+      "-e",
+      "\nimport { loadConfigWithDiagnostics } from './lib/config-schema.js';\nimport { runDfm } from './src/services/analysis/dfm-service.js';\nconst { config } = await loadConfigWithDiagnostics(process.argv[1]);\nconst result = await runDfm({ freecadRoot: process.cwd(), config, process: config.manufacturing?.process || 'machining' });\nconsole.log(JSON.stringify(result));\nif (!result.success) process.exitCode = 1;\n",
+      "output/usb-hub-engineering-review-WRU6p3/rev-b/config.toml"
+    ],
+    "started_at": "2026-09-25T12:27:14.941Z",
+    "finished_at": "2026-09-25T12:27:15.221Z",
+    "exit_code": 0,
+    "signal": null,
+    "error": null,
+    "log": "capture-dfm.log"
+  },
+  {
+    "label": "report-b-with-dfm",
+    "command": "/opt/homebrew/Cellar/node/25.8.0/bin/node",
+    "args": [
+      "bin/fcad.js",
+      "report",
+      "output/usb-hub-engineering-review-WRU6p3/rev-b/config.toml",
+      "--dfm",
+      "--out-dir",
+      "output/usb-hub-engineering-review-WRU6p3/rev-b"
+    ],
+    "started_at": "2026-09-25T12:27:15.221Z",
+    "finished_at": "2026-09-25T12:27:17.331Z",
+    "exit_code": 0,
+    "signal": null,
+    "error": null,
+    "log": "report-b-with-dfm.log"
+  }
+]

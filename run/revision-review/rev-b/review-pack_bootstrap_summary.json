@@ -1,0 +1,50 @@
+{
+  "artifact_type": "bootstrap_summary",
+  "generated_at": "2026-09-25T12:05:57.707Z",
+  "part": {
+    "part_id": "USB-HUB-PLATE-SIM",
+    "package_slug": "usb-hub-plate-simulated",
+    "revision": "B",
+    "name": "USB hub synthetic plate",
+    "description": "Explicit synthetic requirements for software revision-impact/reinspection planning only. Not a released manufacturing specification or physical inspection record.",
+    "material": null,
+    "process": null
+  },
+  "source": {
+    "model_path": "output/usb-hub-portfolio-VAokFT/rev-b/usb_hub_surrogate_B.step",
+    "file_type": "step",
+    "analysis_mode": "runtime_backed",
+    "model_kind": "part"
+  },
+  "dimensions_mm": {
+    "x": 142,
+    "y": 74,
+    "z": 4
+  },
+  "feature_summary": {
+    "cylinder_count": 4,
+    "bolt_circle_count": 1,
+    "fillet_count": 8,
+    "chamfer_count": 0,
+    "derived_feature_count": 2,
+    "hotspot_count": 4
+  },
+  "warning_count": 1,
+  "diagnostics_count": 0,
+  "review_gate": {
+    "ready_for_review_context": true,
+    "correction_required": true,
+    "optional_context_inputs": [
+      "bom",
+      "inspection",
+      "quality",
+      "create_quality",
+      "drawing_quality",
+      "drawing_qa",
+      "drawing_intent",
+      "feature_catalog",
+      "dfm_report"
+    ]
+  },
+  "review_ready": true
+}
