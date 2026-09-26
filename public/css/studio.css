@@ -2499,6 +2499,14 @@ body {
   display: none;
 }
 
+.saved-model-viewport {
+  position: relative;
+  width: 100%;
+  height: clamp(260px, 55vh, 540px);
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+
 .inline-status[data-tone="ok"] {
   border-color: rgba(99, 214, 163, 0.28);
 }

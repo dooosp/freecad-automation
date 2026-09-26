@@ -16,6 +16,7 @@ for (const [type, file_name, extension, purpose, label] of [
   ['drawing.svg', 'quality_pass_bracket.svg', '.svg', 'immediate', 'studio.artifacts.file.drawing'],
   ['model.create-quality', 'checks.json', '.json', 'quality', 'studio.artifacts.file.quality'],
   ['output.manifest.json', 'review_quality.json', '.json', 'system', 'studio.artifacts.file.system'],
+  ['runtime.fingerprint', 'record.json', '.json', 'system', 'studio.artifacts.file.system'],
 ]) {
   const file = { type, file_name, extension };
   assert.equal(classifyResultFilePurpose(file), purpose, `${file_name} must follow its contract, not words in its name`);

@@ -1,6 +1,11 @@
 const en = {
   localeName: 'English',
   messages: {
+    'studio.artifacts.model.loading': 'Loading a 3D preview of {name}…',
+    'studio.artifacts.model.ready': '{name} · 3D preview ready. Drag to rotate; scroll to zoom.',
+    'studio.artifacts.model.failed': 'The 3D preview could not be shown. You can still download the original file.',
+    'studio.artifacts.model.canvas': 'Saved model 3D preview',
+    'studio.artifacts.model.fit': 'Fit view',
     'studio.history.part-revision': '{name} · Rev {revision}',
     'viewer.partName': 'Part {number}',
     'viewer.showPart': 'Show part: {name}',
@@ -176,7 +181,7 @@ const en = {
     'studio.artifacts.none.copy': 'This run exists, but it does not expose any result files yet.',
     'studio.artifacts.selected.kicker': 'Selected result',
     'studio.artifacts.selected.title': 'Result preview and file information',
-    'studio.artifacts.selected.copy': 'The preview uses only the existing browser-safe result route.',
+    'studio.artifacts.selected.copy': 'Inspect the selected result here, or download its original file.',
     'studio.artifacts.selected.ready-title': 'Ready to view the result',
     'studio.artifacts.selected.ready-copy': 'Choose View result above to open the main output here.',
     'studio.artifacts.follow-up.summary': 'Optional follow-up actions',

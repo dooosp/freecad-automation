@@ -4,6 +4,7 @@ import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import {
   canDownloadArtifactContent,
   canServeArtifactContent,
+  canPreviewArtifactModel,
   inferArtifactContentType,
   redactPublicPathValues,
   toArtifactResponse,
@@ -58,7 +59,32 @@ async function resolvePublicArtifactPath({
   }
 }
 
-export function registerArtifactRoutes(app, { jobStore, projectRoot = null }) {
+export function registerArtifactRoutes(app, { jobStore, projectRoot = null, artifactModelPreviewService }) {
+  app.post('/artifacts/:jobId/:artifactId/model-preview', async (req, res) => {
+    const { jobId, artifactId } = req.params;
+    try {
+      let artifact;
+      try { artifact = await jobStore.getArtifact(jobId, artifactId); }
+      catch { /* Unknown jobs and unregistered artifacts share the same boundary. */ }
+      if (!artifact?.exists) {
+        const error = createErrorResponse('artifact_missing', ['The selected model artifact is missing.'], 404);
+        res.status(error.status).json(assertResponse('error', error.body));
+        return;
+      }
+      const access = await resolvePublicArtifactPath({ artifact, projectRoot, jobStore, jobId });
+      if (!canPreviewArtifactModel(artifact, { publicPathAllowed: access.ok })) {
+        const error = createErrorResponse('artifact_preview_not_public', ['This artifact is not available for a 3D preview.'], 403);
+        res.status(error.status).json(assertResponse('error', error.body));
+        return;
+      }
+      const bytes = await artifactModelPreviewService.readMesh({ sourcePath: access.path, jobId, artifactId });
+      res.set('Cache-Control', 'no-store').type('model/stl').send(bytes);
+    } catch (error) {
+      const response = createErrorResponse('model_preview_failed', [redactPublicPathValues(error.message || 'Model preview failed.')], error.status || 500);
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
   app.get('/jobs/:id/artifacts', async (req, res) => {
     try {
       const job = await jobStore.getJob(req.params.id);

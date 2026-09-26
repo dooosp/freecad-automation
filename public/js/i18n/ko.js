@@ -84,6 +84,11 @@ function translateEvidenceGraphField(label = '', value = '') {
 const ko = {
   localeName: '한국어',
   messages: {
+    'studio.artifacts.model.loading': '{name}의 3D 미리보기를 불러오는 중…',
+    'studio.artifacts.model.ready': '{name} · 3D 미리보기 준비됨. 드래그로 회전하고 스크롤로 확대·축소하세요.',
+    'studio.artifacts.model.failed': '3D 미리보기를 표시하지 못했습니다. 원본 파일은 계속 다운로드할 수 있습니다.',
+    'studio.artifacts.model.canvas': '저장된 모델 3D 미리보기',
+    'studio.artifacts.model.fit': '뷰 맞춤',
     'studio.history.part-revision': '{name} · 리비전 {revision}',
     'viewer.partName': '부품 {number}',
     'viewer.showPart': '부품 표시: {name}',
@@ -259,7 +264,7 @@ const ko = {
     'studio.artifacts.none.copy': '실행 기록은 있지만 공개된 결과 파일이 아직 없습니다.',
     'studio.artifacts.selected.kicker': '선택한 결과',
     'studio.artifacts.selected.title': '결과 미리보기와 파일 정보',
-    'studio.artifacts.selected.copy': '기존의 브라우저 안전 결과 경로만 사용해 미리보기를 표시합니다.',
+    'studio.artifacts.selected.copy': '선택한 결과를 여기서 확인하거나 원본 파일을 다운로드하세요.',
     'studio.artifacts.selected.ready-title': '결과를 확인할 준비가 되었습니다',
     'studio.artifacts.selected.ready-copy': '위의 결과 보기를 선택하면 여기에서 주요 출력을 엽니다.',
     'studio.artifacts.follow-up.summary': '선택 작업',

@@ -185,6 +185,16 @@ if (!hasFreeCADRuntime()) {
     const artifactContentBytes = await artifactContentResponse.arrayBuffer();
     assert(artifactContentBytes.byteLength > 0);
 
+    assert.equal(typeof stepArtifact.links.model_preview, 'string', 'saved STEP must publish a scoped preview route');
+    const modelPreviewResponse = await fetch(`${baseUrl}${stepArtifact.links.model_preview}`, { method: 'POST' });
+    assert.equal(modelPreviewResponse.status, 200, 'a saved STEP must reopen as a mesh with the real runtime');
+    assert.match(modelPreviewResponse.headers.get('content-type'), /model\/stl/);
+    const meshBytes = Buffer.from(await modelPreviewResponse.arrayBuffer());
+    assert(meshBytes.length > 84);
+    const triangles = meshBytes.readUInt32LE(80);
+    assert(triangles > 0);
+    assert.equal(meshBytes.length, 84 + 50 * triangles, 'preview must contain a complete binary STL');
+
     const qualityArtifact = artifactsPayload.artifacts.find((artifact) => artifact.type === 'model.create-quality');
     assert(qualityArtifact?.exists, 'runtime quality JSON must be published through the authorized artifact surface');
     const qualityResponse = await fetch(`${baseUrl}${qualityArtifact.links.open}`);

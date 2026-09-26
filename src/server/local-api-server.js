@@ -14,6 +14,7 @@ import { registerLandingRoutes } from './routes/local-api-landing-routes.js';
 import { registerOperationalRoutes } from './routes/local-api-operational-routes.js';
 import { registerStudioRoutes } from './routes/local-api-studio-routes.js';
 import { createLocalApiAccessMiddleware } from './local-api-access.js';
+import { createArtifactModelPreviewService } from './artifact-model-preview-service.js';
 
 const DEFAULT_JSON_BODY_LIMIT = '5mb';
 const IMPORT_BOOTSTRAP_JSON_BODY_LIMIT = '48mb';
@@ -28,6 +29,7 @@ export function createLocalApiServer({
   studioDrawingServiceFactory = createStudioDrawingService,
   bootstrapImportServiceFactory = createBootstrapImportService,
   executorFactory = null,
+  artifactModelPreviewServiceFactory = createArtifactModelPreviewService,
 }) {
   const app = express();
   const server = createServer(app);
@@ -46,6 +48,7 @@ export function createLocalApiServer({
   const studioModelService = studioModelServiceFactory({ projectRoot });
   const studioDrawingService = studioDrawingServiceFactory({ projectRoot });
   const studioBootstrapImportService = bootstrapImportServiceFactory();
+  const artifactModelPreviewService = artifactModelPreviewServiceFactory();
   const jobCoordinator = createLocalApiJobCoordinator({
     jobStore,
     executor,
@@ -78,12 +81,13 @@ export function createLocalApiServer({
     executor,
     jobCoordinator,
   });
-  registerArtifactRoutes(app, { projectRoot, jobStore });
+  registerArtifactRoutes(app, { projectRoot, jobStore, artifactModelPreviewService });
   app.use(createInternalErrorMiddleware());
 
   server.on('close', () => {
     studioModelService.dispose().catch(() => {});
     studioDrawingService.dispose().catch(() => {});
+    artifactModelPreviewService.dispose().catch(() => {});
   });
 
   return {

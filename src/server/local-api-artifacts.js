@@ -94,6 +94,7 @@ function buildArtifactCapabilities(artifact = {}, { publicPathAllowed = true } =
     can_open: exists && publicPathAllowed && browserSafe && browserAddressable,
     can_download: exists && publicPathAllowed && browserAddressable,
     browser_safe: browserSafe,
+    ...(canPreviewArtifactModel(artifact, { publicPathAllowed }) ? { can_preview_model: true } : {}),
   };
 }
 
@@ -236,7 +237,12 @@ export function toArtifactResponse(jobId, artifact, { publicPathAllowed = true }
     exists: Boolean(artifact.exists),
     size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
     capabilities: buildArtifactCapabilities(artifact, { publicPathAllowed }),
-    links: buildArtifactLinks(jobId, artifact.id),
+    links: {
+      ...buildArtifactLinks(jobId, artifact.id),
+      ...(canPreviewArtifactModel(artifact, { publicPathAllowed })
+        ? { model_preview: `${buildArtifactLinks(jobId, artifact.id).open}/model-preview` }
+        : {}),
+    },
     contract: artifact.metadata?.af_contract
       ? redactPublicPathValues(artifact.metadata.af_contract)
       : null,
@@ -249,4 +255,9 @@ export function canServeArtifactContent(artifact = {}, { publicPathAllowed = tru
 
 export function canDownloadArtifactContent(artifact = {}, { publicPathAllowed = true } = {}) {
   return publicPathAllowed && isBrowserAddressableArtifact(artifact) && Boolean(artifact.exists);
+}
+
+export function canPreviewArtifactModel(artifact = {}, options = {}) {
+  return canDownloadArtifactContent(artifact, options)
+    && ['.step', '.stp', '.brep', '.brp', '.stl'].includes(extname(artifact.path || artifact.file_name || '').toLowerCase());
 }

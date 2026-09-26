@@ -41,6 +41,7 @@ export function classifyResultFilePurpose(artifact = {}) {
     'runtime fingerprint',
     'runtime_fingerprint',
     'runtime-fingerprint',
+    'runtime.fingerprint',
     'checksum',
     'sha256',
     'provenance',
@@ -145,6 +146,10 @@ export function deriveResultFileAction(artifact = {}) {
   const downloadHref = exists && artifact?.capabilities?.can_download === true && typeof artifact?.links?.download === 'string'
     ? artifact.links.download
     : '';
+
+  if (exists && artifact?.capabilities?.can_preview_model === true && artifact?.links?.model_preview) {
+    return { kind: 'view', href: artifact.links.model_preview, downloadHref, openHref };
+  }
 
   if (openHref) {
     return {
