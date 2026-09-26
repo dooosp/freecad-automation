@@ -355,6 +355,8 @@ export async function analyzeStep(freecadRoot, runScript, modelFilePath) {
       return normalizeAnalysis({
         success: true,
         fallback: true,
+        model_metadata: model,
+        body_count: model.solid_count,
         source_step: modelFilePath,
         part_type: 'part',
         bounding_box: extractBBox(model),
@@ -405,6 +407,8 @@ export async function analyzeStep(freecadRoot, runScript, modelFilePath) {
       return normalizeAnalysis({
         success: true,
         fallback: true,
+        model_metadata: model,
+        body_count: model.solid_count,
         warning: `Feature detector failed; using inspect fallback: ${compactErrorMessage(primaryErr.message)}`,
         bootstrap_warnings: [
           `Feature detector failed; using inspect fallback: ${compactErrorMessage(primaryErr.message)}`,
