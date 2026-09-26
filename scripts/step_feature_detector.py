@@ -340,5 +340,10 @@ def main():
     respond(result)
 
 
-if __name__ == "__main__":
+# FreeCADCmd executes the selected file under its stem, not __main__. Match
+# the invoked filename so ordinary imports still remain side-effect free.
+if __name__ == "__main__" or (
+    len(sys.argv) > 1
+    and os.path.realpath(sys.argv[1]) == os.path.realpath(__file__)
+):
     main()
