@@ -75,6 +75,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Studio guided model flow', args: Object.freeze(['tests/model-guided-flow.test.js']) }),
       Object.freeze({ label: 'Studio guided AI draft flow', args: Object.freeze(['tests/ai-guided-flow.test.js']) }),
       Object.freeze({ label: 'Studio guided imported CAD flow', args: Object.freeze(['tests/import-guided-flow.test.js']) }),
+      Object.freeze({ label: 'Studio imported geometry truth', args: Object.freeze(['tests/studio-import-truth.test.js']) }),
       Object.freeze({ label: 'Studio shell state', args: Object.freeze(['tests/studio-state.test.js']) }),
       Object.freeze({ label: 'Studio draw tracked state', args: Object.freeze(['tests/drawing-tracked-runs.test.js']) }),
       Object.freeze({ label: 'Studio job monitor', args: Object.freeze(['tests/studio-job-monitor.test.js']) }),
@@ -229,6 +230,7 @@ export const TEST_LANES = Object.freeze([
     freecadRequired: true,
     steps: Object.freeze([
       Object.freeze({ label: 'CLI runtime smoke', args: Object.freeze(['tests/runtime-smoke-cli.js']) }),
+      Object.freeze({ label: 'STEP import geometry handoff', args: Object.freeze(['tests/step-import-runtime.test.js']) }),
       Object.freeze({ label: 'Local API runtime smoke', args: Object.freeze(['tests/local-api.integration.test.js']) }),
       Object.freeze({ label: 'Repeat export runtime regression', args: Object.freeze(['tests/export-repeat.test.js']) }),
     ]),

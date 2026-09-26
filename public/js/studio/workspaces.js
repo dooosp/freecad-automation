@@ -31,6 +31,7 @@ import {
 import { ensureAiDraftState } from './ai-guided-flow.js';
 import {
   createImportGuidedStepStates,
+  deriveImportGeometryStatus,
   ensureImportGuidedFlowState,
   resolveImportGuidedError,
   resolveImportGuidedStep,
@@ -3422,7 +3423,8 @@ function createGuidedImportReviewWorkspace(state) {
   const preview = importBootstrap.preview;
   const diagnostics = preview?.bootstrap?.import_diagnostics || {};
   const seed = preview?.tracked_review_seed || {};
-  const canStartReview = Boolean(seed.context_path && seed.model_path);
+  const geometryStatus = deriveImportGeometryStatus(preview);
+  const canStartReview = Boolean(seed.context_path && seed.model_path) && geometryStatus !== 'blocked';
   const hasSelectedLocalFile = Boolean(importBootstrap.modelFile && importBootstrap.modelFileName);
   const sourceLabel = importBootstrap.modelFileName
     || importBootstrap.modelPath
@@ -3574,13 +3576,22 @@ function createGuidedImportReviewWorkspace(state) {
               text: t('studio.import.guided.confirm.copy'),
             }),
             createInfoGrid([
-              { label: t('studio.import.guided.confirm.file'), value: t('studio.import.guided.confirm.readable') },
+              { label: t('studio.import.guided.confirm.file'), value: t(`studio.import.guided.geometry.${geometryStatus}`) },
               {
                 label: t('studio.import.guided.confirm.assumptions'),
                 value: t('studio.import.guided.confirm.assumption-count', { count: importAssumptionCount(importBootstrap) }),
               },
-              { label: t('studio.import.guided.confirm.review'), value: t('studio.import.guided.confirm.ready') },
+              { label: t('studio.import.guided.confirm.review'), value: t(geometryStatus === 'readable'
+                ? 'studio.import.guided.confirm.ready'
+                : geometryStatus === 'blocked' ? 'studio.import.guided.confirm.blocked-title' : 'studio.import.guided.geometry.limited-review') },
             ]),
+            geometryStatus !== 'readable'
+              ? createInlineStatus({
+                  title: t(`studio.import.guided.geometry.${geometryStatus}`),
+                  copy: t('studio.import.guided.geometry.caution'),
+                  tone: 'warn',
+                })
+              : null,
             createActionSummary({
               actionId: 'start-imported-cad-review',
               title: t('studio.import.guided.confirm.summary-title'),

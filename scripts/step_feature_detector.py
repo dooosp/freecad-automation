@@ -204,6 +204,7 @@ def analyze_step(filepath):
     try:
         FreeCAD = init_freecad()
         import Part
+        from _shapes import get_metadata
     except Exception:
         respond_error(
             "FreeCAD not available",
@@ -269,6 +270,7 @@ def analyze_step(filepath):
 
         return {
             "success": True,
+            "model_metadata": get_metadata(shape),
             "part_type": part_type,
             "part_kind": import_kind,
             "body_count": body_count,
