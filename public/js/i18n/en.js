@@ -1,6 +1,7 @@
 const en = {
   localeName: 'English',
   messages: {
+    'studio.history.part-revision': '{name} · Rev {revision}',
     'viewer.partName': 'Part {number}',
     'viewer.showPart': 'Show part: {name}',
     'viewer.visible': 'Visible',

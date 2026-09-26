@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 const UNKNOWN = 'Unknown';
 
 function asObject(value) {
@@ -134,7 +136,30 @@ function readinessHoldLabel(job = {}, reportSummary = {}) {
   return '';
 }
 
+function recordedPartIdentity(job = {}) {
+  const result = asObject(job.result);
+  const part = [
+    result.reviewPackDocument?.part,
+    result.reviewPack?.part,
+    result.review_pack?.part,
+    result.report?.part,
+    result.part,
+    result.context?.part,
+    job.request?.options?.bootstrap?.bootstrap_summary?.part,
+  ].map(asObject).find((entry) => firstString(entry.name, entry.part_id));
+  const authoritative = asObject(result.revisionLineage?.identity || result.revision_lineage?.identity);
+  if (firstString(authoritative.part_id)) {
+    return {
+      name: part?.part_id === authoritative.part_id ? firstString(part.name, part.part_id) : authoritative.part_id,
+      revision: firstString(authoritative.revision),
+    };
+  }
+  return { name: firstString(part?.name, part?.part_id), revision: firstString(part?.revision) };
+}
+
 function deriveConfigName(job = {}, reportSummary = {}) {
+  const identity = recordedPartIdentity(job);
+  if (identity.name) return identity.name;
   const request = asObject(job.request);
   const requestConfig = asObject(request.config);
   const result = asObject(job.result);
@@ -154,6 +179,14 @@ function deriveConfigName(job = {}, reportSummary = {}) {
     .filter((entry) => entry && entry !== 'report');
 
   return artifactNames[0] || UNKNOWN;
+}
+
+export function formatJobDisplayName(job = {}, locale) {
+  const identity = recordedPartIdentity(job);
+  const name = job.label || identity.name || job.config_name || deriveConfigName(job, reportSummaryFromJob(job));
+  return identity.revision
+    ? t('studio.history.part-revision', { name, revision: identity.revision }, locale)
+    : name;
 }
 
 export function formatJobExecutionStatus(status = '') {

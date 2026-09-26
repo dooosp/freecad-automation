@@ -84,6 +84,7 @@ function translateEvidenceGraphField(label = '', value = '') {
 const ko = {
   localeName: '한국어',
   messages: {
+    'studio.history.part-revision': '{name} · 리비전 {revision}',
     'viewer.partName': '부품 {number}',
     'viewer.showPart': '부품 표시: {name}',
     'viewer.visible': '표시',

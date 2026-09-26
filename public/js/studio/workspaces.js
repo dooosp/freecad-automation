@@ -46,6 +46,7 @@ import {
 } from './examples.js';
 import {
   deriveRecentJobQualityStatus,
+  formatJobDisplayName,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
 import {
@@ -687,10 +688,8 @@ function userRunTypeLabel(type = '') {
 }
 
 function userRunTitle(job = {}) {
-  const derivedName = deriveRecentJobQualityStatus(job).configName;
-  return job.label
-    || job.config_name
-    || (derivedName && derivedName !== 'Unknown' ? derivedName : userRunTypeLabel(job.type));
+  const name = formatJobDisplayName(job);
+  return name && name !== 'Unknown' ? name : userRunTypeLabel(job.type);
 }
 
 function userExecutionStatus(status = '') {

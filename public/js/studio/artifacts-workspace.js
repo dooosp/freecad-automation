@@ -48,6 +48,7 @@ import {
 import {
   deriveRecentJobDecisionState,
   deriveRecentJobQualityStatus,
+  formatJobDisplayName,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
 import {
@@ -1564,7 +1565,7 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
     surface: 'canvas',
     body: [
       createInfoGrid([
-        { label: t('studio.artifacts.summary.run'), value: deriveRecentJobQualityStatus(activeJob.summary).configName },
+        { label: t('studio.artifacts.summary.run'), value: formatJobDisplayName(activeJob.summary) },
         { label: t('studio.artifacts.summary.primary'), value: resultFileTitle(primaryArtifact) },
         { label: t('studio.artifacts.summary.execution'), value: localizedExecutionStatus(activeJob.summary) },
         { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },

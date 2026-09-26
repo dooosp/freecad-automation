@@ -82,6 +82,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Studio shell state', args: Object.freeze(['tests/studio-state.test.js']) }),
       Object.freeze({ label: 'Studio draw tracked state', args: Object.freeze(['tests/drawing-tracked-runs.test.js']) }),
       Object.freeze({ label: 'Studio job monitor', args: Object.freeze(['tests/studio-job-monitor.test.js']) }),
+      Object.freeze({ label: 'Studio saved job identity and status', args: Object.freeze(['tests/studio-jobs-center.test.js']) }),
       Object.freeze({ label: 'Studio job bridge', args: Object.freeze(['tests/studio-job-bridge.test.js']) }),
       Object.freeze({ label: 'STEP import bootstrap contracts', args: Object.freeze(['tests/step-import-service.test.js']) }),
       Object.freeze({ label: 'Bootstrap import service contracts', args: Object.freeze(['tests/bootstrap-import-service.test.js']) }),
