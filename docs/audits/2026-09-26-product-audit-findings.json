@@ -259,9 +259,18 @@
       "recommended_fix": "Follow-up labels from verified lineage/source metadata; keep filenames visible.",
       "regression_test_requirement": "Multiple parts distinguishable",
       "performance_impact": "none",
-      "status": "deferred",
-      "commits": [],
-      "verification": "Observed baseline behavior remains; see deferred scope in report."
+      "status": "partially mitigated",
+      "commits": [
+        "92200c0",
+        "0f388c0"
+      ],
+      "verification": "Requested scope completed: recorded part/revision identity and format/manifest-based grouping; EN/KO rendered two-part regressions and actual persisted result reopening passed. Browser regression for runtime.fingerprint fixed without weakening assertions. Generic labels on some legacy review sidecars remain.",
+      "followup": {
+        "report": "docs/audits/2026-09-26-product-followups.md",
+        "measurements": "docs/audits/2026-09-26-product-followups-measurements.json",
+        "evidence_root": "tmp/codex/product-followups",
+        "requested_scope_complete": true
+      }
     },
     {
       "id": "UX-07",
@@ -469,9 +478,17 @@
       "recommended_fix": "Measure an async or coalesced probe with explicit freshness/invalidation semantics before caching runtime availability.",
       "regression_test_requirement": "Fresh, missing, changed and temporarily failed runtime must never show stale Ready.",
       "performance_impact": "Baseline median 53.813ms, p95 104.495ms, 21 samples.",
-      "status": "deferred",
-      "verification": "No cache introduced because stale runtime state can mislead safety gating.",
-      "commits": []
+      "status": "fixed",
+      "verification": "Synchronous probes moved to a worker; concurrent probes coalesce, completed diagnostics are never cached. Fresh discovery, failed probe response, crash/exit/timeout/retry/disposal tests passed. Real jobs-under-health median 432.254 -> 11.246 ms; controlled comparison 887.593 -> 19.782 ms. Standalone health latency increased (54.442 -> 96.279 ms live, 74.006 -> 117.068 ms controlled); no standalone speedup claimed.",
+      "commits": [
+        "e07ee86"
+      ],
+      "followup": {
+        "report": "docs/audits/2026-09-26-product-followups.md",
+        "measurements": "docs/audits/2026-09-26-product-followups-measurements.json",
+        "evidence_root": "tmp/codex/product-followups",
+        "requested_scope_complete": true
+      }
     },
     {
       "id": "UX-09",
@@ -496,9 +513,17 @@
       "recommended_fix": "Add a scoped authorized tracked-model viewer using explicit artifact bindings and supported conversion/cache lifecycle.",
       "regression_test_requirement": "Valid/replaced/deleted artifact, job ownership, restart, viewport fallback, and Korean/English.",
       "performance_impact": "Not measured; conversion cost and cache policy need design.",
-      "status": "deferred",
-      "verification": "Download remains available. Do not broaden STL/HTML inline preview permissions as a shortcut.",
-      "commits": []
+      "status": "fixed",
+      "verification": "Authorized saved STEP/STL 3D reopening verified in the real browser for two shapes, EN/KO, rotate/scroll/Fit and server restart. Real FreeCAD converted STEP/STP/BREP/BRP; authority, source changes/deletion, cache, stale-response and disposal tests passed. Missing runtime is visible, while existing STL still renders. Original source/quality hashes unchanged.",
+      "commits": [
+        "0f388c0"
+      ],
+      "followup": {
+        "report": "docs/audits/2026-09-26-product-followups.md",
+        "measurements": "docs/audits/2026-09-26-product-followups-measurements.json",
+        "evidence_root": "tmp/codex/product-followups",
+        "requested_scope_complete": true
+      }
     },
     {
       "id": "UX-10",

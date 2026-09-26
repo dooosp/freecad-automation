@@ -1,5 +1,7 @@
 # FreeCAD Automation product audit — 2026-09-26
 
+Follow-up update: the requested saved identity/file-grouping, authorized saved 3D viewer, and nonblocking runtime-health work is documented in [the follow-up report](2026-09-26-product-followups.md). The findings ledger reflects those later dispositions. The audit narrative and measurements below retain their original historical scope.
+
 ## 1. Product outcome and scope
 
 The real Studio can create and display a model, produce a drawing, import CAD, run a structured review, and reopen saved work. Before repair, successful-looking flows concealed missing geometry, missing quality checks, lost review summaries, and clipped PDF advice. **12 findings were repaired in separate commits. Six entries remain deferred or partially mitigated**, including one navigation hypothesis. This is an audit of representative product journeys and their implementation boundaries, not an exhaustive certification of every command or CAD input.
