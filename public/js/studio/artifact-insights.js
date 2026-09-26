@@ -152,6 +152,10 @@ export async function fetchArtifactText(artifact, maxChars = 16000) {
     throw new Error(`${artifact.file_name || artifact.key} returned ${response.status}`);
   }
   const text = await response.text();
+  // JSON is a data contract: truncating it before parsing silently discards
+  // every normalized review field. Bound displayed source text at render time.
+  if (String(artifact.content_type || '').toLowerCase().includes('json')
+    || String(artifact.extension || '').toLowerCase() === '.json') return text;
   return text.length > maxChars ? `${text.slice(0, maxChars)}\n\n…truncated for the studio preview…` : text;
 }
 
@@ -1576,14 +1580,23 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
           tone: 'warn',
           status: reviewPack ? 'Review pack available' : 'Artifact set available',
           summary: reviewPack
-            ? summarizeList(reviewPack.summary?.top_issues || reviewPack.executive_summary?.top_issues)
+            ? summarizeList(
+                safeList(reviewPack.prioritized_hotspots).length
+                  ? stringifyListEntries(reviewPack.prioritized_hotspots, { key: 'title' })
+                  : reviewPack.summary?.top_issues || reviewPack.executive_summary?.top_issues,
+                reviewPack.executive_summary?.headline || 'Review the available design information.',
+              )
             : 'Supplemental review artifacts are attached and ready to inspect.',
           artifact: reviewPackArtifact,
           normalized: reviewPack
             ? [
                 buildReviewDisplayField('Summary', reviewPack.summary?.overall_risk_level, 'Available'),
-                buildReviewDisplayField('Open items', String((reviewPack.issues || []).length)),
-                buildReviewDisplayField('Recommendation', (reviewPack.summary?.recommended_actions || [])[0], 'No explicit recommendation listed'),
+                buildReviewDisplayField('Open items', String((reviewPack.prioritized_hotspots || reviewPack.issues || []).length)),
+                buildReviewDisplayField('Recommendation',
+                  reviewPack.recommended_actions?.[0]?.recommended_action
+                    || reviewPack.recommended_actions?.[0]
+                    || (reviewPack.summary?.recommended_actions || [])[0], 'No explicit recommendation listed'),
+                buildReviewDisplayField('Missing inputs', safeList(reviewPack.uncertainty_coverage_report?.missing_inputs).join(', '), 'None listed'),
               ]
             : [
                 buildReviewDisplayField('Artifact', reviewPackArtifact.file_name || reviewPackArtifact.key),
