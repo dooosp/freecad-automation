@@ -512,6 +512,7 @@ fcad serve 3100 --jobs-dir output/jobs-dev
 Startup behavior:
 
 - binds to `127.0.0.1` only
+- accepts loopback `Host` names on the listening port; browser `Origin` must match that local address. Open Studio on the same server. Local CLI clients without an `Origin` header remain supported.
 - defaults to port `3000`
 - stores jobs under `output/jobs` unless `--jobs-dir` is provided
 - keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by the CLI, including `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `evidence-readiness-audit`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit`

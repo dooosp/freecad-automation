@@ -13,6 +13,7 @@ import { registerJobRoutes } from './routes/local-api-job-routes.js';
 import { registerLandingRoutes } from './routes/local-api-landing-routes.js';
 import { registerOperationalRoutes } from './routes/local-api-operational-routes.js';
 import { registerStudioRoutes } from './routes/local-api-studio-routes.js';
+import { createLocalApiAccessMiddleware } from './local-api-access.js';
 
 const DEFAULT_JSON_BODY_LIMIT = '5mb';
 const IMPORT_BOOTSTRAP_JSON_BODY_LIMIT = '48mb';
@@ -51,6 +52,7 @@ export function createLocalApiServer({
     studioDrawingService,
   });
 
+  app.use(createLocalApiAccessMiddleware(server));
   app.use('/api/studio/import-bootstrap', express.json({ limit: IMPORT_BOOTSTRAP_JSON_BODY_LIMIT }));
   app.use(express.json({ limit: DEFAULT_JSON_BODY_LIMIT }));
   registerLandingRoutes(app, {
