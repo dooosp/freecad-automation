@@ -8,8 +8,35 @@ import {
   buildArtifactViewer,
   parseArtifactPayload,
 } from '../public/js/studio/artifact-insights.js';
+import { setLocale, translateText } from '../public/js/i18n/index.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+
+const createQualityArtifact = { type: 'model.create-quality', extension: '.json', file_name: 'bracket_create_quality.json' };
+const createQualityPayload = {
+  command: 'create', status: 'fail',
+  step_roundtrip: { reimport_attempted: true, reimport_valid: true },
+  blocking_issues: ['Hole diameter is 8 mm; expected 6 mm.'], warnings: [],
+};
+setLocale('en', { persist: false });
+const qualityViewer = buildArtifactViewer({ artifact: createQualityArtifact, parsedPayload: createQualityPayload });
+assert.equal(qualityViewer.kind, 'create_quality');
+assert.equal(qualityViewer.highlights[0].value, 'Failed');
+assert.equal(qualityViewer.highlights[1].value, 'Passed');
+assert(qualityViewer.sections.some((section) => section.entries.includes(createQualityPayload.blocking_issues[0])));
+assert.match(qualityViewer.summary, /not physical inspection evidence/i);
+const unknownQualityViewer = buildArtifactViewer({ artifact: createQualityArtifact, parsedPayload: { command: 'create' } });
+assert(unknownQualityViewer.highlights.every((item) => item.value === 'Not available'));
+assert.equal(buildArtifactViewer({ artifact: createQualityArtifact }).kind, 'generic');
+setLocale('ko', { persist: false });
+const koreanQualityViewer = buildArtifactViewer({ artifact: createQualityArtifact, parsedPayload: createQualityPayload });
+assert.deepEqual(koreanQualityViewer, qualityViewer, 'cached viewer data must stay locale-neutral');
+assert.equal(translateText(qualityViewer.highlights[0].value, 'ko'), '실패');
+assert.match(translateText(qualityViewer.highlights[1].label, 'ko'), /재가져오기 검사/);
+assert.match(translateText(qualityViewer.summary, 'ko'), /실물 검사/);
+assert.equal(translateText(`- ${qualityViewer.sections[1].entries[0]}`, 'ko'), '- 보고된 항목 없음');
+assert.match(translateText(qualityViewer.summary, 'en'), /physical inspection/);
+setLocale('en', { persist: false });
 
 const reviewPack = JSON.parse(
   readFileSync(resolve(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json'), 'utf8')

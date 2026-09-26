@@ -54,6 +54,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'DFM actionable issue contracts', args: Object.freeze(['tests/dfm-actionable.test.js']) }),
       Object.freeze({ label: 'Decision-ready report summary', args: Object.freeze(['tests/report-decision-summary.test.js']) }),
       Object.freeze({ label: 'Studio artifact re-entry', args: Object.freeze(['tests/studio-artifact-actions.test.js']) }),
+      Object.freeze({ label: 'Studio artifact viewers', args: Object.freeze(['tests/studio-artifact-viewers.test.js']) }),
       Object.freeze({ label: 'Studio quality dashboard', args: Object.freeze(['tests/studio-quality-dashboard.test.js']) }),
       Object.freeze({ label: 'Studio public contract helpers', args: Object.freeze(['tests/studio-public-contract.test.js']) }),
       Object.freeze({ label: 'Studio result files', args: Object.freeze(['tests/result-files.test.js']) }),

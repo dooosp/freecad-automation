@@ -657,6 +657,31 @@ function buildBundleViewer(artifact, parsedPayload, identity, { companionManifes
   };
 }
 
+function buildCreateQualityViewer(payload) {
+  // Viewer data is cached across locale changes; translate canonical text at render time.
+  const statusLabel = (status) => ({ pass: 'Passed', fail: 'Failed', warning: 'Warning' })[status] || 'Not available';
+  const step = safeObject(payload.step_roundtrip);
+  const stepStatus = step.reimport_attempted === true
+    ? (step.reimport_valid === true ? 'pass' : step.reimport_valid === false ? 'fail' : 'unknown')
+    : 'unknown';
+  const entries = (value) => Array.isArray(value)
+    ? (value.length ? value.map(String) : ['None reported'])
+    : ['Not available'];
+  return {
+    kind: 'create_quality',
+    title: 'Model quality checks',
+    summary: 'These are generated-model checks, not physical inspection evidence or manufacturing readiness approval.',
+    highlights: [
+      { label: 'Quality', value: statusLabel(payload.status) },
+      { label: 'STEP reimport check', value: statusLabel(stepStatus) },
+    ],
+    sections: [
+      { title: 'Blocking quality issues', entries: entries(payload.blocking_issues) },
+      { title: 'Warnings', entries: entries(payload.warnings) },
+    ],
+  };
+}
+
 function buildGenericViewer(artifact, identity) {
   return {
     kind: 'generic',
@@ -688,6 +713,11 @@ export function buildArtifactViewer({
   relatedPayloads = {},
 } = {}) {
   const identity = getArtifactIdentity(artifact, parsedPayload);
+
+  if (['model.create-quality', 'model.quality-summary'].includes(artifact.type)
+    && parsedPayload?.command === 'create') {
+    return buildCreateQualityViewer(parsedPayload);
+  }
 
   if (isReviewPackArtifact(artifact) && isPlainObject(parsedPayload)) {
     return buildReviewPackViewer(artifact, parsedPayload, identity);
