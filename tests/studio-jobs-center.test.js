@@ -24,6 +24,28 @@ const jobs = collectJobsCenterJobs({
   limit: 4,
 });
 
+for (const [status, expected] of [
+  ['pass', 'Quality passed'],
+  ['fail', 'Quality failed'],
+  ['warning', 'Quality warning'],
+  ['not_run', 'Quality Unknown'],
+]) {
+  const job = {
+    type: 'create',
+    status: 'succeeded',
+    request: { config: { name: 'tracked_bracket' } },
+    result: { create_quality: { status } },
+  };
+  const actual = deriveRecentJobQualityStatus(job);
+  assert.equal(actual.qualityStatus, expected);
+  assert.equal(actual.jobExecutionStatus, 'Job succeeded');
+  assert.equal(actual.readyForManufacturingReview, 'Ready Unknown', 'geometry checks never establish manufacturing readiness');
+  if (status === 'fail') {
+    assert.equal(deriveRecentJobDecisionState(job).needsAttention, true);
+    assert.equal(deriveRecentJobDecisionState(job).reason, 'quality');
+  }
+}
+
 assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-older']);
 
 {

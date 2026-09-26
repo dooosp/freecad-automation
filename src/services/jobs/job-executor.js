@@ -29,7 +29,7 @@ import {
 import { runScript } from '../../../lib/runner.js';
 import { createDfmService } from '../../api/analysis.js';
 import { createDrawingService, runDrawPipeline } from '../../api/drawing.js';
-import { analyzeStep, createModel, inspectModel } from '../../api/model.js';
+import { analyzeStep, createModel, generateCreateQualityArtifact, inspectModel } from '../../api/model.js';
 import { createReportService } from '../../api/report.js';
 import { runReviewContextPipeline } from '../../orchestration/review-context-pipeline.js';
 import { runReleaseBundleWorkflow } from '../../workflows/release-bundle-workflow.js';
@@ -1032,13 +1032,24 @@ export function createJobExecutor({
 
   async function executeCreate(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
-    return createModel({
+    const config = withTrackedExportDirectory(resolvedConfig.config, outputDir);
+    const loggedRunner = createLoggedRunner(job.id);
+    const result = await createModel({
       freecadRoot: projectRoot,
-      runScript: createLoggedRunner(job.id),
+      runScript: loggedRunner,
       loadConfig: async (filepath) => (await loadConfigWithDiagnostics(filepath)).config,
       configPath: resolvedConfig.configPath,
-      config: withTrackedExportDirectory(resolvedConfig.config, outputDir),
+      config,
     });
+    if (!result.success) return result;
+
+    const quality = await generateCreateQualityArtifact({
+      createResult: result,
+      configPath: resolvedConfig.configPath,
+      config,
+      runScript: loggedRunner,
+    });
+    return { ...result, create_quality: quality.report, create_quality_path: quality.path };
   }
 
   async function executeDraw(job, resolvedConfig) {

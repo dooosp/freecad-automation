@@ -38,6 +38,19 @@ assert.deepEqual(collectCreateManifestArtifacts(createResult), [
   },
 ]);
 
+const createWithQuality = {
+  ...createResult,
+  create_quality_path: '/repo/output/bracket_create_quality.json',
+};
+assert.equal(inferCreateArtifactPaths(createWithQuality).create_quality, createWithQuality.create_quality_path);
+assert.deepEqual(collectCreateManifestArtifacts(createWithQuality).at(-1), {
+  type: 'model.create-quality',
+  path: createWithQuality.create_quality_path,
+  label: 'Create quality JSON',
+  scope: 'user-facing',
+  stability: 'stable',
+});
+
 const drawResult = {
   drawing_paths: [
     { format: 'svg', path: '/repo/output/bracket_drawing.svg' },

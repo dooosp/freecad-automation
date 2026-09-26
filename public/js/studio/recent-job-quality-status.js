@@ -49,11 +49,13 @@ function artifactCandidatesFromObject(value, candidates = []) {
 
 function reportSummaryFromJob(job = {}) {
   const result = asObject(job.result);
+  const createQuality = asObject(result.create_quality);
   return asObject(
     result.report_summary
       || result.decision_summary
       || result._decision_summary
       || result.summary
+      || (createQuality.status ? { overall_status: createQuality.status } : null)
   );
 }
 

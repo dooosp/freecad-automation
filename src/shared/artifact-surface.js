@@ -108,6 +108,7 @@ export function drawingIntentManifestMetadata(reportSummary = null) {
 export function inferCreateArtifactPaths(result) {
   return {
     exports: (result?.exports || []).map((entry) => entry.path).filter(Boolean),
+    ...(result?.create_quality_path ? { create_quality: result.create_quality_path } : {}),
   };
 }
 
@@ -122,7 +123,12 @@ export function createExportArtifactEntries(exports = [], prefix = 'model') {
 }
 
 export function collectCreateManifestArtifacts(result, { prefix = 'model' } = {}) {
-  return createExportArtifactEntries(result?.exports || [], prefix);
+  return [
+    ...createExportArtifactEntries(result?.exports || [], prefix),
+    ...(result?.create_quality_path ? [createArtifactEntry(`${prefix}.create-quality`, result.create_quality_path, {
+      label: 'Create quality JSON',
+    })] : []),
+  ];
 }
 
 export function createPartFileArtifactEntries(partFiles = [], type = 'model.part-stl') {
