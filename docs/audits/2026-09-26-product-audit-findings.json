@@ -1,0 +1,532 @@
+{
+  "audit_date": "2026-09-26",
+  "simulation_type": "AGENT-OPERATED USER SIMULATIONS; not human UAT",
+  "baseline_sha": "4dba0d32fe1b10f2266f27501165e56df9f943af",
+  "classification_key": {
+    "A": "confirmed user/product problem",
+    "B": "confirmed engineering problem",
+    "C": "maintainability risk",
+    "D": "hypothesis requiring reproduction"
+  },
+  "evidence_root": "../../tmp/codex/product-audit/ (local ignored files; not committed)",
+  "findings": [
+    {
+      "id": "SEC-01",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "malicious local browser origin",
+      "user_impact": "Host and Origin headers were not checked before reaching local routes. HTTP probes demonstrated acceptance; a real browser DNS-rebinding exploit or cross-origin data read was not executed.",
+      "engineering_impact": "Loopback binding did not establish request authority or browser origin trust.",
+      "observed_evidence": [
+        "public-boundaries.json: untrusted-host 200, external-origin-job 202"
+      ],
+      "reproduction_steps": [
+        "Request /health with Host audit.invalid; POST /jobs with Origin https://audit.invalid."
+      ],
+      "related_code": [
+        "src/server/local-api-server.js",
+        "src/server/local-api-access.js"
+      ],
+      "root_cause": "Loopback binding but no request authority/origin validation before routes/body parser.",
+      "confidence_evidence": "source+HTTP confirmed; DNS/browser exploit not executed",
+      "recommended_fix": "Reject non-loopback Host and nonmatching Origin; preserve no-Origin local CLI and same-origin Studio.",
+      "regression_test_requirement": "Real HTTP server host/origin methods and valid local requests",
+      "performance_impact": "minimal header parsing",
+      "status": "fixed",
+      "commits": [
+        "e811d14"
+      ],
+      "verification": "public-boundaries-after.json; local-api-access-boundary.test.js: 4 tests pass",
+      "severity_calibration": "Baseline provisional P1 narrowed to P2 because browser exploit conditions were not demonstrated. Boundary is fixed regardless."
+    },
+    {
+      "id": "SEC-02",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "API consumer",
+      "user_impact": "Absolute checkout paths remain in nested draft TOML in public preview/jobs. Local privacy contract violation; no external exfiltration demonstrated.",
+      "engineering_impact": "Public presentation failed its embedded-string redaction contract.",
+      "observed_evidence": [
+        "public-boundaries.json leaking_fields"
+      ],
+      "reproduction_steps": [
+        "Import STEP, start review, GET /jobs."
+      ],
+      "related_code": [
+        "src/server/public-job-request.js",
+        "src/server/routes/local-api-studio-routes.js"
+      ],
+      "root_cause": "Only whole strings recognized as absolute paths; embedded TOML not redacted.",
+      "confidence_evidence": "reproduced",
+      "recommended_fix": "Reuse shared public string sanitizer for embedded paths without mutating internal request.",
+      "regression_test_requirement": "Nested TOML POSIX/Windows, preservation of persisted source and artifact refs",
+      "performance_impact": "none expected",
+      "status": "fixed",
+      "commits": [
+        "e811d14"
+      ],
+      "verification": "security-real-bootstrap-after.json: bootstrap and public job contain no absolute checkout paths; public-path-redaction tests pass"
+    },
+    {
+      "id": "RUN-01",
+      "priority": "P1",
+      "classification": "A/B",
+      "persona_scenario": "CAD engineer",
+      "user_impact": "STEP features silently degrade to fallback despite real usable FreeCAD; extra process startup.",
+      "engineering_impact": "Real FreeCAD invocation differed from normal Python and was absent from smoke coverage.",
+      "observed_evidence": [
+        "persona-b-import-details.txt; runtime-entrypoint-probe.py; direct runScript error"
+      ],
+      "reproduction_steps": [
+        "Import canonical quality_pass_bracket.step on FreeCAD 1.1.3."
+      ],
+      "related_code": [
+        "scripts/step_feature_detector.py"
+      ],
+      "root_cause": "FreeCADCmd assigns __name__ to file stem; main-only guard does not execute.",
+      "confidence_evidence": "reproduced runtime",
+      "recommended_fix": "Support explicitly invoked FreeCAD script entry while keeping module imports safe.",
+      "regression_test_requirement": "Run real script under FreeCAD-style run_name; normal import inert; real STEP reimport",
+      "performance_impact": "removes unnecessary inspect fallback",
+      "status": "fixed",
+      "commits": [
+        "f442bcc",
+        "c2bd29f"
+      ],
+      "verification": "step-detector-after.json; step-import-runtime.test.js: actual FreeCAD extraction and geometry handoff pass"
+    },
+    {
+      "id": "UX-01",
+      "priority": "P1",
+      "classification": "A/B",
+      "persona_scenario": "error-prone",
+      "user_impact": "Corrupt STEP is described as readable/ready despite failed geometry.",
+      "engineering_impact": "Diagnostic evidence was ignored by guided labels.",
+      "observed_evidence": [
+        "persona-d-corrupt-step.txt and persona-d-corrupt-details.txt"
+      ],
+      "reproduction_steps": [
+        "Upload truncated STEP, Check file."
+      ],
+      "related_code": [
+        "public/js/studio/workspaces.js",
+        "public/js/studio/import-guided-flow.js"
+      ],
+      "root_cause": "Guided confirmation labels are unconditional.",
+      "confidence_evidence": "reproduced",
+      "recommended_fix": "Derive readable/partial/metadata-only/blocked/unknown presentation from existing diagnostics; preserve metadata-only fallback and safety gate.",
+      "regression_test_requirement": "Corrupt/missing/partial/success diagnostics render truthful state in EN/KO",
+      "performance_impact": "none",
+      "status": "fixed",
+      "commits": [
+        "c2bd29f"
+      ],
+      "verification": "corrupt-step-after.txt; studio-import-truth.test.js: EN/KO metadata-only and blocked states"
+    },
+    {
+      "id": "UX-02",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "CAD engineer",
+      "user_impact": "Main Review lacks actual issues/next actions, even when JSON has them.",
+      "engineering_impact": "Full JSON was already downloaded, then corrupted by presentation truncation; canonical fields were not mapped.",
+      "observed_evidence": [
+        "persona-b-review-result.txt and persona-b-review-advanced.txt"
+      ],
+      "reproduction_steps": [
+        "Open a >16k review pack with prioritized_hotspots and recommended_actions."
+      ],
+      "related_code": [
+        "public/js/studio/artifact-insights.js",
+        "public/js/studio/review-summary.js",
+        "public/js/studio/review-workspace.js"
+      ],
+      "root_cause": "Fetch truncates JSON before parsing; review-outputs excluded from beginner summary; schema mapping omits canonical hotspot/action fields.",
+      "confidence_evidence": "reproduced+source",
+      "recommended_fix": "Parse full authorized JSON and limit presentation separately; surface review issues/actions with missing-evidence truth.",
+      "regression_test_requirement": "Actual HTTP JSON over threshold -> parse/cards/summary; legacy compatibility",
+      "performance_impact": "same download size; bounded visible text",
+      "status": "fixed",
+      "commits": [
+        "3cd6ca4"
+      ],
+      "verification": "regression-b-review.txt: three concrete hotspots and a recommendation; >16KB HTTP artifact regression passes"
+    },
+    {
+      "id": "UX-03",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "beginner/returning",
+      "user_impact": "Generated preview absent from history; saving is undiscoverable; home/empty history overpromise.",
+      "engineering_impact": "The preview/tracked split was not exposed in the primary result flow.",
+      "observed_evidence": [
+        "persona-a-history-after-generation.txt"
+      ],
+      "reproduction_steps": [
+        "Default model generation then Run history."
+      ],
+      "related_code": [
+        "public/js/studio/workspaces.js",
+        "public/js/studio/model-workspace.js",
+        "public/js/i18n/en.js",
+        "public/js/i18n/ko.js"
+      ],
+      "root_cause": "Primary flow is preview-only; save only under advanced tools; contradictory copy.",
+      "confidence_evidence": "reproduced",
+      "recommended_fix": "Expose Save result to history from the preview, opening the existing tracked preflight and button. Clarify temporary preview versus persistent run; do not automatically submit.",
+      "regression_test_requirement": "Action reveals existing save preflight/control without submitting; runtime save then reopen",
+      "performance_impact": "no new background runtime launches",
+      "status": "fixed",
+      "commits": [
+        "927d5ba"
+      ],
+      "verification": "regression-a-saved-quality.txt; tracked-quality-history-after.txt; disclosure action tests pass without automatic submission"
+    },
+    {
+      "id": "UX-04",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "all",
+      "user_impact": "Hidden empty error alerts display during valid preflight/result.",
+      "engineering_impact": "CSS overrode the native hidden contract.",
+      "observed_evidence": [
+        "screenshots/a-model-opened.jpg; baseline DOM empty alert"
+      ],
+      "reproduction_steps": [
+        "Generate valid example and open 3D."
+      ],
+      "related_code": [
+        "public/css/studio.css"
+      ],
+      "root_cause": "Author display:flex overrides native [hidden] without an explicit hidden rule.",
+      "confidence_evidence": "DOM+CSS confirmed",
+      "recommended_fix": "Respect hidden on inline-status.",
+      "regression_test_requirement": "Real browser valid and invalid model flow",
+      "performance_impact": "none",
+      "status": "fixed",
+      "commits": [
+        "927d5ba"
+      ],
+      "verification": "actual valid and invalid model flows; browser-smoke-final-quality.log"
+    },
+    {
+      "id": "UX-05",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "returning",
+      "user_impact": "View result for primary PDF shows only generic metadata; successful primary reopen requires extra menu.",
+      "engineering_impact": "Capability mapping promised a specialized viewer that was not implemented.",
+      "observed_evidence": [
+        "persona-c-reopened.txt and browser action output"
+      ],
+      "reproduction_steps": [
+        "History -> review job -> View result PDF."
+      ],
+      "related_code": [
+        "public/js/studio/artifacts-workspace.js",
+        "public/js/studio/result-files.js"
+      ],
+      "root_cause": "PDF can_open treated as specialized viewer although none is provided.",
+      "confidence_evidence": "reproduced",
+      "recommended_fix": "Provide direct browser-safe PDF open/download within selected result, or embed approved PDF with fallback.",
+      "regression_test_requirement": "Capability-respecting PDF action; no HTML/private/release bundle widening",
+      "performance_impact": "no eager PDF fetch",
+      "status": "fixed",
+      "commits": [
+        "927d5ba"
+      ],
+      "verification": "pdf-direct-action-after.jpg; authorized PDF HTTP 200 and Poppler render. Embedded browser reader still fails; see report limitation."
+    },
+    {
+      "id": "UX-06",
+      "priority": "P3",
+      "classification": "A",
+      "persona_scenario": "returning",
+      "user_impact": "review_pack_context title obscures part identity; generic Quality result repeated 16 times.",
+      "engineering_impact": "Filename and generic config heuristics are being used as semantic identity.",
+      "observed_evidence": [
+        "persona-c-history.txt; persona-c-reopened.txt"
+      ],
+      "reproduction_steps": [
+        "Review multiple parts then history."
+      ],
+      "related_code": [
+        "public/js/studio/workspaces.js",
+        "public/js/studio/result-files.js"
+      ],
+      "root_cause": "Generic config/runtime label preferred over source part; coarse taxonomy.",
+      "confidence_evidence": "reproduced",
+      "recommended_fix": "Follow-up labels from verified lineage/source metadata; keep filenames visible.",
+      "regression_test_requirement": "Multiple parts distinguishable",
+      "performance_impact": "none",
+      "status": "deferred",
+      "commits": [],
+      "verification": "Observed baseline behavior remains; see deferred scope in report."
+    },
+    {
+      "id": "UX-07",
+      "priority": "P3",
+      "classification": "A",
+      "persona_scenario": "Korean/beginner",
+      "user_impact": "33 raw examples including intentional failures/probes; mixed Korean/English drawing guidance and banner.",
+      "engineering_impact": "Example discovery and legacy strings bypass curated entry points and some locale keys.",
+      "observed_evidence": [
+        "persona-a-drawing-entry.txt; screenshots/d-review-390.jpg"
+      ],
+      "reproduction_steps": [
+        "Inspect example chooser, drawing empty state and completion notice in Korean."
+      ],
+      "related_code": [
+        "public/js/studio/workspaces.js",
+        "public/js/studio/drawing-workspace.js",
+        "public/js/studio/job-monitor.js",
+        "public/js/i18n/ko.js"
+      ],
+      "root_cause": "Uncurated examples and legacy copy outside shared keys.",
+      "confidence_evidence": "reproduced",
+      "recommended_fix": "Defer broader content curation; record as follow-up rather than silently removing examples.",
+      "regression_test_requirement": "Both locales and example contract",
+      "performance_impact": "none",
+      "status": "deferred",
+      "commits": [],
+      "verification": "Observed baseline behavior remains; see deferred scope in report."
+    },
+    {
+      "id": "ENG-01",
+      "priority": "P3",
+      "classification": "C",
+      "persona_scenario": "maintainer",
+      "user_impact": "Large workspace modules and source-text tests allow runtime-specific/semantic defects to escape green tests.",
+      "engineering_impact": "Large modules and source-regex checks increase the cost of changing behavior; size alone does not prove a defect.",
+      "observed_evidence": [
+        "workspaces.js 3795 lines; artifact workspace 2753; default tests pass; browser/manual defects reproduced"
+      ],
+      "reproduction_steps": [
+        "Compare green npm test with runtime imports and summary flow."
+      ],
+      "related_code": [
+        "public/js/studio/workspaces.js",
+        "public/js/studio/artifacts-workspace.js",
+        "tests/studio-beginner-ux-contract.test.js"
+      ],
+      "root_cause": "Some checks match source regex instead of user-visible behavior; runtime smoke omits STEP feature detector.",
+      "confidence_evidence": "measured risk, no blanket quality claim",
+      "recommended_fix": "Add behavioral regressions at changed boundaries; defer broad decomposition.",
+      "regression_test_requirement": "Real runtime + user-flow checks",
+      "performance_impact": "not established",
+      "status": "partially mitigated",
+      "commits": [],
+      "verification": "Behavioral and real-runtime tests added at the changed boundaries; module decomposition deferred."
+    },
+    {
+      "id": "RUN-02",
+      "priority": "P1",
+      "classification": "A/B",
+      "persona_scenario": "CAD engineer / FCStd import",
+      "user_impact": "Valid imported geometry could be handed to downstream analysis with zero dimensions or zero body count.",
+      "engineering_impact": "STEP feature results and FCStd inspect results did not propagate canonical measured metadata.",
+      "observed_evidence": [
+        "step-handoff-red.log",
+        "fcstd-metadata-after.json",
+        "regression-b-step-details.txt"
+      ],
+      "reproduction_steps": [
+        "Import quality_pass_bracket.step; inspect dimensions downstream.",
+        "Import an actual FreeCAD box FCStd; compare reported bodies with inspected solids."
+      ],
+      "related_code": [
+        "scripts/step_feature_detector.py",
+        "src/services/import/step-import-service.js"
+      ],
+      "root_cause": "model_metadata was omitted from the feature payload and inspect fallback adapters; body_count stayed at its zero default.",
+      "confidence_evidence": "Real FreeCAD and regression assertions reproduced the mismatch.",
+      "recommended_fix": "Pass measured metadata and solid count; preserve conservative metadata_only_fallback labeling.",
+      "regression_test_requirement": "Real STEP dimensions/volume/body check; FCStd fallback unit assertion and actual FCStd reimport.",
+      "performance_impact": "No additional geometry launch.",
+      "status": "fixed",
+      "verification": "STEP: one body, 160 x 100 x 8 mm; FCStd: one body, 40 x 20 x 8 mm.",
+      "commits": [
+        "c2bd29f",
+        "8c2d4ab"
+      ]
+    },
+    {
+      "id": "UX-08",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "Keyboard user at 320px",
+      "user_impact": "Closing a drawer returned focus to a partly off-screen toggle.",
+      "engineering_impact": "Focus and scroll restoration were not coordinated.",
+      "observed_evidence": [
+        "browser-smoke-retry.log",
+        "browser-smoke-final-verified.log",
+        "screenshots/drawer-focus-before.jpg"
+      ],
+      "reproduction_steps": [
+        "At a 320px viewport, open and close Jobs/Log drawer; check focused toggle rectangle."
+      ],
+      "related_code": [
+        "public/js/studio/studio-shell-dom.js",
+        "tests/studio-shell-browser-smoke.test.js"
+      ],
+      "root_cause": "Focus restoration could leave the toggle top at -0.375px.",
+      "confidence_evidence": "Strict CDP browser assertion failed; repaired assertion passes.",
+      "recommended_fix": "Scroll the restored focused control into view.",
+      "regression_test_requirement": "Keep viewport containment assertion; add rectangle diagnostics.",
+      "performance_impact": "One scroll on drawer close.",
+      "status": "fixed",
+      "verification": "Final CDP browser smoke passes; containment assertion not weakened.",
+      "commits": [
+        "bcf79de"
+      ]
+    },
+    {
+      "id": "DOC-01",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "CAD engineer reading review PDF",
+      "user_impact": "Long recommendations ran off the page, and content beyond fixed text/line limits was omitted.",
+      "engineering_impact": "Both Matplotlib and fallback PDF renderers used fixed single-page layouts.",
+      "observed_evidence": [
+        "screenshots/review-pdf-first-page.png",
+        "screenshots/review-pdf-after.png",
+        "screenshots/review-pdf-after-page2.png",
+        "pdf-pagination-red.log"
+      ],
+      "reproduction_steps": [
+        "Generate/open the review pack PDF from the imported bracket.",
+        "Generate a long review with a final missing-physical-evidence marker."
+      ],
+      "related_code": [
+        "scripts/reporting/review_pack.py",
+        "tests/test_review_pdf_pagination.py"
+      ],
+      "root_cause": "No wrapping or pagination; 5000-character / 40-line clipping.",
+      "confidence_evidence": "PDF render and extracted text reproduced truncation.",
+      "recommended_fix": "Wrap and paginate complete content in both existing renderers.",
+      "regression_test_requirement": "Check first/last long-content markers in fallback and native Matplotlib; render actual report pages.",
+      "performance_impact": "Larger complete PDFs: observed one-page 30431 bytes became two-page 33591 bytes for the same review text.",
+      "status": "fixed",
+      "verification": "Both actual pages inspected; native Matplotlib nine-page stress document retained final evidence warning.",
+      "commits": [
+        "007e260"
+      ]
+    },
+    {
+      "id": "ENG-02",
+      "priority": "P2",
+      "classification": "A/B",
+      "persona_scenario": "Beginner / returning operator saving a model",
+      "user_impact": "Tracked create had no quality artifact while the corresponding CLI create performed round-trip checks.",
+      "engineering_impact": "CLI/Studio create orchestration diverged despite a shared quality service.",
+      "observed_evidence": [
+        "quality-pass-tracked-after.txt",
+        "tracked-quality-pass-after.txt",
+        "tracked-quality-history-after.txt",
+        "tracked-quality-fail-after.json"
+      ],
+      "reproduction_steps": [
+        "Generate quality_pass_bracket in Studio.",
+        "Save to history and inspect quality and files."
+      ],
+      "related_code": [
+        "src/services/jobs/job-executor.js",
+        "src/shared/artifact-surface.js",
+        "public/js/studio/recent-job-quality-status.js"
+      ],
+      "root_cause": "Tracked create returned createModel directly and never called generateCreateQualityArtifact.",
+      "confidence_evidence": "Actual saved run, real runtime integration, and source confirmed.",
+      "recommended_fix": "Reuse the shipped quality generator and manifest helper; display quality independently from execution/readiness.",
+      "regression_test_requirement": "Real reimport JSON exposed through authorized artifact route; wrong-hole fixture fails quality while job succeeds; frontend readiness remains Unknown.",
+      "performance_impact": "Three-run tracked median increased 422.562 to 872.381ms with real STEP/STL checks; 50ms polling resolution.",
+      "status": "fixed",
+      "verification": "Real API integration and Studio history show distinct success/quality pass or fail. The artifact detail shows blocking reasons and switches EN/KO while cached. Wrong diameter: generated and reimported 8mm versus expected 6mm.",
+      "commits": [
+        "95a81d0",
+        "2544802"
+      ]
+    },
+    {
+      "id": "PERF-01",
+      "priority": "P2",
+      "classification": "B",
+      "persona_scenario": "Warm Studio health polling",
+      "user_impact": "Warm health checks take much longer than ordinary local job/list requests.",
+      "engineering_impact": "Runtime diagnostics perform synchronous probing in the request path.",
+      "observed_evidence": [
+        "performance/summary.json",
+        "performance-after/summary.json"
+      ],
+      "reproduction_steps": [
+        "Issue repeated GET /health versus GET /jobs on a warm local server."
+      ],
+      "related_code": [
+        "src/server/routes/local-api-operational-routes.js",
+        "lib/runtime-diagnostics.js"
+      ],
+      "root_cause": "Synchronous runtime diagnostic probe on health requests; source tracing confirms blocking calls.",
+      "confidence_evidence": "Repeated HTTP timings and source; multi-client event-loop saturation not measured.",
+      "recommended_fix": "Measure an async or coalesced probe with explicit freshness/invalidation semantics before caching runtime availability.",
+      "regression_test_requirement": "Fresh, missing, changed and temporarily failed runtime must never show stale Ready.",
+      "performance_impact": "Baseline median 53.813ms, p95 104.495ms, 21 samples.",
+      "status": "deferred",
+      "verification": "No cache introduced because stale runtime state can mislead safety gating.",
+      "commits": []
+    },
+    {
+      "id": "UX-09",
+      "priority": "P2",
+      "classification": "A",
+      "persona_scenario": "Returning operator opening saved STEP",
+      "user_impact": "Saved STEP primary action shows generic file metadata; the interactive 3D viewer is available in the original preview workflow.",
+      "engineering_impact": "Tracked artifact capabilities and temporary viewport assets have different lifetime and authorization contracts.",
+      "observed_evidence": [
+        "persona-c-reopened.txt",
+        "model-history-after.txt"
+      ],
+      "reproduction_steps": [
+        "Save model, return through history, choose the STEP primary result."
+      ],
+      "related_code": [
+        "public/js/studio/artifact-insights.js",
+        "public/js/studio/artifacts-workspace.js"
+      ],
+      "root_cause": "No dedicated tracked STEP/mesh viewer is registered.",
+      "confidence_evidence": "Observed UI; no claim that CAD bytes are invalid.",
+      "recommended_fix": "Add a scoped authorized tracked-model viewer using explicit artifact bindings and supported conversion/cache lifecycle.",
+      "regression_test_requirement": "Valid/replaced/deleted artifact, job ownership, restart, viewport fallback, and Korean/English.",
+      "performance_impact": "Not measured; conversion cost and cache policy need design.",
+      "status": "deferred",
+      "verification": "Download remains available. Do not broaden STL/HTML inline preview permissions as a shortcut.",
+      "commits": []
+    },
+    {
+      "id": "UX-10",
+      "priority": "P3",
+      "classification": "D",
+      "persona_scenario": "Navigate Home during reload/background completion",
+      "user_impact": "One observed Home navigation was followed by navigation back to artifacts; the intended page had to be selected again.",
+      "engineering_impact": "Possible interaction among restore selection, job monitoring, and navigation timing.",
+      "observed_evidence": [
+        "navigation-on-reload-observation.md",
+        "tracked-performance-after-quality.json"
+      ],
+      "reproduction_steps": [
+        "Reload a selected old result; immediately choose Home while other local runs complete."
+      ],
+      "related_code": [
+        "public/js/studio/studio-shell-core.js",
+        "public/js/studio/studio-shell-routing.js",
+        "public/js/studio/studio-shell-job-monitor.js"
+      ],
+      "root_cause": "Not isolated; do not assign a definitive cause from one observation.",
+      "confidence_evidence": "Observed once, not independently reproduced; hypothesis about mechanism.",
+      "recommended_fix": "Capture a deterministic navigation/monitoring regression before altering automatic navigation.",
+      "regression_test_requirement": "Refresh, new job in another client, user-chosen navigation and completion must have explicit ownership.",
+      "performance_impact": "Not measured.",
+      "status": "deferred",
+      "verification": "No data loss observed; no speculative fix.",
+      "commits": []
+    }
+  ]
+}
