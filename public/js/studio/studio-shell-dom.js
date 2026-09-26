@@ -370,7 +370,10 @@ export function createStudioShellDomController(app) {
     app.elements.logDrawer.classList.toggle('is-open', open);
     app.elements.logToggle.setAttribute('aria-expanded', String(open));
     if (open && focusEntry) app.elements.logClose.focus();
-    if (!open && restoreFocus) logDrawerReturnFocusTarget.focus();
+    if (!open && restoreFocus) {
+      logDrawerReturnFocusTarget.focus();
+      logDrawerReturnFocusTarget.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    }
   }
 
   function setJobsDrawer(open, {
@@ -382,7 +385,10 @@ export function createStudioShellDomController(app) {
     app.elements.jobsDrawer.classList.toggle('is-open', open);
     app.elements.jobsToggle.setAttribute('aria-expanded', String(open));
     if (open && focusEntry) app.elements.jobsClose.focus();
-    if (!open && restoreFocus) jobsDrawerReturnFocusTarget.focus();
+    if (!open && restoreFocus) {
+      jobsDrawerReturnFocusTarget.focus();
+      jobsDrawerReturnFocusTarget.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    }
   }
 
   function setSidebar(open, { restoreFocus = false } = {}) {
