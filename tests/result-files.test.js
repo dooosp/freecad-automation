@@ -98,7 +98,7 @@ assert.equal(resultFileLabelKey(quality), 'studio.artifacts.file.quality');
 assert.equal(resultFileLabelKey(drawingQuality), 'studio.artifacts.file.quality');
 
 assert.deepEqual(deriveResultFileAction(report), {
-  kind: 'view',
+  kind: 'open',
   href: report.links.open,
   downloadHref: report.links.download,
   openHref: report.links.open,

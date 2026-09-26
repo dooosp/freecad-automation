@@ -2495,6 +2495,10 @@ body {
   gap: 0.25rem;
 }
 
+.inline-status[hidden] {
+  display: none;
+}
+
 .inline-status[data-tone="ok"] {
   border-color: rgba(99, 214, 163, 0.28);
 }

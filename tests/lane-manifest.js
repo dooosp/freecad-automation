@@ -57,6 +57,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Studio quality dashboard', args: Object.freeze(['tests/studio-quality-dashboard.test.js']) }),
       Object.freeze({ label: 'Studio public contract helpers', args: Object.freeze(['tests/studio-public-contract.test.js']) }),
       Object.freeze({ label: 'Studio result files', args: Object.freeze(['tests/result-files.test.js']) }),
+      Object.freeze({ label: 'Studio guided result continuation', args: Object.freeze(['tests/studio-guided-results.test.js']) }),
       Object.freeze({ label: 'Studio review summary', args: Object.freeze(['tests/review-summary.test.js']) }),
       Object.freeze({ label: 'Studio large review artifacts', args: Object.freeze(['tests/studio-review-large-artifact.test.js']) }),
       Object.freeze({ label: 'Studio Local-first v1 workflows', args: Object.freeze(['tests/studio-local-first-workflows.test.js']) }),

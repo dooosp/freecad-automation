@@ -261,6 +261,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   const guidedResultErrorElement = root.querySelector('[data-hook="guided-result-error"]');
   const guidedResultErrorMessageElement = root.querySelector('[data-hook="guided-result-error-message"]');
   const guidedViewResultButton = root.querySelector('[data-hook="guided-view-result"]');
+  const guidedSaveResultButton = root.querySelector('[data-hook="guided-save-result"]');
   const guidedResetButton = root.querySelector('[data-hook="guided-reset"]');
   const guidedResultInspection = root.querySelector('[data-hook="guided-result-inspection"]');
   const advancedToolsDisclosure = root.querySelector('[data-hook="model-advanced-tools"]');
@@ -1496,6 +1497,17 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     flow.resultExpanded = true;
     syncUi();
     queueGuidedResultInspectionInitialization({ focus: true });
+  });
+  guidedSaveResultButton?.addEventListener('click', () => {
+    if (advancedToolsDisclosure) advancedToolsDisclosure.open = true;
+    if (advancedToolsContent) advancedToolsContent.hidden = false;
+    for (let parent = trackedCreateButton?.parentElement; parent && parent !== root; parent = parent.parentElement) {
+      if (parent.tagName === 'DETAILS') parent.open = true;
+    }
+    // Reuse the existing reviewed tracked action; opening this continuation
+    // must not submit another runtime job or imply the preview was saved.
+    trackedCreateButton?.focus();
+    trackedCreateButton?.scrollIntoView?.({ block: 'center' });
   });
   guidedResetButton?.addEventListener('click', () => {
     resetModelGuidedFlow(model);

@@ -116,7 +116,7 @@ function primaryResultScore(artifact = {}, jobType = '') {
   const extension = artifactExtension(artifact);
   let score = (groupIndex === -1 ? RESULT_GROUP_ORDER.length : groupIndex) * 100;
 
-  if (action.kind === 'view') score -= 20;
+  if (action.kind === 'view' || action.kind === 'open') score -= 20;
   else if (action.kind === 'download') score -= 10;
   if (extension === '.fcstd' || extension === '.pdf') score -= 4;
   if (includesAny(search, ['drawing', 'report summary', 'report_summary'])) score -= 2;
@@ -142,7 +142,7 @@ export function deriveResultFileAction(artifact = {}) {
 
   if (openHref) {
     return {
-      kind: 'view',
+      kind: artifactExtension(artifact) === '.pdf' ? 'open' : 'view',
       href: openHref,
       downloadHref,
       openHref,

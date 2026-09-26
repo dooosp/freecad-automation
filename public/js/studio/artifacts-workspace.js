@@ -1468,7 +1468,13 @@ function resultArtifactMeta(artifact = {}) {
 function createResultArtifactCard(artifact, { primarySummary = false } = {}) {
   const action = deriveResultFileAction(artifact);
   const title = resultFileTitle(artifact);
-  const primaryAction = action.kind === 'view'
+  const primaryAction = action.kind === 'open'
+    ? {
+        label: t('studio.artifacts.action.open-pdf'),
+        href: action.openHref,
+        attrs: { target: '_blank', rel: 'noreferrer noopener' },
+      }
+    : action.kind === 'view'
     ? {
         label: t('studio.artifacts.action.view'),
         action: 'artifacts-select-artifact',

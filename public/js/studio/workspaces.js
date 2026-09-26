@@ -1876,6 +1876,11 @@ function createModelWorkspace(state) {
               menuLabel: t('studio.model.guided.result.more'),
               menuItems: [
                 {
+                  label: t('studio.model.guided.result.save'),
+                  action: 'model-guided-save-result',
+                  dataset: { hook: 'guided-save-result' },
+                },
+                {
                   label: t('studio.model.guided.result.create-drawing'),
                   action: 'go-drawing',
                 },
