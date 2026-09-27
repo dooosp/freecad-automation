@@ -14,10 +14,35 @@ export function createArtifactModelPreviewService({
   runScript = defaultRunner,
   maxPreviewBytes = 32 * 1024 * 1024,
   maxEntries = 6,
+  maxConcurrent = 2,
+  maxQueued = 8,
 } = {}) {
+  if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1
+    || !Number.isSafeInteger(maxQueued) || maxQueued < 0) {
+    throw new RangeError('Model preview limits require a positive concurrency and a nonnegative queue size.');
+  }
   const cache = new Map();
   const pending = new Map();
+  const queue = [];
+  let active = 0;
   let closed = false;
+
+  function acquireSlot() {
+    if (active < maxConcurrent) {
+      active += 1;
+      return Promise.resolve();
+    }
+    if (queue.length >= maxQueued) {
+      return Promise.reject(failure('Model preview is busy. Try opening the result again shortly.', 503));
+    }
+    return new Promise((resolve, reject) => queue.push({ resolve, reject }));
+  }
+
+  function releaseSlot() {
+    const next = queue.shift();
+    if (next) next.resolve(); // Hand the occupied slot directly to the oldest waiter.
+    else active -= 1;
+  }
 
   function checkSize(bytes) {
     if (bytes.length > maxPreviewBytes) throw failure('3D preview exceeds the mesh size limit; download the CAD file to inspect it.', 413);
@@ -37,8 +62,13 @@ export function createArtifactModelPreviewService({
       if (cache.has(key)) return cache.get(key);
       if (pending.has(key)) return pending.get(key);
       const conversion = (async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'fcad-artifact-mesh-'));
+        // Shared conversions retain their slot if HTTP clients disconnect.
+        // A single client's cancellation must not abort another client's mesh.
+        await acquireSlot();
+        let directory;
         try {
+          if (closed) throw failure('Model preview service is closed.', 503);
+          directory = await mkdtemp(join(tmpdir(), 'fcad-artifact-mesh-'));
           const inputPath = join(directory, `source${extension}`);
           const outputPath = join(directory, 'preview.stl');
           await writeFile(inputPath, source);
@@ -55,7 +85,9 @@ export function createArtifactModelPreviewService({
           }
           return bytes;
         } finally {
-          await rm(directory, { recursive: true, force: true });
+          try {
+            if (directory) await rm(directory, { recursive: true, force: true });
+          } finally { releaseSlot(); }
         }
       })();
       pending.set(key, conversion);
@@ -65,6 +97,7 @@ export function createArtifactModelPreviewService({
     async dispose() {
       closed = true;
       cache.clear();
+      for (const waiter of queue.splice(0)) waiter.reject(failure('Model preview service is closed.', 503));
       await Promise.allSettled(pending.values());
     },
   };

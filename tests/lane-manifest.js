@@ -60,6 +60,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Saved model viewer lifecycle', args: Object.freeze(['tests/artifact-model-viewer.test.js']) }),
       Object.freeze({ label: 'Saved model preview authority', args: Object.freeze(['tests/artifact-model-preview-api.test.js']) }),
       Object.freeze({ label: 'Saved model preview cache', args: Object.freeze(['tests/artifact-model-preview-cache.test.js']) }),
+      Object.freeze({ label: 'Saved model preview resource limits', args: Object.freeze(['tests/artifact-model-preview-limits.test.js']) }),
       Object.freeze({ label: 'Studio quality dashboard', args: Object.freeze(['tests/studio-quality-dashboard.test.js']) }),
       Object.freeze({ label: 'Studio public contract helpers', args: Object.freeze(['tests/studio-public-contract.test.js']) }),
       Object.freeze({ label: 'Studio result files', args: Object.freeze(['tests/result-files.test.js']) }),
