@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import textwrap
 from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,13 +16,19 @@ from reporting.review_templates import build_markdown_sections, build_review_pac
 
 
 def _write_pdf(path, title, markdown_text, generated_at=None):
+    # Wrap and paginate the complete derived view. Truncating the source can
+    # hide recommendations and the final missing-evidence boundary.
+    lines = []
+    for line in markdown_text.splitlines():
+        plain = line.lstrip("# ") if line.startswith("#") else line
+        lines.extend(textwrap.wrap(plain, width=112, replace_whitespace=False) or [""])
+    pages = [lines[index:index + 38] for index in range(0, len(lines), 38)] or [[""]]
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         from matplotlib.backends.backend_pdf import PdfPages
 
-        wrapped_text = markdown_text.replace("# ", "").replace("## ", "")
         pdf_metadata = None
         if generated_at:
             fixed_time = datetime.fromisoformat(str(generated_at).replace("Z", "+00:00"))
@@ -30,13 +37,13 @@ def _write_pdf(path, title, markdown_text, generated_at=None):
                 "ModDate": fixed_time,
             }
         with PdfPages(path, metadata=pdf_metadata) as pdf:
-            fig = plt.figure(figsize=(11.69, 8.27))
-            ax = fig.add_axes([0.05, 0.05, 0.9, 0.9])
-            ax.axis("off")
-            ax.set_title(title, loc="left", fontsize=16, fontweight="bold")
-            ax.text(0.0, 0.95, wrapped_text[:5000], va="top", ha="left", fontsize=9, family="monospace")
-            pdf.savefig(fig)
-            plt.close(fig)
+            for index, page in enumerate(pages, 1):
+                fig = plt.figure(figsize=(11.69, 8.27))
+                fig.text(0.06, 0.96, textwrap.fill(title, width=80), va="top", fontsize=14, fontweight="bold")
+                fig.text(0.06, 0.87, "\n".join(page), va="top", fontsize=9, family="monospace", linespacing=1.3)
+                fig.text(0.94, 0.03, f"{index} / {len(pages)}", ha="right", fontsize=8)
+                pdf.savefig(fig)
+                plt.close(fig)
         return
     except ImportError:
         pass
@@ -44,23 +51,26 @@ def _write_pdf(path, title, markdown_text, generated_at=None):
     def pdf_escape(value):
         return str(value).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
-    lines = [title] + markdown_text.splitlines()
-    lines = [line[:110] for line in lines[:40]]
-    text_commands = ["BT", "/F1 12 Tf", "50 780 Td", f"({pdf_escape(lines[0])}) Tj"]
-    y_offset = 0
-    for line in lines[1:]:
-        y_offset += 16
-        text_commands.append(f"0 -16 Td ({pdf_escape(line)}) Tj")
-    text_commands.append("ET")
-    content = "\n".join(text_commands).encode("latin-1", errors="replace")
-
+    page_ids = [4 + index * 2 for index in range(len(pages))]
+    kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
     objects = [
         b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
-        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
-        b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n",
-        f"4 0 obj << /Length {len(content)} >> stream\n".encode("latin-1") + content + b"\nendstream endobj\n",
-        b"5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
+        f"2 0 obj << /Type /Pages /Kids [{kids}] /Count {len(pages)} >> endobj\n".encode("ascii"),
+        b"3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Courier >> endobj\n",
     ]
+    for index, (page_id, page) in enumerate(zip(page_ids, pages), 1):
+        page_lines = textwrap.wrap(title, width=112) + [f"Page {index} / {len(pages)}", ""] + page
+        text_commands = ["BT", "/F1 9 Tf", "50 558 Td"]
+        for line_index, line in enumerate(page_lines):
+            if line_index:
+                text_commands.append("0 -12 Td")
+            text_commands.append(f"({pdf_escape(line)}) Tj")
+        text_commands.append("ET")
+        content = "\n".join(text_commands).encode("latin-1", errors="replace")
+        objects.extend([
+            f"{page_id} 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Contents {page_id + 1} 0 R /Resources << /Font << /F1 3 0 R >> >> >> endobj\n".encode("ascii"),
+            f"{page_id + 1} 0 obj << /Length {len(content)} >> stream\n".encode("ascii") + content + b"\nendstream endobj\n",
+        ])
 
     pdf = bytearray(b"%PDF-1.4\n")
     offsets = [0]

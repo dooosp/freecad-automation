@@ -14,13 +14,19 @@ export function registerOperationalRoutes(app, {
   jobsDir,
   runtimeDiagnosticsFactory,
 }) {
-  app.get('/health', (_req, res) => {
-    const payload = buildHealthPayload({
-      projectRoot,
-      jobsDir,
-      runtimeDiagnostics: runtimeDiagnosticsFactory(),
-    });
-    res.json(assertResponse('health', payload));
+  app.get('/health', async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+      const payload = buildHealthPayload({
+        projectRoot,
+        jobsDir,
+        runtimeDiagnostics: await runtimeDiagnosticsFactory(),
+      });
+      res.json(assertResponse('health', payload));
+    } catch (error) {
+      const response = createErrorResponse('runtime_diagnostics_unavailable', [error.message || 'Runtime diagnostics failed.'], 503);
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
   });
 
   app.get('/api/examples', async (_req, res, next) => {

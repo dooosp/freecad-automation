@@ -165,12 +165,19 @@ export function initScene({
     viewport.replaceChildren();
   }
 
-  function loadStl(arrayBuffer) {
+  function loadStl(arrayBuffer, { validate = false } = {}) {
     clearAssembly();
     disposeCurrentMesh();
 
     const loader = new STLLoader();
     let geometry = loader.parse(arrayBuffer);
+    if (validate) {
+      const positions = geometry.getAttribute('position');
+      if (!positions || positions.count < 3 || !positions.array.every(Number.isFinite)) {
+        geometry.dispose();
+        throw new Error('The STL preview has no finite triangles to display.');
+      }
+    }
     geometry = mergeVertices(geometry);
     geometry.computeVertexNormals();
 

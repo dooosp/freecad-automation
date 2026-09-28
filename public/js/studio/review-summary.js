@@ -2,6 +2,7 @@ const BEGINNER_REVIEW_CARD_IDS = new Set([
   'dfm',
   'quality',
   'investment',
+  'review-outputs',
 ]);
 
 const ADVANCED_ARTIFACT_PATTERN = /(?:stage\s*5b|stage5b|readiness|evidence|inspection|manifest|runtime[._ -]fingerprint)/i;

@@ -27,14 +27,21 @@ function includesAny(value, needles = []) {
 }
 
 export function classifyResultFilePurpose(artifact = {}) {
-  const search = artifactSearchText(artifact);
+  const type = String(artifact.type || '').toLowerCase();
   const extension = artifactExtension(artifact);
+
+  if (type.startsWith('config.') || extension === '.toml') return 'technical';
+  if (['.step', '.stp', '.stl', '.obj'].includes(extension)) return 'technical';
+  if (['.fcstd', '.brep', '.brp', '.svg', '.dxf'].includes(extension)) return 'immediate';
+  // A declared type is authoritative; filename hints only support older records.
+  const search = type || artifactSearchText(artifact);
 
   if (includesAny(search, [
     'manifest',
     'runtime fingerprint',
     'runtime_fingerprint',
     'runtime-fingerprint',
+    'runtime.fingerprint',
     'checksum',
     'sha256',
     'provenance',
@@ -116,7 +123,7 @@ function primaryResultScore(artifact = {}, jobType = '') {
   const extension = artifactExtension(artifact);
   let score = (groupIndex === -1 ? RESULT_GROUP_ORDER.length : groupIndex) * 100;
 
-  if (action.kind === 'view') score -= 20;
+  if (action.kind === 'view' || action.kind === 'open') score -= 20;
   else if (action.kind === 'download') score -= 10;
   if (extension === '.fcstd' || extension === '.pdf') score -= 4;
   if (includesAny(search, ['drawing', 'report summary', 'report_summary'])) score -= 2;
@@ -140,9 +147,13 @@ export function deriveResultFileAction(artifact = {}) {
     ? artifact.links.download
     : '';
 
+  if (exists && artifact?.capabilities?.can_preview_model === true && artifact?.links?.model_preview) {
+    return { kind: 'view', href: artifact.links.model_preview, downloadHref, openHref };
+  }
+
   if (openHref) {
     return {
-      kind: 'view',
+      kind: artifactExtension(artifact) === '.pdf' ? 'open' : 'view',
       href: openHref,
       downloadHref,
       openHref,
@@ -165,13 +176,17 @@ export function deriveResultFileAction(artifact = {}) {
 }
 
 export function resultFileLabelKey(artifact = {}) {
-  const search = artifactSearchText(artifact);
+  const type = String(artifact.type || '').toLowerCase();
+  const search = type || artifactSearchText(artifact);
   const extension = artifactExtension(artifact);
 
+  if (type.startsWith('config.') || extension === '.toml') return '';
   if (extension === '.pdf') return 'studio.artifacts.file.report';
   if (extension === '.fcstd' || extension === '.brep' || extension === '.brp') return 'studio.artifacts.file.model';
   if (extension === '.step' || extension === '.stp') return 'studio.artifacts.file.step';
   if (extension === '.stl') return 'studio.artifacts.file.stl';
+  if (extension === '.svg' || extension === '.dxf') return 'studio.artifacts.file.drawing';
+  if (classifyResultFilePurpose(artifact) === 'system') return 'studio.artifacts.file.system';
   if (includesAny(search, ['bom', 'bill of material'])) return 'studio.artifacts.file.bom';
   if (includesAny(search, ['readiness'])) return 'studio.artifacts.file.readiness';
   if (includesAny(search, ['quality', 'dfm', 'inspection', 'review', 'revision', 'stabilization', 'report_summary', 'report summary'])) {

@@ -756,7 +756,10 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
     );
 
     detailRawElement.hidden = !card.raw;
-    detailRawElement.textContent = card.raw || '';
+    const raw = card.raw || '';
+    detailRawElement.textContent = raw.length > 16000
+      ? `${raw.slice(0, 16000)}\n\n…truncated for the studio preview…`
+      : raw;
     detailProvenanceElement.replaceChildren(
       ...(card.provenance || []).map((note) =>
         el('div', {

@@ -9,6 +9,17 @@ const IMPORT_GUIDED_STEP_IDS = Object.freeze([
 export const STUDIO_IMPORT_UPLOAD_LIMIT_BYTES = 32 * 1024 * 1024;
 export const STUDIO_IMPORT_UPLOAD_LIMIT_LABEL = '32 MiB';
 
+export function deriveImportGeometryStatus(preview = null) {
+  const bootstrap = preview?.bootstrap || {};
+  const diagnostics = bootstrap.import_diagnostics || {};
+  if (diagnostics.fail_closed || diagnostics.empty_import || diagnostics.unsupported_import || diagnostics.unstable_import) return 'blocked';
+  const mode = bootstrap.bootstrap_summary?.source?.analysis_mode;
+  if (mode === 'metadata_only_fallback') return 'metadata-only';
+  if (diagnostics.partial_import) return 'partial';
+  if (mode === 'runtime_backed' && Number(diagnostics.body_count) > 0) return 'readable';
+  return 'unknown';
+}
+
 export function formatImportUploadSize(value = 0) {
   const bytes = Number(value);
   if (!Number.isFinite(bytes) || bytes < 0) return 'Unknown size';

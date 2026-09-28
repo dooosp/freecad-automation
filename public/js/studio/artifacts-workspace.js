@@ -48,6 +48,7 @@ import {
 import {
   deriveRecentJobDecisionState,
   deriveRecentJobQualityStatus,
+  formatJobDisplayName,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
 import {
@@ -57,6 +58,7 @@ import {
   selectPrimaryResultArtifact,
 } from './result-files.js';
 import { applyTranslations, t } from '../i18n/index.js';
+import { canPreviewSavedModel, createArtifactModelViewer } from './artifact-model-viewer.js';
 
 const DFM_EDGE_DISTANCE_BLOCKER_PATTERN = /^Hole '([^']+)' edge distance (\d+(?:\.\d+)?)mm < required (\d+(?:\.\d+)?)mm \((\d+(?:\.\d+)?)x dia (\d+(?:\.\d+)?)mm\) in box '([^']+)'$/;
 const DFM_EDGE_DISTANCE_FIX_PATTERN = /^Move hole '([^']+)' at least (\d+(?:\.\d+)?) mm away from the nearest box edge in '([^']+)', or widen the local flange so the edge distance reaches (\d+(?:\.\d+)?) mm\.$/;
@@ -1468,7 +1470,13 @@ function resultArtifactMeta(artifact = {}) {
 function createResultArtifactCard(artifact, { primarySummary = false } = {}) {
   const action = deriveResultFileAction(artifact);
   const title = resultFileTitle(artifact);
-  const primaryAction = action.kind === 'view'
+  const primaryAction = action.kind === 'open'
+    ? {
+        label: t('studio.artifacts.action.open-pdf'),
+        href: action.openHref,
+        attrs: { target: '_blank', rel: 'noreferrer noopener' },
+      }
+    : action.kind === 'view'
     ? {
         label: t('studio.artifacts.action.view'),
         action: 'artifacts-select-artifact',
@@ -1558,7 +1566,7 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
     surface: 'canvas',
     body: [
       createInfoGrid([
-        { label: t('studio.artifacts.summary.run'), value: deriveRecentJobQualityStatus(activeJob.summary).configName },
+        { label: t('studio.artifacts.summary.run'), value: formatJobDisplayName(activeJob.summary) },
         { label: t('studio.artifacts.summary.primary'), value: resultFileTitle(primaryArtifact) },
         { label: t('studio.artifacts.summary.execution'), value: localizedExecutionStatus(activeJob.summary) },
         { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },
@@ -1691,6 +1699,7 @@ export function renderArtifactsWorkspace(state) {
             dataset: { hook: 'artifacts-selected-title' },
           }),
           el('div', { className: 'selected-result-viewer', dataset: { hook: 'artifacts-detail-viewer' } }),
+          el('div', { attrs: { hidden: true }, dataset: { hook: 'artifacts-model-viewer' } }),
           el('details', {
             className: 'result-detail-disclosure',
             children: [
@@ -1813,6 +1822,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
   const cardsElement = root.querySelector('[data-hook="artifacts-cards"]');
   const selectedTitleElement = root.querySelector('[data-hook="artifacts-selected-title"]');
   const detailViewerElement = root.querySelector('[data-hook="artifacts-detail-viewer"]');
+  const modelViewerElement = root.querySelector('[data-hook="artifacts-model-viewer"]');
+  const modelViewer = modelViewerElement ? createArtifactModelViewer({ root: modelViewerElement }) : null;
   const detailSummaryElement = root.querySelector('[data-hook="artifacts-detail-summary"]');
   const detailActionsElement = root.querySelector('[data-hook="artifacts-detail-actions"]');
   const detailPreviewElement = root.querySelector('[data-hook="artifacts-detail-preview"]');
@@ -2202,7 +2213,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       return;
     }
 
-    if (!canPreviewAsText(artifact)) {
+    if (canPreviewSavedModel(artifact) || !canPreviewAsText(artifact)) {
       artifactsState.previewStatus = 'idle';
       artifactsState.previewText = '';
       artifactsState.previewArtifactId = artifact.id;
@@ -2244,6 +2255,13 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       artifactsState.viewerStatus = 'idle';
       artifactsState.viewerArtifactId = '';
       artifactsState.viewerError = '';
+      artifactsState.viewerData = null;
+      return;
+    }
+
+    if (canPreviewSavedModel(artifact)) {
+      artifactsState.viewerStatus = 'ready';
+      artifactsState.viewerArtifactId = artifact.id;
       artifactsState.viewerData = null;
       return;
     }
@@ -2376,6 +2394,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   function syncDetail() {
     const artifact = getSelectedArtifact();
+    const showModel = canPreviewSavedModel(artifact) && artifactsState.viewedArtifactId === artifact.id;
+    modelViewer?.show(showModel ? artifact : null, activeJobIdFromState(state));
     if (!artifact) {
       selectedTitleElement.textContent = t('studio.artifacts.selected.title');
       detailViewerElement.replaceChildren(
@@ -2710,6 +2730,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     }
 
     if (actionTarget.dataset.action === 'artifacts-select-artifact') {
+      modelViewer?.reset();
       artifactsState.selectedArtifactId = actionTarget.dataset.artifactId || '';
       artifactsState.viewedArtifactId = artifactsState.selectedArtifactId;
       artifactsState.viewedJobId = activeJobIdFromState(state);
@@ -2747,6 +2768,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     },
     destroy() {
       destroyed = true;
+      modelViewer?.destroy();
       root.removeEventListener('click', handleClick);
     },
   };

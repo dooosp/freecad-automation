@@ -142,6 +142,11 @@ if (!hasFreeCADRuntime()) {
     assert.equal(completedJob.artifacts.exports.includes('api_create_integration.step'), true);
     assert.equal(completedJob.manifest.command, 'create');
     assert.equal(completedJob.manifest.artifacts.some((artifact) => artifact.type === 'model.step'), true);
+    assert.equal(completedJob.result.create_quality?.step_roundtrip.reimport_attempted, true);
+    assert.equal(completedJob.result.create_quality.step_roundtrip.reimport_valid, true);
+    assert.equal(completedJob.result.create_quality.stl_quality.mesh_load_attempted, true);
+    assert.equal(completedJob.artifacts.create_quality, 'api_create_integration_create_quality.json');
+    assert.equal(completedJob.manifest.artifacts.some((artifact) => artifact.type === 'model.create-quality'), true);
     assert.equal('config_path' in completedJob.request, false);
     assert.equal(JSON.stringify(completedJob.request).includes(configPath), false);
     const storedCreateJob = await jobStore.getJob(created.job.id);
@@ -179,6 +184,35 @@ if (!hasFreeCADRuntime()) {
     assert.equal(artifactContentResponse.status, 200);
     const artifactContentBytes = await artifactContentResponse.arrayBuffer();
     assert(artifactContentBytes.byteLength > 0);
+
+    assert.equal(typeof stepArtifact.links.model_preview, 'string', 'saved STEP must publish a scoped preview route');
+    const modelPreviewResponse = await fetch(`${baseUrl}${stepArtifact.links.model_preview}`, { method: 'POST' });
+    assert.equal(modelPreviewResponse.status, 200, 'a saved STEP must reopen as a mesh with the real runtime');
+    assert.match(modelPreviewResponse.headers.get('content-type'), /model\/stl/);
+    const meshBytes = Buffer.from(await modelPreviewResponse.arrayBuffer());
+    assert(meshBytes.length > 84);
+    const triangles = meshBytes.readUInt32LE(80);
+    assert(triangles > 0);
+    assert.equal(meshBytes.length, 84 + 50 * triangles, 'preview must contain a complete binary STL');
+
+    const qualityArtifact = artifactsPayload.artifacts.find((artifact) => artifact.type === 'model.create-quality');
+    assert(qualityArtifact?.exists, 'runtime quality JSON must be published through the authorized artifact surface');
+    const qualityResponse = await fetch(`${baseUrl}${qualityArtifact.links.open}`);
+    assert.equal(qualityResponse.status, 200);
+    const qualityReport = await qualityResponse.json();
+    assert.equal(qualityReport.step_roundtrip.reimport_valid, true);
+
+    const failedQualityResponse = await fetch(`${baseUrl}/jobs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'create', config_path: 'configs/examples/quality_fail_wrong_hole_diameter.toml' }),
+    });
+    assert.equal(failedQualityResponse.status, 202);
+    const failedQualityJob = await waitForJob(baseUrl, (await failedQualityResponse.json()).job.id);
+    assert.equal(failedQualityJob.status, 'succeeded', 'quality failures must preserve warning-friendly execution status');
+    assert.equal(failedQualityJob.result.create_quality.status, 'fail');
+    assert(failedQualityJob.result.create_quality.blocking_issues.length > 0);
+    assertNoLeakedPathStrings(failedQualityJob, [ROOT, jobsDir, tmpRoot]);
 
     const trackedReportResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
       method: 'POST',

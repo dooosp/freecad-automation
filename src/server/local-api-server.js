@@ -1,6 +1,6 @@
 import express from 'express';
 import { createServer } from 'node:http';
-import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
+import { createRuntimeDiagnosticsService } from './runtime-diagnostics-service.js';
 import { createJobStore } from '../services/jobs/job-store.js';
 import { createJobExecutor } from '../services/jobs/job-executor.js';
 import { createBootstrapImportService } from '../services/import/bootstrap-import-service.js';
@@ -13,6 +13,8 @@ import { registerJobRoutes } from './routes/local-api-job-routes.js';
 import { registerLandingRoutes } from './routes/local-api-landing-routes.js';
 import { registerOperationalRoutes } from './routes/local-api-operational-routes.js';
 import { registerStudioRoutes } from './routes/local-api-studio-routes.js';
+import { createLocalApiAccessMiddleware } from './local-api-access.js';
+import { createArtifactModelPreviewService } from './artifact-model-preview-service.js';
 
 const DEFAULT_JSON_BODY_LIMIT = '5mb';
 const IMPORT_BOOTSTRAP_JSON_BODY_LIMIT = '48mb';
@@ -22,11 +24,12 @@ export { buildHealthPayload } from './local-api-health.js';
 export function createLocalApiServer({
   projectRoot,
   jobsDir,
-  runtimeDiagnosticsFactory = buildRuntimeDiagnostics,
+  runtimeDiagnosticsFactory = null,
   studioModelServiceFactory = createStudioModelService,
   studioDrawingServiceFactory = createStudioDrawingService,
   bootstrapImportServiceFactory = createBootstrapImportService,
   executorFactory = null,
+  artifactModelPreviewServiceFactory = createArtifactModelPreviewService,
 }) {
   const app = express();
   const server = createServer(app);
@@ -45,12 +48,15 @@ export function createLocalApiServer({
   const studioModelService = studioModelServiceFactory({ projectRoot });
   const studioDrawingService = studioDrawingServiceFactory({ projectRoot });
   const studioBootstrapImportService = bootstrapImportServiceFactory();
+  const artifactModelPreviewService = artifactModelPreviewServiceFactory();
+  const runtimeDiagnosticsService = runtimeDiagnosticsFactory ? null : createRuntimeDiagnosticsService();
   const jobCoordinator = createLocalApiJobCoordinator({
     jobStore,
     executor,
     studioDrawingService,
   });
 
+  app.use(createLocalApiAccessMiddleware(server));
   app.use('/api/studio/import-bootstrap', express.json({ limit: IMPORT_BOOTSTRAP_JSON_BODY_LIMIT }));
   app.use(express.json({ limit: DEFAULT_JSON_BODY_LIMIT }));
   registerLandingRoutes(app, {
@@ -61,7 +67,7 @@ export function createLocalApiServer({
   registerOperationalRoutes(app, {
     projectRoot,
     jobsDir: jobStore.jobsDir,
-    runtimeDiagnosticsFactory,
+    runtimeDiagnosticsFactory: runtimeDiagnosticsFactory || (() => runtimeDiagnosticsService.read()),
   });
   registerStudioRoutes(app, {
     projectRoot,
@@ -76,12 +82,14 @@ export function createLocalApiServer({
     executor,
     jobCoordinator,
   });
-  registerArtifactRoutes(app, { projectRoot, jobStore });
+  registerArtifactRoutes(app, { projectRoot, jobStore, artifactModelPreviewService });
   app.use(createInternalErrorMiddleware());
 
   server.on('close', () => {
     studioModelService.dispose().catch(() => {});
     studioDrawingService.dispose().catch(() => {});
+    artifactModelPreviewService.dispose().catch(() => {});
+    runtimeDiagnosticsService?.dispose().catch(() => {});
   });
 
   return {

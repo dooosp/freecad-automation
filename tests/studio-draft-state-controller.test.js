@@ -162,9 +162,9 @@ test('unavailable/corrupt session storage does not break editing or shell defaul
 function mountModel(t, state, callbacks = {}, { inspect = false } = {}) {
   state.data.model.profileCatalog.status = 'ready';
   const root = new TestElement();
-  for (const name of ['source-summary', 'validation-summary', 'validation-warnings', 'tracked-validation-notes', 'tracked-status', 'build-log', 'assistant-report', 'parts-list', 'animation-controls', 'model-info', 'build-summary', 'viewport-caption', 'build-button', 'guided-generate', 'ai-create-draft', 'ai-validate-draft', 'validate-button', 'tracked-create-button', 'tracked-report-button', 'load-example', 'clear-result', 'config-textarea']) {
+  for (const name of ['source-summary', 'validation-summary', 'validation-warnings', 'tracked-validation-notes', 'tracked-status', 'build-log', 'assistant-report', 'parts-list', 'animation-controls', 'model-info', 'build-summary', 'viewport-caption', 'build-button', 'guided-generate', 'guided-save-result', 'model-advanced-tools', 'model-advanced-content', 'ai-create-draft', 'ai-validate-draft', 'validate-button', 'tracked-create-button', 'tracked-report-button', 'load-example', 'clear-result', 'config-textarea']) {
     const element = new TestElement(name.endsWith('button') ? 'button' : 'div'); element.dataset.hook = name;
-    const card = new TestElement(); card.className = 'studio-card'; card.append(element); root.append(card);
+    const card = new TestElement(name === 'tracked-create-button' ? 'details' : 'div'); card.className = 'studio-card'; card.append(element); root.append(card);
   }
   if (inspect) {
     for (const name of ['guided-result-inspection', 'guided-view-result', 'viewport']) {
@@ -184,6 +184,19 @@ function mountModel(t, state, callbacks = {}, { inspect = false } = {}) {
   t.after(() => controller.destroy());
   return { root, controller, click: (hook) => root.querySelector(`[data-hook="${hook}"]`).dispatch('click', {}) };
 }
+
+test('saving a guided preview reveals the existing save preflight without submitting a job', (t) => {
+  const { state, requests } = setup(t);
+  let submissions = 0;
+  const { root, click } = mountModel(t, state, { submitJob: () => { submissions += 1; } });
+  click('guided-save-result');
+  assert.equal(root.querySelector('[data-hook="model-advanced-tools"]').open, true);
+  assert.equal(root.querySelector('[data-hook="model-advanced-content"]').hidden, false);
+  assert.equal(document.activeElement, root.querySelector('[data-hook="tracked-create-button"]'));
+  assert.equal(root.querySelector('[data-hook="tracked-create-button"]').closest('details').open, true);
+  assert.equal(submissions, 0);
+  assert.equal(requests.length, 0);
+});
 
 test('delayed assembly assets receive current viewport options after each mesh load and locale remount', async (t) => {
   const { state, requests } = setup(t);

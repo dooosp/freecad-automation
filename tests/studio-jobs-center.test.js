@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { workspaceDefinitions } from '../public/js/studio/workspaces.js';
+import { createStudioShellState } from '../public/js/studio/studio-shell-store.js';
+import { setLocale } from '../public/js/i18n/index.js';
+import { installDrawingTestDom } from './helpers/drawing-test-dom.js';
 
 import {
   collectJobsCenterJobs,
@@ -8,7 +12,43 @@ import {
   deriveRecentJobDecisionState,
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
+  formatJobDisplayName,
 } from '../public/js/studio/recent-job-quality-status.js';
+
+for (const [name, revision] of [['Motor bracket', 'A'], ['Sensor bracket', 'B']]) {
+  const job = {
+    type: 'review-context', status: 'succeeded',
+    artifacts: { context: 'review_pack_context.json' },
+    result: { reviewPackDocument: { part: { part_id: name.toLowerCase().replaceAll(' ', '_'), name, revision } } },
+  };
+  assert.equal(deriveRecentJobQualityStatus(job).configName, name, 'recorded part identity must win over generic output filenames');
+  assert.equal(formatJobDisplayName(job, 'en'), `${name} · Rev ${revision}`);
+  assert.equal(formatJobDisplayName(job, 'ko'), `${name} · 리비전 ${revision}`);
+  job.result.reviewPackDocument.part.revision = null;
+  assert.equal(formatJobDisplayName(job, 'en'), name, 'unknown revisions must not be invented');
+}
+
+{
+  const restore = installDrawingTestDom();
+  try {
+    const state = createStudioShellState();
+    state.data.recentJobs = { status: 'ready', items: [
+      { id: 'part-a', type: 'review-context', status: 'succeeded', result: { reviewPackDocument: { part: { name: 'Motor bracket', revision: 'A' } } } },
+      { id: 'part-b', type: 'review-context', status: 'succeeded', result: { reviewPackDocument: { part: { name: 'Sensor bracket', revision: 'B' } } } },
+    ] };
+    setLocale('en', { persist: false });
+    const en = workspaceDefinitions.history.render(state).textContent;
+    assert.match(en, /Motor bracket · Rev A/);
+    assert.match(en, /Sensor bracket · Rev B/);
+    setLocale('ko', { persist: false });
+    const ko = workspaceDefinitions.history.render(state).textContent;
+    assert.match(ko, /Motor bracket · 리비전 A/);
+    assert.match(ko, /Sensor bracket · 리비전 B/);
+  } finally {
+    setLocale('en', { persist: false });
+    restore();
+  }
+}
 
 const jobs = collectJobsCenterJobs({
   recentJobs: [
@@ -23,6 +63,28 @@ const jobs = collectJobsCenterJobs({
   },
   limit: 4,
 });
+
+for (const [status, expected] of [
+  ['pass', 'Quality passed'],
+  ['fail', 'Quality failed'],
+  ['warning', 'Quality warning'],
+  ['not_run', 'Quality Unknown'],
+]) {
+  const job = {
+    type: 'create',
+    status: 'succeeded',
+    request: { config: { name: 'tracked_bracket' } },
+    result: { create_quality: { status } },
+  };
+  const actual = deriveRecentJobQualityStatus(job);
+  assert.equal(actual.qualityStatus, expected);
+  assert.equal(actual.jobExecutionStatus, 'Job succeeded');
+  assert.equal(actual.readyForManufacturingReview, 'Ready Unknown', 'geometry checks never establish manufacturing readiness');
+  if (status === 'fail') {
+    assert.equal(deriveRecentJobDecisionState(job).needsAttention, true);
+    assert.equal(deriveRecentJobDecisionState(job).reason, 'quality');
+  }
+}
 
 assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-older']);
 

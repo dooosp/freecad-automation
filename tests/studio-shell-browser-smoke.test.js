@@ -194,6 +194,8 @@ function drawerSnapshotExpression() {
       logOpen: document.getElementById('log-drawer')?.classList.contains('is-open') || false,
       logExpanded: document.getElementById('log-toggle')?.getAttribute('aria-expanded') || '',
       activeElementId: activeElement?.id || '',
+      activeElementRect: activeRect ? { left: activeRect.left, top: activeRect.top, right: activeRect.right, bottom: activeRect.bottom } : null,
+      viewport: { width: window.innerWidth, height: window.innerHeight },
       activeElementVisible,
       activeElementInViewport: activeElementVisible
         && activeRect.left >= 0
@@ -1915,6 +1917,7 @@ function browserSmokeBootstrapImportServiceFactory() {
           },
         },
         bootstrap_summary: {
+          source: { analysis_mode: 'runtime_backed' },
           import_kind: 'part',
           body_count: 1,
           unit_system: 'mm',
@@ -4692,7 +4695,7 @@ try {
     assert.equal(snapshot.jobsOpen, false);
     assert.equal(focusReturned, true);
     assert.equal(snapshot.activeElementVisible, true);
-    assert.equal(snapshot.activeElementInViewport, true);
+    assert.equal(snapshot.activeElementInViewport, true, JSON.stringify(snapshot));
     return snapshot;
   });
   await cdp.send('Emulation.setDeviceMetricsOverride', {

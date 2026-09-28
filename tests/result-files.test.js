@@ -1,11 +1,27 @@
 import assert from 'node:assert/strict';
 
 import {
+  classifyResultFilePurpose,
   collectResultFileGroups,
   deriveResultFileAction,
   resultFileLabelKey,
   selectPrimaryResultArtifact,
 } from '../public/js/studio/result-files.js';
+
+for (const [type, file_name, extension, purpose, label] of [
+  ['config.source', 'quality_pass_bracket.toml', '.toml', 'technical', ''],
+  ['config.effective', 'inspection_manifest.json', '.json', 'technical', ''],
+  ['model.step', 'quality_pass_bracket.step', '.step', 'technical', 'studio.artifacts.file.step'],
+  ['model.stl', 'inspection_report.stl', '.stl', 'technical', 'studio.artifacts.file.stl'],
+  ['drawing.svg', 'quality_pass_bracket.svg', '.svg', 'immediate', 'studio.artifacts.file.drawing'],
+  ['model.create-quality', 'checks.json', '.json', 'quality', 'studio.artifacts.file.quality'],
+  ['output.manifest.json', 'review_quality.json', '.json', 'system', 'studio.artifacts.file.system'],
+  ['runtime.fingerprint', 'record.json', '.json', 'system', 'studio.artifacts.file.system'],
+]) {
+  const file = { type, file_name, extension };
+  assert.equal(classifyResultFilePurpose(file), purpose, `${file_name} must follow its contract, not words in its name`);
+  assert.equal(resultFileLabelKey(file), label, file_name);
+}
 
 function artifact({
   id,
@@ -98,7 +114,7 @@ assert.equal(resultFileLabelKey(quality), 'studio.artifacts.file.quality');
 assert.equal(resultFileLabelKey(drawingQuality), 'studio.artifacts.file.quality');
 
 assert.deepEqual(deriveResultFileAction(report), {
-  kind: 'view',
+  kind: 'open',
   href: report.links.open,
   downloadHref: report.links.download,
   openHref: report.links.open,

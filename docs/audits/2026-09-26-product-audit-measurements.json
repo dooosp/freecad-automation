@@ -1,0 +1,1270 @@
+{
+  "method": "Single macOS arm64 host, FreeCAD 1.1.3, Node 25.8.0. Fresh CLI/server processes; OS caches not cleared. Nearest-rank p95; n=3 p95 is the maximum, not a stable tail estimate.",
+  "baseline": {
+    "create": {
+      "n": 3,
+      "median_ms": 2118.689,
+      "p95_nearest_rank_ms": 2153.194,
+      "min_ms": 1944.396,
+      "max_ms": 2153.194,
+      "failures": 0
+    },
+    "draw": {
+      "n": 3,
+      "median_ms": 1574.254,
+      "p95_nearest_rank_ms": 1812.008,
+      "min_ms": 1472.528,
+      "max_ms": 1812.008,
+      "failures": 0
+    },
+    "empty-jobs-http": {
+      "n": 21,
+      "median_ms": 0.578,
+      "p95_nearest_rank_ms": 5.488,
+      "min_ms": 0.426,
+      "max_ms": 6.429,
+      "failures": 0
+    },
+    "health-http": {
+      "n": 21,
+      "median_ms": 53.813,
+      "p95_nearest_rank_ms": 104.495,
+      "min_ms": 50.347,
+      "max_ms": 109.903,
+      "failures": 0
+    },
+    "inspect": {
+      "n": 3,
+      "median_ms": 1199.233,
+      "p95_nearest_rank_ms": 1201.351,
+      "min_ms": 1001.573,
+      "max_ms": 1201.351,
+      "failures": 0
+    },
+    "report": {
+      "n": 3,
+      "median_ms": 1903.995,
+      "p95_nearest_rank_ms": 2016.753,
+      "min_ms": 1859.384,
+      "max_ms": 2016.753,
+      "failures": 0
+    },
+    "runtime-probe": {
+      "n": 3,
+      "median_ms": 836.817,
+      "p95_nearest_rank_ms": 941.335,
+      "min_ms": 724.287,
+      "max_ms": 941.335,
+      "failures": 0
+    },
+    "server-start-to-health": {
+      "n": 3,
+      "median_ms": 1011.673,
+      "p95_nearest_rank_ms": 1021.023,
+      "min_ms": 925.017,
+      "max_ms": 1021.023,
+      "failures": 0
+    },
+    "studio-http": {
+      "n": 21,
+      "median_ms": 1.802,
+      "p95_nearest_rank_ms": 9.716,
+      "min_ms": 1.022,
+      "max_ms": 12.14,
+      "failures": 0
+    }
+  },
+  "after": {
+    "create": {
+      "n": 3,
+      "median_ms": 1795.244,
+      "p95_nearest_rank_ms": 1951.266,
+      "min_ms": 1762.5,
+      "max_ms": 1951.266,
+      "failures": 0
+    },
+    "draw": {
+      "n": 3,
+      "median_ms": 1368.573,
+      "p95_nearest_rank_ms": 1374.901,
+      "min_ms": 1362.626,
+      "max_ms": 1374.901,
+      "failures": 0
+    },
+    "empty-jobs-http": {
+      "n": 21,
+      "median_ms": 0.6,
+      "p95_nearest_rank_ms": 5.004,
+      "min_ms": 0.425,
+      "max_ms": 5.512,
+      "failures": 0
+    },
+    "health-http": {
+      "n": 21,
+      "median_ms": 49.65,
+      "p95_nearest_rank_ms": 50.278,
+      "min_ms": 48.646,
+      "max_ms": 51.434,
+      "failures": 0
+    },
+    "inspect": {
+      "n": 3,
+      "median_ms": 996.66,
+      "p95_nearest_rank_ms": 999.363,
+      "min_ms": 994.274,
+      "max_ms": 999.363,
+      "failures": 0
+    },
+    "report": {
+      "n": 3,
+      "median_ms": 1643.206,
+      "p95_nearest_rank_ms": 1645.846,
+      "min_ms": 1635.688,
+      "max_ms": 1645.846,
+      "failures": 0
+    },
+    "runtime-probe": {
+      "n": 3,
+      "median_ms": 724.535,
+      "p95_nearest_rank_ms": 725.206,
+      "min_ms": 721.379,
+      "max_ms": 725.206,
+      "failures": 0
+    },
+    "server-start-to-health": {
+      "n": 3,
+      "median_ms": 891.923,
+      "p95_nearest_rank_ms": 913.612,
+      "min_ms": 875.312,
+      "max_ms": 913.612,
+      "failures": 0
+    },
+    "studio-http": {
+      "n": 21,
+      "median_ms": 1.352,
+      "p95_nearest_rank_ms": 3.631,
+      "min_ms": 1.023,
+      "max_ms": 3.78,
+      "failures": 0
+    }
+  },
+  "resource_samples_baseline": [
+    {
+      "operation": "runtime-probe",
+      "iteration": 1,
+      "elapsed_ms": 836.817,
+      "exit_code": 0,
+      "user_cpu_s": 0.88,
+      "system_cpu_s": 0.09,
+      "max_rss_bytes": 163381248,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "create",
+      "iteration": 1,
+      "elapsed_ms": 2153.194,
+      "exit_code": 0,
+      "user_cpu_s": 1.84,
+      "system_cpu_s": 0.29,
+      "max_rss_bytes": 165249024,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "inspect",
+      "iteration": 1,
+      "elapsed_ms": 1001.573,
+      "exit_code": 0,
+      "user_cpu_s": 1.11,
+      "system_cpu_s": 0.12,
+      "max_rss_bytes": 163987456,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "draw",
+      "iteration": 1,
+      "elapsed_ms": 1574.254,
+      "exit_code": 0,
+      "user_cpu_s": 1.46,
+      "system_cpu_s": 0.21,
+      "max_rss_bytes": 168312832,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "report",
+      "iteration": 1,
+      "elapsed_ms": 1903.995,
+      "exit_code": 0,
+      "user_cpu_s": 1.68,
+      "system_cpu_s": 0.28,
+      "max_rss_bytes": 164364288,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "output-size",
+      "iteration": 1,
+      "bytes": 439902,
+      "files": 27
+    },
+    {
+      "operation": "runtime-probe",
+      "iteration": 2,
+      "elapsed_ms": 941.335,
+      "exit_code": 0,
+      "user_cpu_s": 1.0,
+      "system_cpu_s": 0.1,
+      "max_rss_bytes": 163201024,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "create",
+      "iteration": 2,
+      "elapsed_ms": 1944.396,
+      "exit_code": 0,
+      "user_cpu_s": 1.88,
+      "system_cpu_s": 0.28,
+      "max_rss_bytes": 164888576,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "inspect",
+      "iteration": 2,
+      "elapsed_ms": 1201.351,
+      "exit_code": 0,
+      "user_cpu_s": 1.24,
+      "system_cpu_s": 0.16,
+      "max_rss_bytes": 163807232,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "draw",
+      "iteration": 2,
+      "elapsed_ms": 1472.528,
+      "exit_code": 0,
+      "user_cpu_s": 1.47,
+      "system_cpu_s": 0.22,
+      "max_rss_bytes": 172048384,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "report",
+      "iteration": 2,
+      "elapsed_ms": 1859.384,
+      "exit_code": 0,
+      "user_cpu_s": 1.75,
+      "system_cpu_s": 0.26,
+      "max_rss_bytes": 165232640,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "output-size",
+      "iteration": 2,
+      "bytes": 439902,
+      "files": 27
+    },
+    {
+      "operation": "runtime-probe",
+      "iteration": 3,
+      "elapsed_ms": 724.287,
+      "exit_code": 0,
+      "user_cpu_s": 0.86,
+      "system_cpu_s": 0.06,
+      "max_rss_bytes": 163086336,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "create",
+      "iteration": 3,
+      "elapsed_ms": 2118.689,
+      "exit_code": 0,
+      "user_cpu_s": 2.0,
+      "system_cpu_s": 0.29,
+      "max_rss_bytes": 167444480,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "inspect",
+      "iteration": 3,
+      "elapsed_ms": 1199.233,
+      "exit_code": 0,
+      "user_cpu_s": 1.24,
+      "system_cpu_s": 0.14,
+      "max_rss_bytes": 164397056,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "draw",
+      "iteration": 3,
+      "elapsed_ms": 1812.008,
+      "exit_code": 0,
+      "user_cpu_s": 1.58,
+      "system_cpu_s": 0.24,
+      "max_rss_bytes": 168099840,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "report",
+      "iteration": 3,
+      "elapsed_ms": 2016.753,
+      "exit_code": 0,
+      "user_cpu_s": 1.83,
+      "system_cpu_s": 0.29,
+      "max_rss_bytes": 168050688,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "output-size",
+      "iteration": 3,
+      "bytes": 439902,
+      "files": 27
+    }
+  ],
+  "resource_samples_after": [
+    {
+      "operation": "runtime-probe",
+      "iteration": 1,
+      "elapsed_ms": 724.535,
+      "exit_code": 0,
+      "user_cpu_s": 0.85,
+      "system_cpu_s": 0.06,
+      "max_rss_bytes": 163823616,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "create",
+      "iteration": 1,
+      "elapsed_ms": 1951.266,
+      "exit_code": 0,
+      "user_cpu_s": 1.85,
+      "system_cpu_s": 0.24,
+      "max_rss_bytes": 165019648,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "inspect",
+      "iteration": 1,
+      "elapsed_ms": 994.274,
+      "exit_code": 0,
+      "user_cpu_s": 1.08,
+      "system_cpu_s": 0.11,
+      "max_rss_bytes": 164151296,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "draw",
+      "iteration": 1,
+      "elapsed_ms": 1374.901,
+      "exit_code": 0,
+      "user_cpu_s": 1.4,
+      "system_cpu_s": 0.19,
+      "max_rss_bytes": 168427520,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "report",
+      "iteration": 1,
+      "elapsed_ms": 1643.206,
+      "exit_code": 0,
+      "user_cpu_s": 1.63,
+      "system_cpu_s": 0.23,
+      "max_rss_bytes": 165396480,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "output-size",
+      "iteration": 1,
+      "bytes": 441554,
+      "files": 27
+    },
+    {
+      "operation": "runtime-probe",
+      "iteration": 2,
+      "elapsed_ms": 725.206,
+      "exit_code": 0,
+      "user_cpu_s": 0.85,
+      "system_cpu_s": 0.06,
+      "max_rss_bytes": 163430400,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "create",
+      "iteration": 2,
+      "elapsed_ms": 1762.5,
+      "exit_code": 0,
+      "user_cpu_s": 1.78,
+      "system_cpu_s": 0.24,
+      "max_rss_bytes": 165134336,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "inspect",
+      "iteration": 2,
+      "elapsed_ms": 999.363,
+      "exit_code": 0,
+      "user_cpu_s": 1.08,
+      "system_cpu_s": 0.12,
+      "max_rss_bytes": 164364288,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "draw",
+      "iteration": 2,
+      "elapsed_ms": 1362.626,
+      "exit_code": 0,
+      "user_cpu_s": 1.38,
+      "system_cpu_s": 0.18,
+      "max_rss_bytes": 168738816,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "report",
+      "iteration": 2,
+      "elapsed_ms": 1635.688,
+      "exit_code": 0,
+      "user_cpu_s": 1.63,
+      "system_cpu_s": 0.23,
+      "max_rss_bytes": 165101568,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "output-size",
+      "iteration": 2,
+      "bytes": 441554,
+      "files": 27
+    },
+    {
+      "operation": "runtime-probe",
+      "iteration": 3,
+      "elapsed_ms": 721.379,
+      "exit_code": 0,
+      "user_cpu_s": 0.85,
+      "system_cpu_s": 0.06,
+      "max_rss_bytes": 163201024,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "create",
+      "iteration": 3,
+      "elapsed_ms": 1795.244,
+      "exit_code": 0,
+      "user_cpu_s": 1.78,
+      "system_cpu_s": 0.24,
+      "max_rss_bytes": 165003264,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "inspect",
+      "iteration": 3,
+      "elapsed_ms": 996.66,
+      "exit_code": 0,
+      "user_cpu_s": 1.09,
+      "system_cpu_s": 0.12,
+      "max_rss_bytes": 164347904,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "draw",
+      "iteration": 3,
+      "elapsed_ms": 1368.573,
+      "exit_code": 0,
+      "user_cpu_s": 1.38,
+      "system_cpu_s": 0.19,
+      "max_rss_bytes": 168542208,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "report",
+      "iteration": 3,
+      "elapsed_ms": 1645.846,
+      "exit_code": 0,
+      "user_cpu_s": 1.62,
+      "system_cpu_s": 0.23,
+      "max_rss_bytes": 167968768,
+      "scope": "fresh CLI process; OS cache not cleared"
+    },
+    {
+      "operation": "output-size",
+      "iteration": 3,
+      "bytes": 441554,
+      "files": 27
+    }
+  ],
+  "browser_warm_usability": [
+    {
+      "iteration": 1,
+      "elapsed_ms": 117,
+      "scope": "warm reload to visible primary button; includes browser tool transport"
+    },
+    {
+      "iteration": 2,
+      "elapsed_ms": 247,
+      "scope": "warm reload to visible primary button; includes browser tool transport"
+    },
+    {
+      "iteration": 3,
+      "elapsed_ms": 383,
+      "scope": "warm reload to visible primary button; includes browser tool transport"
+    }
+  ],
+  "browser_reopen_after": [
+    {
+      "iteration": 1,
+      "elapsed_ms": 279,
+      "primary_actions": 2,
+      "scope": "Home history action to first saved result summary; warm browser, includes tool transport, shared host during Node tests"
+    },
+    {
+      "iteration": 2,
+      "elapsed_ms": 379,
+      "primary_actions": 2,
+      "scope": "Home history action to first saved result summary; warm browser, includes tool transport, shared host during Node tests"
+    },
+    {
+      "iteration": 3,
+      "elapsed_ms": 335,
+      "primary_actions": 2,
+      "scope": "Home history action to first saved result summary; warm browser, includes tool transport, shared host during Node tests"
+    }
+  ],
+  "browser_baseline_imports": [
+    {
+      "type": "FCStd",
+      "iteration": 1,
+      "elapsed_ms": 529,
+      "scope": "browser check click to assumptions rendered; includes tool transport"
+    },
+    {
+      "type": "FCStd",
+      "iteration": 2,
+      "elapsed_ms": 534,
+      "scope": "browser check click to assumptions rendered; includes tool transport"
+    },
+    {
+      "type": "FCStd",
+      "iteration": 3,
+      "elapsed_ms": 531,
+      "scope": "browser check click to assumptions rendered; includes tool transport"
+    },
+    {
+      "type": "STEP",
+      "iteration": 1,
+      "elapsed_ms": 594,
+      "scope": "browser check click to assumptions rendered; includes tool transport"
+    },
+    {
+      "type": "STEP",
+      "iteration": 2,
+      "elapsed_ms": 601,
+      "scope": "browser check click to assumptions rendered; includes tool transport"
+    },
+    {
+      "type": "STEP",
+      "iteration": 3,
+      "elapsed_ms": 645,
+      "scope": "browser check click to assumptions rendered; includes tool transport"
+    }
+  ],
+  "tracked_before_quality": {
+    "scope": "live server, warm OS cache; immediate comparison around tracked-quality repair; CLI baseline separate",
+    "records": [
+      {
+        "operation": "tracked-create",
+        "iteration": 1,
+        "elapsed_ms": 425.378,
+        "job_id": "d28d5a56-d6f0-4687-808f-646f2d07ebab",
+        "status": "succeeded",
+        "quality_status": null,
+        "poll_resolution_ms": 50
+      },
+      {
+        "operation": "tracked-create",
+        "iteration": 2,
+        "elapsed_ms": 417.171,
+        "job_id": "5f8d4f8d-f477-4492-bb9a-4c3976e7db42",
+        "status": "succeeded",
+        "quality_status": null,
+        "poll_resolution_ms": 50
+      },
+      {
+        "operation": "tracked-create",
+        "iteration": 3,
+        "elapsed_ms": 422.562,
+        "job_id": "530f7bdf-32ce-40ec-a45c-5cba61c79f37",
+        "status": "succeeded",
+        "quality_status": null,
+        "poll_resolution_ms": 50
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 1,
+        "elapsed_ms": 3.004,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 2,
+        "elapsed_ms": 2.925,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 3,
+        "elapsed_ms": 2.99,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 4,
+        "elapsed_ms": 2.813,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 5,
+        "elapsed_ms": 2.982,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 6,
+        "elapsed_ms": 3.25,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 7,
+        "elapsed_ms": 2.702,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 8,
+        "elapsed_ms": 2.947,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 9,
+        "elapsed_ms": 3.065,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 10,
+        "elapsed_ms": 2.609,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 11,
+        "elapsed_ms": 3.022,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 12,
+        "elapsed_ms": 2.949,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 13,
+        "elapsed_ms": 2.625,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 14,
+        "elapsed_ms": 2.696,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 15,
+        "elapsed_ms": 2.855,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 16,
+        "elapsed_ms": 2.567,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 17,
+        "elapsed_ms": 3.218,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 18,
+        "elapsed_ms": 2.637,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 19,
+        "elapsed_ms": 2.878,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 20,
+        "elapsed_ms": 2.903,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 21,
+        "elapsed_ms": 2.831,
+        "bytes": 15996,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 1,
+        "elapsed_ms": 1.237,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 2,
+        "elapsed_ms": 1.057,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 3,
+        "elapsed_ms": 1.194,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 4,
+        "elapsed_ms": 0.977,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 5,
+        "elapsed_ms": 1.115,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 6,
+        "elapsed_ms": 1.118,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 7,
+        "elapsed_ms": 1.009,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 8,
+        "elapsed_ms": 0.965,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 9,
+        "elapsed_ms": 0.889,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 10,
+        "elapsed_ms": 1.02,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 11,
+        "elapsed_ms": 0.864,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 12,
+        "elapsed_ms": 0.833,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 13,
+        "elapsed_ms": 0.906,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 14,
+        "elapsed_ms": 1.079,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 15,
+        "elapsed_ms": 1.141,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 16,
+        "elapsed_ms": 0.954,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 17,
+        "elapsed_ms": 0.89,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 18,
+        "elapsed_ms": 0.893,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 19,
+        "elapsed_ms": 1.184,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 20,
+        "elapsed_ms": 1.178,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 21,
+        "elapsed_ms": 1.068,
+        "bytes": 32571,
+        "http_status": 200
+      }
+    ],
+    "summary": {
+      "artifact-step-http": {
+        "n": 21,
+        "median_ms": 1.02,
+        "p95_nearest_rank_ms": 1.194,
+        "min_ms": 0.833,
+        "max_ms": 1.237,
+        "failures": 0
+      },
+      "three-jobs-http": {
+        "n": 21,
+        "median_ms": 2.903,
+        "p95_nearest_rank_ms": 3.218,
+        "min_ms": 2.567,
+        "max_ms": 3.25,
+        "failures": 0
+      },
+      "tracked-create": {
+        "n": 3,
+        "median_ms": 422.562,
+        "p95_nearest_rank_ms": 425.378,
+        "min_ms": 417.171,
+        "max_ms": 425.378,
+        "failures": 0
+      }
+    }
+  },
+  "tracked_after_quality": {
+    "scope": "live server, warm OS cache; immediate comparison around tracked-quality repair; CLI baseline separate",
+    "records": [
+      {
+        "operation": "tracked-create",
+        "iteration": 1,
+        "elapsed_ms": 872.381,
+        "job_id": "de7eb440-eaa0-4bc9-82b0-583037acba60",
+        "status": "succeeded",
+        "quality_status": "pass",
+        "poll_resolution_ms": 50
+      },
+      {
+        "operation": "tracked-create",
+        "iteration": 2,
+        "elapsed_ms": 1320.259,
+        "job_id": "486084ae-f489-47cc-ba5d-8e06a4da96d6",
+        "status": "succeeded",
+        "quality_status": "pass",
+        "poll_resolution_ms": 50
+      },
+      {
+        "operation": "tracked-create",
+        "iteration": 3,
+        "elapsed_ms": 824.193,
+        "job_id": "5f436a0b-1de0-448b-b43c-35ae0a70480d",
+        "status": "succeeded",
+        "quality_status": "pass",
+        "poll_resolution_ms": 50
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 1,
+        "elapsed_ms": 5.816,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 2,
+        "elapsed_ms": 4.907,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 3,
+        "elapsed_ms": 10.904,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 4,
+        "elapsed_ms": 4.768,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 5,
+        "elapsed_ms": 4.723,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 6,
+        "elapsed_ms": 4.798,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 7,
+        "elapsed_ms": 4.206,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 8,
+        "elapsed_ms": 3.8,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 9,
+        "elapsed_ms": 3.681,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 10,
+        "elapsed_ms": 3.563,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 11,
+        "elapsed_ms": 3.567,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 12,
+        "elapsed_ms": 3.954,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 13,
+        "elapsed_ms": 3.741,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 14,
+        "elapsed_ms": 4.275,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 15,
+        "elapsed_ms": 3.946,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 16,
+        "elapsed_ms": 3.879,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 17,
+        "elapsed_ms": 4.141,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 18,
+        "elapsed_ms": 3.755,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 19,
+        "elapsed_ms": 3.827,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 20,
+        "elapsed_ms": 4.077,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "three-jobs-http",
+        "iteration": 21,
+        "elapsed_ms": 3.839,
+        "bytes": 54349,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 1,
+        "elapsed_ms": 1.977,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 2,
+        "elapsed_ms": 2.286,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 3,
+        "elapsed_ms": 1.583,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 4,
+        "elapsed_ms": 1.26,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 5,
+        "elapsed_ms": 1.104,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 6,
+        "elapsed_ms": 1.127,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 7,
+        "elapsed_ms": 1.06,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 8,
+        "elapsed_ms": 1.144,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 9,
+        "elapsed_ms": 1.108,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 10,
+        "elapsed_ms": 1.031,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 11,
+        "elapsed_ms": 0.982,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 12,
+        "elapsed_ms": 0.989,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 13,
+        "elapsed_ms": 0.951,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 14,
+        "elapsed_ms": 0.938,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 15,
+        "elapsed_ms": 1.186,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 16,
+        "elapsed_ms": 1.215,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 17,
+        "elapsed_ms": 1.0,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 18,
+        "elapsed_ms": 0.994,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 19,
+        "elapsed_ms": 0.965,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 20,
+        "elapsed_ms": 0.934,
+        "bytes": 32571,
+        "http_status": 200
+      },
+      {
+        "operation": "artifact-step-http",
+        "iteration": 21,
+        "elapsed_ms": 1.007,
+        "bytes": 32571,
+        "http_status": 200
+      }
+    ],
+    "summary": {
+      "artifact-step-http": {
+        "n": 21,
+        "median_ms": 1.06,
+        "p95_nearest_rank_ms": 1.977,
+        "min_ms": 0.934,
+        "max_ms": 2.286,
+        "failures": 0
+      },
+      "three-jobs-http": {
+        "n": 21,
+        "median_ms": 3.954,
+        "p95_nearest_rank_ms": 5.816,
+        "min_ms": 3.563,
+        "max_ms": 10.904,
+        "failures": 0
+      },
+      "tracked-create": {
+        "n": 3,
+        "median_ms": 872.381,
+        "p95_nearest_rank_ms": 1320.259,
+        "min_ms": 824.193,
+        "max_ms": 1320.259,
+        "failures": 0
+      }
+    }
+  }
+}

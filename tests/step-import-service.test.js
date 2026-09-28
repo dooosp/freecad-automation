@@ -18,6 +18,7 @@ try {
     assert.equal(input.file.endsWith('.fcstd'), true);
     return {
       model: {
+        solid_count: 1,
         volume: 1250,
         area: 420,
         faces: 12,
@@ -32,7 +33,9 @@ try {
   assert.equal(fcstdAnalysis.format, 'fcstd');
   assert.equal(fcstdAnalysis.import_diagnostics.format, 'fcstd');
   assert.equal(fcstdAnalysis.import_diagnostics.fail_closed, false);
-  assert.equal(fcstdAnalysis.import_diagnostics.part_vs_assembly.body_count, 0);
+  assert.equal(fcstdAnalysis.import_diagnostics.part_vs_assembly.body_count, 1);
+  assert.equal(fcstdAnalysis.model_metadata.volume, 1250);
+  assert.deepEqual(fcstdAnalysis.model_metadata.bounding_box.size, [40, 20, 8]);
   assert.equal(fcstdAnalysis.bootstrap_warnings.length >= 2, true);
   assert.equal(fcstdAnalysis.confidence_map.feature_extraction.level, 'low');
 

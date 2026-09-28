@@ -104,7 +104,11 @@ function redactBootstrapPreviewPaths(projectRoot, value) {
     return toProjectDisplayPath(projectRoot, value);
   }
 
-  return value;
+  // Draft TOML and diagnostics can contain paths inside a larger string. Keep
+  // project-relative references useful while hiding unrelated local paths.
+  return redactPublicPathValues(typeof value === 'string'
+    ? value.split(`${resolve(projectRoot)}${sep}`).join('')
+    : value);
 }
 
 export function registerStudioRoutes(app, {

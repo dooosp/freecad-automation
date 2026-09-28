@@ -145,6 +145,7 @@ const artifactEntrySchema = {
         can_open: { type: 'boolean' },
         can_download: { type: 'boolean' },
         browser_safe: { type: 'boolean' },
+        can_preview_model: { type: 'boolean' },
       },
     },
     links: {
@@ -155,6 +156,7 @@ const artifactEntrySchema = {
         open: { type: 'string', minLength: 1 },
         download: { type: 'string', minLength: 1 },
         api: { type: 'string', minLength: 1 },
+        model_preview: routePathSchema,
       },
     },
     contract: {

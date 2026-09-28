@@ -204,6 +204,7 @@ def analyze_step(filepath):
     try:
         FreeCAD = init_freecad()
         import Part
+        from _shapes import get_metadata
     except Exception:
         respond_error(
             "FreeCAD not available",
@@ -269,6 +270,7 @@ def analyze_step(filepath):
 
         return {
             "success": True,
+            "model_metadata": get_metadata(shape),
             "part_type": part_type,
             "part_kind": import_kind,
             "body_count": body_count,
@@ -340,5 +342,10 @@ def main():
     respond(result)
 
 
-if __name__ == "__main__":
+# FreeCADCmd executes the selected file under its stem, not __main__. Match
+# the invoked filename so ordinary imports still remain side-effect free.
+if __name__ == "__main__" or (
+    len(sys.argv) > 1
+    and os.path.realpath(sys.argv[1]) == os.path.realpath(__file__)
+):
     main()
