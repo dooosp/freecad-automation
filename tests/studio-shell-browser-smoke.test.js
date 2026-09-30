@@ -11,6 +11,12 @@ import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const SOAK_CYCLES = Number(process.env.STUDIO_BROWSER_SOAK_CYCLES || 0);
+assert.ok(Number.isInteger(SOAK_CYCLES) && SOAK_CYCLES >= 0 && SOAK_CYCLES <= 50,
+  'STUDIO_BROWSER_SOAK_CYCLES must be an integer between 0 and 50');
+const SOAK_INTERVAL_MS = Number(process.env.STUDIO_BROWSER_SOAK_INTERVAL_MS ?? 50);
+assert.ok(Number.isInteger(SOAK_INTERVAL_MS) && SOAK_INTERVAL_MS >= 0 && SOAK_INTERVAL_MS <= 10000,
+  'STUDIO_BROWSER_SOAK_INTERVAL_MS must be an integer between 0 and 10000');
 const TMP_ROOT = mkdtempSync(join(tmpdir(), 'fcad-studio-browser-smoke-'));
 const JOBS_DIR = join(TMP_ROOT, 'jobs');
 const CHROME_PROFILE_DIR = join(TMP_ROOT, 'chrome-profile');
@@ -1866,7 +1872,8 @@ function browserSmokeDrawingServiceFactory() {
             views: drawingSettings.views || ['front', 'top', 'right', 'iso'],
           },
           scale: drawingSettings.scale || 'auto',
-          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 24"><rect x="2" y="2" width="36" height="20" fill="none" stroke="currentColor"/></svg>',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 24"><rect x="2" y="2" width="36" height="20" fill="none" stroke="currentColor"/><text x="4" y="12" data-dim-id="WIDTH" data-value-mm="40">40</text></svg>',
+          plan_path: 'output/browser-smoke-drawing.plan.json',
           bom: [{ id: 'body', count: 1 }],
           annotations: ['Browser smoke drawing preview.'],
           qa_summary: {
@@ -2607,6 +2614,9 @@ try {
     return {
       labels: choices.map((choice) => choice.querySelector('h3')?.textContent?.trim() || ''),
       actions: choices.map((choice) => choice.querySelector('[data-action-kind="primary"]')?.dataset?.action || ''),
+      recentStatuses: [...document.querySelectorAll('.home-recent-item')].map((item) => (
+        item.querySelector('[data-hook="home-recent-status"]')?.textContent?.trim() || ''
+      )),
       text: root?.innerText || '',
     };
   })()`);
@@ -2616,6 +2626,10 @@ try {
     'Open previous work',
   ]);
   assert.deepEqual(beginnerHome.actions, ['go-model', 'go-console', 'go-history']);
+  assert.equal(beginnerHome.recentStatuses.length, 3);
+  for (const status of beginnerHome.recentStatuses) {
+    assertIncludesAll(status, ['Execution: Completed', 'Quality: Not available']);
+  }
   assertExcludesAll(beginnerHome.text, ['tracked', 'artifact', 'manifest', 'Stage 5B']);
 
   let guidedModelPrimaryActions = 0;
@@ -2651,16 +2665,62 @@ try {
   assert.equal(guidedSelectInput.advancedHidden, true);
   assertExcludesAll(guidedSelectInput.text, ['tracked', 'artifact', 'manifest', 'build_settings']);
 
+  const recommendedExamples = await cdp.evaluate(`(() => {
+    const select = document.querySelector('[data-hook="guided-example-select"]');
+    return {
+      selected: select?.value || '',
+      options: [...(select?.options || [])].map((option) => [option.value, option.textContent]),
+      config: document.querySelector('[data-hook="guided-example-config"]')?.textContent || '',
+      outputs: document.querySelector('[data-hook="guided-example-outputs"]')?.textContent || '',
+    };
+  })()`);
+  assert.equal(recommendedExamples.selected, 'quality_pass_bracket');
+  assert.deepEqual(recommendedExamples.options, [
+    ['quality_pass_bracket', 'Two-hole bracket · Start here'],
+    ['hinge_block', 'Hinge support block'],
+  ]);
+  assertIncludesAll(recommendedExamples.config, ['quality_pass_bracket.toml']);
+  assertIncludesAll(recommendedExamples.outputs, ['3D model', 'CAD', 'drawing', 'PDF']);
+  for (const [locale, labels] of [
+    ['ko', ['두 구멍 브래킷 · 처음 시작', '힌지 지지 블록']],
+    ['en', ['Two-hole bracket · Start here', 'Hinge support block']],
+  ]) {
+    await cdp.evaluate(`(() => {
+      const select = document.getElementById('studio-locale-select');
+      select.value = '${locale}';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await waitFor(async () => {
+      const snapshot = await cdp.evaluate(`(() => ({
+        locale: document.documentElement.lang,
+        mounted: document.getElementById('workspace-root')?.dataset?.modelWorkspaceMounted === 'true',
+        selected: document.querySelector('[data-hook="guided-example-select"]')?.value || '',
+        labels: [...(document.querySelector('[data-hook="guided-example-select"]')?.options || [])].map((option) => option.textContent),
+      }))()`);
+      assert.equal(snapshot.locale, locale);
+      assert.equal(snapshot.mounted, true);
+      assert.equal(snapshot.selected, 'quality_pass_bracket');
+      assert.deepEqual(snapshot.labels, labels);
+    });
+  }
+
   const selectedGuidedExample = await cdp.evaluate(`(() => {
     const select = document.querySelector('[data-hook="guided-example-select"]');
     if (!(select instanceof HTMLSelectElement)) return '';
-    select.value = 'quality_pass_bracket';
+    select.value = 'hinge_block';
     select.dispatchEvent(new Event('change', { bubbles: true }));
-    return select.value;
+    return {
+      value: select.value,
+      description: document.querySelector('[data-hook="guided-example-description"]')?.textContent || '',
+      config: document.querySelector('[data-hook="guided-example-config"]')?.textContent || '',
+      source: document.querySelector('[data-hook="source-summary"]')?.textContent || '',
+    };
   })()`);
-  assert.equal(selectedGuidedExample, 'quality_pass_bracket');
+  assert.equal(selectedGuidedExample.value, 'hinge_block');
+  assertIncludesAll(selectedGuidedExample.description, ['hinge support', 'pin-clearance']);
+  assertIncludesAll(selectedGuidedExample.config, ['hinge_block.toml']);
 
-  await cdp.evaluate(`document.querySelector('[data-hook="model-advanced-tools"] > summary')?.click()`);
+  await keyboardActivate(cdp, '[data-hook="guided-browse-examples"]');
   await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => ({
       open: document.querySelector('[data-hook="model-advanced-tools"]')?.open || false,
@@ -2670,6 +2730,9 @@ try {
       hasTrackedReport: Boolean(document.querySelector('[data-action="model-run-tracked-report"]')),
       hasLegacyAssistantButton: Boolean(document.querySelector('[data-hook="draft-prompt"]')),
       hasAiStartingMethod: Boolean(document.querySelector('[data-hook="guided-input-method"][value="ai"]')),
+      focusedHook: document.activeElement?.dataset?.hook || '',
+      fullExampleIds: [...(document.querySelector('[data-hook="example-select"]')?.options || [])].map((option) => option.value),
+      source: document.querySelector('[data-hook="source-summary"]')?.textContent || '',
     }))()`);
     assert.equal(snapshot.open, true);
     assert.equal(snapshot.hidden, false);
@@ -2678,8 +2741,24 @@ try {
     assert.equal(snapshot.hasTrackedReport, true);
     assert.equal(snapshot.hasLegacyAssistantButton, false);
     assert.equal(snapshot.hasAiStartingMethod, true);
+    assert.equal(snapshot.focusedHook, 'example-select');
+    assert.ok(snapshot.fullExampleIds.length > 3);
+    assert.ok(snapshot.fullExampleIds.includes('pcb_mount_plate'));
+    assert.ok(snapshot.fullExampleIds.includes('quality_fail_wrong_hole_center'));
+    assert.equal(snapshot.source, selectedGuidedExample.source, 'Browsing the full catalog must not load a config');
     return snapshot;
   });
+  await cdp.evaluate(`(() => {
+    const select = document.querySelector('[data-hook="example-select"]');
+    select.value = 'quality_fail_wrong_hole_center';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  const recommendedFallback = await cdp.evaluate(`(() => ({
+    selected: document.querySelector('[data-hook="guided-example-select"]')?.value || '',
+    config: document.querySelector('[data-hook="guided-example-config"]')?.textContent || '',
+  }))()`);
+  assert.equal(recommendedFallback.selected, 'quality_pass_bracket');
+  assertIncludesAll(recommendedFallback.config, ['quality_pass_bracket.toml']);
   await cdp.evaluate(`document.querySelector('[data-hook="model-advanced-tools"] > summary')?.click()`);
   await waitFor(async () => {
     const hidden = await cdp.evaluate(`document.querySelector('[data-hook="model-advanced-content"]')?.hidden ?? false`);
@@ -2698,6 +2777,7 @@ try {
         primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
         summaryRows: actionSummary?.querySelectorAll('.info-row')?.length || 0,
         generateDisabled: document.querySelector('[data-hook="guided-generate"]')?.disabled ?? true,
+        source: document.querySelector('[data-hook="source-summary"]')?.textContent || '',
         text: actionSummary?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       };
     })()`);
@@ -2705,6 +2785,8 @@ try {
     assert.equal(snapshot.primaryCount, 1);
     assert.equal(snapshot.summaryRows, 8);
     assert.equal(snapshot.generateDisabled, false);
+    assertIncludesAll(snapshot.source, ['quality_pass_bracket.toml']);
+    assertExcludesAll(snapshot.source, ['quality_fail_wrong_hole_center']);
     return snapshot;
   });
   assertIncludesAll(guidedPreflight.text, [
@@ -2899,6 +2981,64 @@ try {
   });
   assert.equal(drawingReady.canvasHasSvg, true);
 
+  for (const activation of [
+    { key: 'Enter', code: 'Enter', virtualKeyCode: 13 },
+    { key: ' ', code: 'Space', virtualKeyCode: 32 },
+  ]) {
+    const dimensionTarget = await cdp.evaluate(`(() => {
+      const target = document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]');
+      target?.focus();
+      return {
+        focused: document.activeElement === target,
+        role: target?.getAttribute('role') || '',
+        label: target?.getAttribute('aria-label') || '',
+      };
+    })()`);
+    assert.equal(dimensionTarget.focused, true, `Drawing dimensions must accept keyboard focus: ${JSON.stringify(dimensionTarget)}`);
+    assert.equal(dimensionTarget.role, 'button');
+    assertIncludesAll(dimensionTarget.label, ['WIDTH', '40 mm']);
+    for (const type of ['keyDown', 'keyUp']) {
+      await cdp.send('Input.dispatchKeyEvent', {
+        type,
+        key: activation.key,
+        code: activation.code,
+        windowsVirtualKeyCode: activation.virtualKeyCode,
+        nativeVirtualKeyCode: activation.virtualKeyCode,
+      });
+    }
+    await waitFor(async () => {
+      const editor = await cdp.evaluate(`(() => {
+        const input = document.querySelector('.dim-edit-input');
+        return {
+          focused: Boolean(input) && document.activeElement === input,
+          label: input?.getAttribute('aria-label') || '',
+          value: input?.value || '',
+        };
+      })()`);
+      assert.equal(editor.focused, true);
+      assertIncludesAll(editor.label, ['WIDTH', 'mm']);
+      assert.equal(editor.value, '40');
+    });
+    for (const type of ['keyDown', 'keyUp']) {
+      await cdp.send('Input.dispatchKeyEvent', {
+        type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+      });
+    }
+    await waitFor(async () => {
+      const restored = await cdp.evaluate(`(() => {
+        const target = document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]');
+        return {
+          editorPresent: Boolean(document.querySelector('.dim-edit-input')),
+          focused: document.activeElement === target,
+          visible: Boolean(target?.getClientRects().length),
+        };
+      })()`);
+      assert.equal(restored.editorPresent, false);
+      assert.equal(restored.focused, true);
+      assert.equal(restored.visible, true);
+    });
+  }
+
   await cdp.evaluate(`(() => {
     const localeSelect = document.getElementById('studio-locale-select');
     localeSelect.value = 'ko';
@@ -2912,6 +3052,7 @@ try {
       reportLabel: document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || '',
       reportStatus: document.querySelector('[data-hook="drawing-report-status"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       canvasLabel: document.querySelector('[data-hook="drawing-canvas"]')?.getAttribute('aria-label') || '',
+      dimensionLabel: document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]')?.getAttribute('aria-label') || '',
     }))()`);
     assert.equal(snapshot.lang, 'ko');
     assertIncludesAll(snapshot.previewText, ['필요한 입력', '예상 결과', 'FreeCAD 실행', '파일 변경']);
@@ -2925,6 +3066,7 @@ try {
     assert.equal(snapshot.reportLabel, '보고서 생성');
     assert.equal(snapshot.reportStatus, '현재 불러온 설정으로 보고서를 생성할 준비가 되었습니다.');
     assert.equal(snapshot.canvasLabel, '도면 미리보기 캔버스');
+    assert.equal(snapshot.dimensionLabel, '치수 WIDTH 편집: 40 mm');
     return snapshot;
   });
 
@@ -4189,16 +4331,18 @@ try {
     delayMs: 150,
   });
 
-  await cdp.evaluate(`document.getElementById('advanced-mode-toggle')?.click()`);
+  await keyboardActivate(cdp, '#advanced-mode-toggle');
   await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => ({
       open: document.getElementById('advanced-work-navigation')?.open ?? true,
       checked: document.getElementById('advanced-mode-toggle')?.checked ?? true,
       stored: localStorage.getItem('studio_experience_mode'),
+      summaryFocused: document.activeElement === document.querySelector('#advanced-work-navigation > summary'),
     }))()`);
     assert.equal(snapshot.open, false);
     assert.equal(snapshot.checked, false);
     assert.equal(snapshot.stored, 'default');
+    assert.equal(snapshot.summaryFocused, true, 'Collapsing advanced navigation must return keyboard focus to its summary');
     return snapshot;
   });
 
@@ -4215,43 +4359,53 @@ try {
     return snapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
+  await keyboardActivate(cdp, '#jobs-toggle');
   let drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, true);
     assert.equal(nextSnapshot.jobsExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('jobs-close')?.click()`);
+  await keyboardActivate(cdp, '#jobs-close');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, false);
     assert.equal(nextSnapshot.jobsExpanded, 'false');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-toggle');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('log-toggle')?.click()`);
+  await keyboardActivate(cdp, '#log-toggle');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, true);
     assert.equal(nextSnapshot.logExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'log-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('log-close')?.click()`);
+  await keyboardActivate(cdp, '#log-close');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, false);
     assert.equal(nextSnapshot.logExpanded, 'false');
+    assert.equal(nextSnapshot.activeElementId, 'log-toggle');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
+  await keyboardActivate(cdp, '#jobs-toggle');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, true);
     assert.equal(nextSnapshot.jobsExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
   await cdp.send('Input.dispatchKeyEvent', {
@@ -4276,11 +4430,13 @@ try {
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('log-toggle')?.click()`);
+  await keyboardActivate(cdp, '#log-toggle');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, true);
     assert.equal(nextSnapshot.logExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'log-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
   await cdp.send('Input.dispatchKeyEvent', {
@@ -5011,6 +5167,74 @@ try {
     expectedHash: `#review?job=${guidedImportJobId}`,
   });
   assert.equal(guidedImportPrimaryActions, 3);
+
+  if (SOAK_CYCLES > 0) {
+    async function rendererHeap() {
+      try {
+        const heap = await cdp.send('Runtime.getHeapUsage');
+        if (!Number.isFinite(heap.usedSize) || !Number.isFinite(heap.totalSize)) {
+          return { available: false, reason: 'Runtime.getHeapUsage returned no numeric V8 heap sizes.' };
+        }
+        return { available: true, usedBytes: heap.usedSize, totalBytes: heap.totalSize };
+      } catch (error) {
+        return { available: false, reason: String(error.message || error) };
+      }
+    }
+    const heapBefore = await rendererHeap();
+    const startedAt = Date.now();
+    const routes = ['start', 'history', 'console', 'review', 'model', 'drawing'];
+    for (let cycle = 0; cycle < SOAK_CYCLES; cycle += 1) {
+      const locale = cycle % 2 === 0 ? 'ko' : 'en';
+      await cdp.evaluate(`window.location.hash = '#artifacts?job=${seededJob.id}'`);
+      await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${seededJob.id}` });
+      await waitFor(async () => {
+        const text = await cdp.evaluate(`document.querySelector('[data-hook="artifacts-result-summary"]')?.textContent || ''`);
+        assert.ok(text.includes('browser_smoke_seed'), `Cycle ${cycle + 1}: selected result did not reopen`);
+      });
+      await cdp.evaluate(`(() => {
+        const select = document.getElementById('studio-locale-select');
+        select.value = '${locale}';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      })()`);
+      await waitFor(async () => {
+        const snapshot = await cdp.evaluate(localeSnapshotExpression());
+        assert.equal(snapshot.lang, locale, `Cycle ${cycle + 1}: locale did not update`);
+        assert.equal(snapshot.activeRoute, 'artifacts');
+      });
+      const route = routes[cycle % routes.length];
+      await cdp.evaluate(`(() => {
+        const navigation = document.getElementById('advanced-work-navigation');
+        navigation.open = true;
+        document.querySelector('.nav-link[data-route="${route}"]').click();
+      })()`);
+      await waitForRoute(cdp, route, {
+        expectedHash: route === 'review' ? `#review?job=${seededJob.id}` : `#${route}`,
+      });
+      // Keep sampling bounded even when an earlier artifact action opened another tab.
+      // Headless Chromium pauses requestAnimationFrame in the background test page.
+      await delay(SOAK_INTERVAL_MS);
+      const stableRoute = await cdp.evaluate(`(() => {
+        return {
+          route: document.querySelector('.nav-link[aria-current="page"]')?.dataset?.route || '',
+          workspaceCount: document.querySelectorAll('#workspace-root > section').length,
+          loadError: document.querySelector('[data-hook="workspace-load-error"]')?.textContent || '',
+        };
+      })()`);
+      assert.equal(stableRoute.route, route, `Cycle ${cycle + 1}: route changed after render`);
+      assert.equal(stableRoute.workspaceCount, 1, `Cycle ${cycle + 1}: duplicate or absent workspace`);
+      assert.equal(stableRoute.loadError, '');
+    }
+    console.log(`studio-shell-browser-soak: ${JSON.stringify({
+      cycles: SOAK_CYCLES,
+      routeChanges: SOAK_CYCLES * 2,
+      localeChanges: SOAK_CYCLES,
+      intervalMs: SOAK_INTERVAL_MS,
+      elapsedMs: Date.now() - startedAt,
+      rendererHeapBefore: heapBefore,
+      rendererHeapAfter: await rendererHeap(),
+      note: 'Renderer V8 heap snapshots are measurements, not a leak diagnosis or process RSS.',
+    })}`);
+  }
 
   const blockingLogs = cdp.logs.filter((entry) => (
     entry.source === 'network'

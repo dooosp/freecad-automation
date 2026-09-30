@@ -41,6 +41,8 @@ import {
 } from './canonical-packages.js';
 import {
   findStudioExampleById,
+  getRecommendedStudioExamples,
+  getSelectedRecommendedStudioExample,
   getStudioExampleValue,
   VERIFIED_BRACKET_EXAMPLE_ID,
 } from './examples.js';
@@ -509,6 +511,22 @@ function isVerifiedBracketLoaded(model = {}) {
     || model.sourceName === `${VERIFIED_BRACKET_EXAMPLE_ID}.toml`;
 }
 
+// Decorative marks share the same visual language as the workspace navigation.
+// The SVG paths are static; no configuration or artifact data enters this markup.
+const HOME_GOAL_MARKS = {
+  'create-model': '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9m-4-16.2 8 4.5"/>',
+  'review-cad': '<path d="M8 3H4v4m12-4h4v4M4 17v4h4m12-4v4h-4"/><path d="m8 12 3 3 5-6"/>',
+  'previous-work': '<path d="M3 11a9 9 0 1 1 2.4 7M3 5v6h6m3-4v5l3 2"/>',
+};
+
+function createHomeGoalMark(goal) {
+  return el('span', {
+    className: 'home-goal-mark',
+    attrs: { 'aria-hidden': 'true' },
+    html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" focusable="false">${HOME_GOAL_MARKS[goal] || ''}</svg>`,
+  });
+}
+
 function createHomeStartChoice({
   goal,
   title,
@@ -526,6 +544,7 @@ function createHomeStartChoice({
       el('div', {
         className: 'home-start-card-copy',
         children: [
+          createHomeGoalMark(goal),
           el('h3', { className: 'home-start-card-title', text: title }),
           el('p', { className: 'home-start-card-description', text: copy }),
         ],
@@ -567,6 +586,29 @@ function createHomeRuntimeStatus(state) {
   });
 }
 
+function createHomeRecentStatus(job) {
+  const status = deriveRecentJobQualityStatus(job);
+  const qualityTones = {
+    'Quality passed': 'ok',
+    'Quality failed': 'bad',
+    'Quality warning': 'warn',
+  };
+  return el('div', {
+    className: 'home-recent-status',
+    dataset: { hook: 'home-recent-status' },
+    children: [
+      el('span', {
+        text: `${t('studio.history.execution')}: ${userExecutionStatus(job.status)}`,
+        dataset: { tone: job.status === 'failed' ? 'bad' : 'info' },
+      }),
+      el('span', {
+        text: `${t('studio.history.quality')}: ${userQualityStatus(job)}`,
+        dataset: { tone: qualityTones[status.qualityStatus] || 'info' },
+      }),
+    ],
+  });
+}
+
 function createHomeRecentRuns(state) {
   const recentJobs = state.data.recentJobs || {};
   const items = Array.isArray(recentJobs.items) ? recentJobs.items.slice(0, 3) : [];
@@ -604,6 +646,7 @@ function createHomeRecentRuns(state) {
               children: [
                 el('p', { className: 'home-recent-title', text: userRunTitle(job) }),
                 el('p', { className: 'home-recent-meta', text: `${userRunTypeLabel(job.type)} · ${formatRelativeTime(job.updated_at || job.created_at)}` }),
+                createHomeRecentStatus(job),
               ],
             }),
             createSecondaryAction({
@@ -1290,21 +1333,23 @@ function createWorkbenchStatusDetails({ className, children }) {
 
 function createGuidedModelExampleSelect(state) {
   const { examples } = state.data;
+  const recommended = getRecommendedStudioExamples(examples.items);
+  const selected = getSelectedRecommendedStudioExample(examples);
   return el('select', {
     className: 'studio-select',
     attrs: {
       'aria-label': t('studio.model.guided.input.example.select'),
       'aria-describedby': 'guided-model-input-hint',
-      disabled: examples.items.length === 0,
+      ...(recommended.length === 0 ? { disabled: true } : {}),
     },
     dataset: { hook: 'guided-example-select' },
-    children: examples.items.length > 0
-      ? examples.items.map((example) =>
+    children: recommended.length > 0
+      ? recommended.map((entry) =>
           el('option', {
-            text: example.name,
+            text: t(entry.labelKey),
             attrs: {
-              value: getStudioExampleValue(example),
-              ...(getStudioExampleValue(example) === state.data.examples.selectedId
+              value: entry.id,
+              ...(entry.id === selected?.id
                 ? { selected: true }
                 : {}),
             },
@@ -1314,7 +1359,7 @@ function createGuidedModelExampleSelect(state) {
           el('option', {
             text: examples.status === 'loading'
               ? t('studio.model.guided.input.examples-loading')
-              : t('studio.model.guided.input.examples-empty'),
+              : t('studio.examples.unavailable'),
             attrs: { value: '' },
           }),
         ],
@@ -1407,6 +1452,7 @@ function guidedModelStepSection(step, currentStep, children) {
 
 function createModelWorkspace(state) {
   const model = ensureModelTrackedRunState(state.data.model);
+  const selectedRecommendation = getSelectedRecommendedStudioExample(state.data.examples);
   const guidedFlow = ensureModelGuidedFlowState(model);
   const aiDraft = ensureAiDraftState(model);
   const guidedStep = resolveModelGuidedStep(model);
@@ -1421,7 +1467,7 @@ function createModelWorkspace(state) {
     label: guidedStepLabels[step.id],
   }));
   const guidedCanContinue = guidedFlow.inputMethod === 'example'
-    ? state.data.examples.items.length > 0
+    ? Boolean(selectedRecommendation)
     : guidedFlow.inputMethod === 'file'
       ? model.sourceType === 'local file' && Boolean(model.configText?.trim())
       : aiDraft.phase === 'validated';
@@ -1544,6 +1590,30 @@ function createModelWorkspace(state) {
                     }),
                     createGuidedModelExampleSelect(state),
                   ],
+                }),
+                el('p', {
+                  className: 'support-note',
+                  text: selectedRecommendation
+                    ? t(selectedRecommendation.descriptionKey)
+                    : t('studio.examples.unavailable'),
+                  dataset: { hook: 'guided-example-description' },
+                }),
+                el('p', {
+                  className: 'inline-note',
+                  text: selectedRecommendation ? t('studio.examples.config', { file: `${selectedRecommendation.id}.toml` }) : '',
+                  attrs: selectedRecommendation ? {} : { hidden: true },
+                  dataset: { hook: 'guided-example-config' },
+                }),
+                el('p', {
+                  className: 'support-note',
+                  text: t('studio.examples.outputs'),
+                  attrs: selectedRecommendation ? {} : { hidden: true },
+                  dataset: { hook: 'guided-example-outputs' },
+                }),
+                createSecondaryAction({
+                  label: t('studio.examples.browse-all'),
+                  action: 'model-guided-browse-examples',
+                  dataset: { hook: 'guided-browse-examples' },
                 }),
               ],
             }),
@@ -1722,7 +1792,7 @@ function createModelWorkspace(state) {
               text: guidedCanContinue
                 ? t('studio.model.guided.input.ready')
                 : guidedFlow.inputMethod === 'example'
-                  ? t('studio.model.guided.input.examples-loading')
+                  ? t(state.data.examples.status === 'loading' ? 'studio.model.guided.input.examples-loading' : 'studio.examples.unavailable')
                   : guidedFlow.inputMethod === 'file'
                     ? t('studio.model.guided.input.file-needed')
                     : t('studio.model.ai.preflight.prompt-needed'),
@@ -2594,7 +2664,7 @@ function createDrawingWorkspace(state) {
                   el('p', {
                     className: 'inline-note',
                     dataset: { hook: 'drawing-canvas-caption' },
-                    text: 'Pan with drag, zoom with the mouse wheel, and click dimension text to keep the edit loop attached to the sheet.',
+                    text: t('studio.drawing.canvas.empty-guidance'),
                   }),
                 ],
               }),

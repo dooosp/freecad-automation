@@ -441,21 +441,24 @@ export function mountDrawingWorkspace({
       if (canvasCaptionElement) {
         canvasCaptionElement.textContent = drawing.status === 'error'
           ? (drawing.errorMessage || 'The last drawing request failed before the sheet was ready.')
-          : 'Drag to pan, use the mouse wheel to zoom, and click dimension text to keep the edit loop on the sheet.';
+          : t('studio.drawing.canvas.empty-guidance');
       }
       return;
     }
 
     if (canvasCaptionElement) {
       canvasCaptionElement.textContent = preview.editable_plan_available
-        ? 'Drag to pan. Scroll to zoom. Click a dimension to edit its annotation.'
-        : 'Drag to pan. Scroll to zoom.';
+        && !isDrawingPreviewStale(drawing, state.data.model)
+        && !drawing.trackedRun.submitting
+        ? t('studio.drawing.canvas.edit-guidance')
+        : t('studio.drawing.canvas.view-guidance');
     }
 
     if (drawingRenderer && renderedSignature !== nextSignature) {
       drawingRenderer.showDrawing(preview.svg, preview.bom || [], preview.scale || drawing.settings.scale, previewReference(preview));
       renderedSignature = nextSignature;
     }
+    drawingRenderer?.syncDimensionEditingAvailability();
   }
 
   function syncAnnotations() {
@@ -578,11 +581,12 @@ export function mountDrawingWorkspace({
 
         const label = document.createElement('p');
         label.className = 'list-label';
-        label.textContent = dimension.id || 'Unnamed dimension';
+        const dimensionLabel = dimension.id || t('studio.drawing.dimension.unnamed');
+        label.textContent = dimensionLabel;
 
         const meta = document.createElement('p');
         meta.className = 'list-copy';
-        meta.textContent = `${dimension.feature || 'No feature tag'}${dimension.required ? ' · required' : ''}`;
+        meta.textContent = `${dimension.feature || t('studio.drawing.dimension.feature-missing')}${dimension.required ? ` · ${t('studio.drawing.dimension.required')}` : ''}`;
 
         copy.append(label, meta);
 
@@ -596,6 +600,7 @@ export function mountDrawingWorkspace({
         input.min = '0.01';
         input.value = drawing.dimensionDrafts[dimension.id] ?? formatNumber(dimension.value_mm);
         input.dataset.dimId = dimension.id;
+        input.setAttribute('aria-label', t('studio.drawing.dimension.value', { dimension: dimensionLabel }));
 
         const applyButton = document.createElement('button');
         applyButton.className = 'action-button action-button-ghost';
@@ -603,6 +608,7 @@ export function mountDrawingWorkspace({
         applyButton.textContent = 'Apply';
         applyButton.dataset.action = 'drawing-apply-dimension';
         applyButton.dataset.dimId = dimension.id;
+        applyButton.setAttribute('aria-label', t('studio.drawing.dimension.apply', { dimension: dimensionLabel }));
         applyButton.disabled = hasPendingRequest() || drawing.trackedRun.submitting || isDrawingPreviewStale(drawing, state.data.model);
 
         controls.append(input, applyButton);
@@ -1011,6 +1017,9 @@ export function mountDrawingWorkspace({
     zoomInButton: root.querySelector('[data-hook="drawing-zoom-in"]'),
     zoomOutButton: root.querySelector('[data-hook="drawing-zoom-out"]'),
     fitButton: root.querySelector('[data-hook="drawing-fit"]'),
+    isDimensionEditingAvailable: () => Boolean(drawing.preview?.editable_plan_available)
+      && !isDrawingPreviewStale(drawing, state.data.model)
+      && !drawing.trackedRun.submitting,
     onStatus(message, tone = 'info') {
       drawing.summary = message;
       if (tone === 'error') {

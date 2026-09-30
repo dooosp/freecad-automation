@@ -2313,7 +2313,7 @@ body {
 .home-start-card {
   display: flex;
   min-width: 0;
-  min-height: 26rem;
+  min-height: 23rem;
   flex-direction: column;
   gap: 1rem;
   padding: 1.25rem;
@@ -2325,7 +2325,13 @@ body {
 
 .home-start-card-copy {
   display: grid;
-  gap: 0.65rem;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.home-start-card-copy .home-start-card-description {
+  grid-column: 1 / -1;
 }
 
 .home-start-card-title,
@@ -2372,12 +2378,93 @@ body {
 }
 
 .home-start-card .info-row {
-  grid-template-columns: 1fr;
-  gap: 0.4rem;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.7rem;
+  padding: 0.65rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .home-start-card .action-button-primary {
   width: 100%;
+}
+
+.home-goal-mark {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.8rem;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.home-goal-mark svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.home-start-card[data-start-goal="review-cad"] .home-goal-mark {
+  color: var(--status-ok);
+  border-color: rgba(121, 223, 184, 0.28);
+  background: rgba(121, 223, 184, 0.08);
+}
+
+.home-start-card[data-start-goal="previous-work"] .home-goal-mark {
+  color: var(--status-warn);
+  border-color: rgba(247, 189, 79, 0.28);
+  background: rgba(247, 189, 79, 0.08);
+}
+
+.home-start-card .info-grid {
+  gap: 0;
+  padding-block: 0.2rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.home-start-card .info-value-wrap {
+  margin: 0;
+}
+
+.home-start-card .info-value {
+  font-size: 0.86rem;
+  font-weight: 450;
+  line-height: 1.55;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.home-start-card .info-label {
+  padding-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.home-start-card:focus-within {
+  border-color: var(--accent);
+}
+
+.home-recent-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  margin-top: 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.home-recent-status [data-tone="bad"] { color: var(--status-bad); }
+.home-recent-status [data-tone="warn"] { color: var(--status-warn); }
+.home-recent-status [data-tone="ok"] { color: var(--status-ok); }
+
+text[data-dimension-editable="true"]:focus-visible {
+  outline: 2px solid #0879b2;
+  outline-offset: 4px;
+  fill: #005c8a;
 }
 
 .home-recent-list,
@@ -3023,10 +3110,28 @@ body::after {
 
 .nav-link {
   position: relative;
+  grid-template-columns: 1.15rem minmax(0, 1fr);
   gap: 0.35rem;
   padding: 1rem 1rem 1rem 1.05rem;
   border-radius: 0.95rem;
   transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.nav-icon {
+  grid-column: 1;
+  grid-row: 1;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+}
+
+.nav-link > :is(.nav-label, .nav-copy) {
+  grid-column: 2;
+}
+
+.nav-link[aria-current="page"] .nav-icon {
+  color: var(--accent-strong);
 }
 
 .nav-link::before {
@@ -4717,4 +4822,91 @@ body::after {
   .studio-shell:has(.cad-workbench) .nav-link {
     padding: 0.5rem 0.7rem;
   }
+}
+
+/* Home uses a compact launch surface so the next action stays in view. */
+.home-workspace > .section-header {
+  padding-block: 0.5rem;
+}
+
+.home-workspace .section-title {
+  margin-block: 0.35rem 0.65rem;
+  font-size: clamp(1.65rem, 2.6vw, 2.3rem);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.home-workspace > .section-header .section-description {
+  max-width: 44rem;
+  line-height: 1.65;
+}
+
+.home-start-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.home-start-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 1.25rem auto;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  opacity: 0.55;
+}
+
+.home-start-card[data-start-goal="review-cad"]::before {
+  background: linear-gradient(90deg, var(--status-ok), transparent);
+}
+
+.home-start-card[data-start-goal="previous-work"]::before {
+  background: linear-gradient(90deg, var(--status-warn), transparent);
+}
+
+.home-start-card .home-start-card-title {
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.home-start-card-description {
+  font-size: 0.9rem;
+}
+
+.home-start-card .action-button-primary {
+  margin-top: auto;
+  min-height: 2.75rem;
+  box-shadow: none;
+}
+
+.home-start-card:not([data-start-goal="create-model"]) .action-button-primary {
+  color: var(--text-strong);
+  border-color: var(--border-strong);
+  background: rgba(126, 164, 198, 0.08);
+}
+
+.home-start-card:not([data-start-goal="create-model"]) .action-button-primary:hover {
+  background: rgba(126, 164, 198, 0.16);
+}
+
+@media (min-width: 921px) {
+  .studio-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+
+.studio-shell:has(.home-workspace) .app-bar {
+  padding-block: 1rem;
+}
+
+.studio-shell:has(.home-workspace) :is(.app-kicker, .workspace-summary) {
+  display: none;
+}
+
+.studio-shell:has(.home-workspace) .app-title {
+  font-size: 1.1rem;
 }

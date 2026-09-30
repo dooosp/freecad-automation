@@ -523,11 +523,15 @@ Startup behavior:
 
 Studio execution model:
 
+The guided model chooser starts with **Two-hole bracket** (`quality_pass_bracket`) and **Hinge support block** (`hinge_block`), with English/Korean descriptions and expected outputs. Use **Browse all examples** for the full advanced catalog, including diagnostic and intentional-failure fixtures. See the [fresh starter verification and navigation follow-up](./docs/audits/2026-09-30-studio-product-readiness.md).
+
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
 - `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `evidence-readiness-audit`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit` into `/jobs`. Studio `review-context` submissions are source-path based (`context_path` or `model_path`, with optional BOM/inspection/quality/package-evidence/compare paths), not config TOML or generic artifact-ref submissions.
 - `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, rerun tracked `inspect` from model artifacts, continue `readiness-pack` from canonical `review_pack.json` or `release_bundle.zip`, continue `generate-standard-docs` from canonical readiness inputs or release bundles, continue `pack` from canonical readiness inputs or release bundles, queue `inspection-evidence-promotion-dry-run` from a registered `inspection-evidence.intake-report` artifact, and stage `compare-rev` or `stabilization-review` from selected baseline/candidate canonical artifacts when both sides are present.
 - Tracked API/Studio `create` and `draw` jobs write generated outputs under the tracked job artifact directory, regardless of a config-provided export directory. Direct `inspect` accepts only safe repo-relative model paths; Studio inspect re-entry uses a registered `artifact_ref`.
 - Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
+
+Run `npm run benchmark:studio-preview` for bounded synthetic preview I/O/queue measurements, or add `-- --native-scale` for the real FreeCAD geometry sweep. The [measurement report](./docs/audits/2026-09-30-studio-preview-envelope.md) records the memory/latency tradeoff and unmeasured limits. The [new usability-test packet](./docs/design/studio-upgrade-uat-2026-09-30.md) prepares a separate frozen human-test candidate; automated checks do not replace participant results.
 
 AF5 publish/reopen contract:
 

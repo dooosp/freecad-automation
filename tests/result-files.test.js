@@ -14,6 +14,8 @@ for (const [type, file_name, extension, purpose, label] of [
   ['model.step', 'quality_pass_bracket.step', '.step', 'technical', 'studio.artifacts.file.step'],
   ['model.stl', 'inspection_report.stl', '.stl', 'technical', 'studio.artifacts.file.stl'],
   ['drawing.svg', 'quality_pass_bracket.svg', '.svg', 'immediate', 'studio.artifacts.file.drawing'],
+  ['report.sample', 'sample-report.json', '.json', 'immediate', 'studio.artifacts.file.report'],
+  ['report.sample', 'drawing-report.json', '.json', 'immediate', 'studio.artifacts.file.report'],
   ['model.create-quality', 'checks.json', '.json', 'quality', 'studio.artifacts.file.quality'],
   ['output.manifest.json', 'review_quality.json', '.json', 'system', 'studio.artifacts.file.system'],
   ['runtime.fingerprint', 'record.json', '.json', 'system', 'studio.artifacts.file.system'],
@@ -107,6 +109,30 @@ const drawingQuality = artifact({
   extension: '.json',
 });
 assert.equal(selectPrimaryResultArtifact([drawingQuality, drawing], { jobType: 'draw' })?.id, 'drawing');
+
+for (const [type, fileName, purpose, label] of [
+  ['drawing.qa-report', 'bracket_drawing_qa.json', 'quality', 'studio.artifacts.file.quality'],
+  ['drawing.qa-issues', 'bracket_drawing_qa_issues.json', 'quality', 'studio.artifacts.file.quality'],
+  ['', 'legacy_drawing_qa.json', 'quality', 'studio.artifacts.file.quality'],
+  ['drawing.extracted-semantics', 'bracket_extracted_drawing_semantics.json', 'technical', ''],
+  ['feature-catalog.json', 'bracket_drawing_feature_catalog.json', 'technical', ''],
+  ['drawing-intent.json', 'bracket_drawing_intent.json', 'technical', ''],
+  ['drawing.planner', 'bracket_drawing_planner.json', 'technical', ''],
+  ['drawing.repair-report', 'bracket_drawing_repair_report.json', 'technical', ''],
+  ['report.summary-json', 'bracket_report_summary.json', 'quality', 'studio.artifacts.file.quality'],
+]) {
+  const sidecar = artifact({ id: type || 'legacy-qa', type, fileName, extension: '.json' });
+  assert.equal(classifyResultFilePurpose(sidecar), purpose, `${fileName} is supporting evidence, not a rendered drawing`);
+  assert.equal(resultFileLabelKey(sidecar), label);
+  for (const extension of ['.svg', '.pdf', '.dxf']) {
+    const sheet = artifact({
+      id: 'sheet', type: `drawing${extension}`, fileName: `bracket${extension}`, extension, canOpen: false,
+    });
+    assert.equal(selectPrimaryResultArtifact([sidecar, sheet], { jobType: 'draw' })?.id, 'sheet',
+      'downloadable drawings must outrank openable JSON sidecars');
+  }
+}
+
 assert.equal(selectPrimaryResultArtifact([report, quality], { jobType: 'review-context' })?.id, 'quality');
 assert.equal(resultFileLabelKey(report), 'studio.artifacts.file.report');
 assert.equal(resultFileLabelKey(step), 'studio.artifacts.file.step');

@@ -1,12 +1,28 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { runScript as defaultRunner } from '../../lib/runner.js';
 
 const MODEL_EXTENSIONS = new Set(['.step', '.stp', '.brep', '.brp', '.stl']);
-const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const failure = (message, status) => Object.assign(new Error(message), { status });
+const changedSource = () => failure('The source artifact changed during preview generation. Open the result again.', 409);
+
+async function sourceHash(sourcePath, snapshotPath = '') {
+  const hash = createHash('sha256');
+  const source = createReadStream(sourcePath);
+  if (snapshotPath) {
+    await pipeline(source, new Transform({
+      transform(chunk, _encoding, done) { hash.update(chunk); done(null, chunk); },
+    }), createWriteStream(snapshotPath, { flags: 'wx' }));
+  } else {
+    for await (const chunk of source) hash.update(chunk);
+  }
+  return hash.digest('hex');
+}
 
 // The route resolves job authority before every call, even on a cache hit.
 // Only derived meshes are cached. Original CAD and quality evidence stay untouched.
@@ -54,11 +70,15 @@ export function createArtifactModelPreviewService({
       if (closed) throw failure('Model preview service is closed.', 503);
       const extension = extname(sourcePath).toLowerCase();
       if (!MODEL_EXTENSIONS.has(extension)) throw failure('This artifact format has no 3D preview.', 403);
-      const source = await readFile(sourcePath);
+      if (extension === '.stl') {
+        const source = await readFile(sourcePath);
+        if (closed) throw failure('Model preview service is closed.', 503);
+        checkSize(source); return source;
+      }
+      // Cache lookup and queued requests need a content hash, not a retained CAD buffer.
+      const requestedHash = await sourceHash(sourcePath);
       if (closed) throw failure('Model preview service is closed.', 503);
-      if (extension === '.stl') { checkSize(source); return source; }
-      const sourceHash = digest(source);
-      const key = `${jobId}:${artifactId}:${sourceHash}`;
+      const key = `${jobId}:${artifactId}:${requestedHash}`;
       if (cache.has(key)) return cache.get(key);
       if (pending.has(key)) return pending.get(key);
       const conversion = (async () => {
@@ -71,14 +91,15 @@ export function createArtifactModelPreviewService({
           directory = await mkdtemp(join(tmpdir(), 'fcad-artifact-mesh-'));
           const inputPath = join(directory, `source${extension}`);
           const outputPath = join(directory, 'preview.stl');
-          await writeFile(inputPath, source);
+          // Only admitted work creates a snapshot. Recheck queued or mid-copy changes
+          // before invoking native conversion, then check the live source afterward.
+          if (await sourceHash(sourcePath, inputPath) !== requestedHash) throw changedSource();
+          if (closed) throw failure('Model preview service is closed.', 503);
           const result = await runScript('preview_model.py', { file: inputPath, output_path: outputPath }, { timeout: 120_000 });
           if (!result?.success) throw failure(result?.error || 'Model preview generation failed.', 422);
           const bytes = await readFile(outputPath);
           checkSize(bytes);
-          if (digest(await readFile(sourcePath)) !== sourceHash) {
-            throw failure('The source artifact changed during preview generation. Open the result again.', 409);
-          }
+          if (await sourceHash(sourcePath) !== requestedHash) throw changedSource();
           if (!closed) {
             cache.set(key, bytes);
             while (cache.size > maxEntries) cache.delete(cache.keys().next().value);

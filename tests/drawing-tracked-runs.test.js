@@ -76,4 +76,27 @@ assert.equal(needsReview.tone, 'warn');
 assert.equal(needsReview.canOpenArtifacts, true);
 assert.match(needsReview.copy, /Ready No/);
 
+// Shape of a warning-friendly draw result: execution succeeds while QA can fail.
+const canonicalFailure = deriveDrawingTrackedRunPresentation({
+  drawing,
+  recentJobs: [{
+    id: 'job-draw-12345678',
+    type: 'draw',
+    status: 'succeeded',
+    result: {
+      success: true,
+      drawing_paths: ['artifacts/bracket_drawing.svg'],
+      drawing_quality: {
+        status: 'fail',
+        traceability: { coverage_percent: 80, unmapped_required_entities: ['WIDTH'] },
+      },
+    },
+  }],
+});
+assert.equal(canonicalFailure.title, 'Tracked draw needs review');
+assert.equal(canonicalFailure.tone, 'warn');
+assert.equal(canonicalFailure.canOpenArtifacts, true);
+assert.match(canonicalFailure.copy, /Quality failed/);
+assert.equal(canonicalFailure.job.status, 'succeeded');
+
 console.log('drawing-tracked-runs.test.js: ok');

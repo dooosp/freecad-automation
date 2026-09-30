@@ -5,7 +5,7 @@ import {
   renderModelInfo,
 } from '../app/index.js';
 import { listStudioConfigProfiles } from './config-client.js';
-import { getSelectedStudioExample } from './examples.js';
+import { getSelectedStudioExample, getSelectedRecommendedStudioExample } from './examples.js';
 import {
   buildTrackedReportJobOptions,
   collectValidationNotes,
@@ -245,6 +245,10 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   const guidedAiRequestStage = root.querySelector('[data-hook="guided-ai-request-stage"]');
   const guidedAiReviewStage = root.querySelector('[data-hook="guided-ai-review-stage"]');
   const guidedExampleSelect = root.querySelector('[data-hook="guided-example-select"]');
+  const guidedExampleDescription = root.querySelector('[data-hook="guided-example-description"]');
+  const guidedExampleConfig = root.querySelector('[data-hook="guided-example-config"]');
+  const guidedExampleOutputs = root.querySelector('[data-hook="guided-example-outputs"]');
+  const guidedBrowseExamplesButton = root.querySelector('[data-hook="guided-browse-examples"]');
   const guidedConfigFileInput = root.querySelector('[data-hook="guided-config-file"]');
   const guidedOpenConfigButton = root.querySelector('[data-hook="guided-open-config"]');
   const guidedFileNameElement = root.querySelector('[data-hook="guided-file-name"]');
@@ -558,7 +562,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     guidedInputMethodInputs.forEach((input) => {
       input.disabled = model.assistant.busy;
     });
-    if (guidedExampleSelect) guidedExampleSelect.disabled = model.assistant.busy;
+    if (guidedExampleSelect) guidedExampleSelect.disabled = model.assistant.busy || !getSelectedRecommendedStudioExample(state.data.examples);
     if (guidedOpenConfigButton) guidedOpenConfigButton.disabled = model.assistant.busy;
     if (exampleButton) exampleButton.disabled = state.data.examples.items.length === 0;
     if (configFileButton) configFileButton.disabled = false;
@@ -683,8 +687,17 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     const aiHasDraft = ['review', 'validating', 'validated'].includes(assistant.phase);
     if (guidedAiRequestStage) guidedAiRequestStage.hidden = aiHasDraft;
     if (guidedAiReviewStage) guidedAiReviewStage.hidden = !aiHasDraft;
-    if (guidedExampleSelect) {
-      guidedExampleSelect.value = state.data.examples.selectedId || guidedExampleSelect.value;
+    const selectedRecommendation = getSelectedRecommendedStudioExample(state.data.examples);
+    if (guidedExampleSelect) guidedExampleSelect.value = selectedRecommendation?.id || '';
+    if (guidedExampleDescription) guidedExampleDescription.textContent = selectedRecommendation
+      ? t(selectedRecommendation.descriptionKey)
+      : t('studio.examples.unavailable');
+    if (guidedExampleOutputs) guidedExampleOutputs.hidden = !selectedRecommendation;
+    if (guidedExampleConfig) {
+      guidedExampleConfig.hidden = !selectedRecommendation;
+      guidedExampleConfig.textContent = selectedRecommendation
+        ? t('studio.examples.config', { file: `${selectedRecommendation.id}.toml` })
+        : '';
     }
     if (guidedFileNameElement) {
       guidedFileNameElement.textContent = model.sourceType === 'local file'
@@ -692,7 +705,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
         : t('studio.model.guided.input.file.none');
     }
 
-    const hasExamples = state.data.examples.items.length > 0;
+    const hasExamples = Boolean(selectedRecommendation);
     const hasFile = model.sourceType === 'local file' && Boolean((model.configText || '').trim());
     const apiReady = state.connectionState === 'connected';
     const aiReviewRequired = aiDraftRequiresReview(model);
@@ -706,8 +719,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     if (guidedInputHintElement) {
       guidedInputHintElement.textContent = canContinue
         ? t('studio.model.guided.input.ready')
-        : flow.inputMethod === 'example' && state.data.examples.status === 'ready'
-          ? t('studio.model.guided.input.examples-empty')
+        : flow.inputMethod === 'example' && state.data.examples.status !== 'loading'
+          ? t('studio.examples.unavailable')
           : flow.inputMethod === 'example'
             ? t('studio.model.guided.input.examples-loading')
             : flow.inputMethod === 'file'
@@ -1443,6 +1456,12 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     state.data.examples.selectedId = guidedExampleSelect.value;
     syncUi();
   });
+  guidedBrowseExamplesButton?.addEventListener('click', () => {
+    if (advancedToolsDisclosure) advancedToolsDisclosure.open = true;
+    if (advancedToolsContent) advancedToolsContent.hidden = false;
+    exampleSelect?.focus();
+    exampleSelect?.scrollIntoView?.({ block: 'center' });
+  });
   guidedOpenConfigButton?.addEventListener('click', () => guidedConfigFileInput?.click());
   guidedConfigFileInput?.addEventListener('change', async () => {
     const [file] = [...(guidedConfigFileInput.files || [])];
@@ -1462,7 +1481,16 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   guidedContinueButton?.addEventListener('click', () => {
     const flow = ensureModelGuidedFlowState(model);
     if (flow.inputMethod === 'ai') return;
-    if (flow.inputMethod === 'example') loadSelectedExample();
+    if (flow.inputMethod === 'example') {
+      const recommendation = getSelectedRecommendedStudioExample(state.data.examples);
+      if (!recommendation) {
+        flow.error = t('studio.examples.unavailable');
+        syncUi();
+        return;
+      }
+      state.data.examples.selectedId = recommendation.id;
+      loadSelectedExample();
+    }
     if (!(model.configText || '').trim()) {
       flow.error = flow.inputMethod === 'file'
         ? t('studio.model.guided.input.file-needed')
@@ -1551,6 +1579,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
 
   exampleSelect?.addEventListener('change', () => {
     state.data.examples.selectedId = exampleSelect.value;
+    syncUi();
   });
 
   exampleButton?.addEventListener('click', loadSelectedExample);

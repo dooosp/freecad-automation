@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -133,6 +135,57 @@ test('invalid resource limits cannot disable bounds or leave requests permanentl
   for (const maxQueued of [-1, 1.5, NaN, Infinity, '8']) {
     assert.throws(() => createArtifactModelPreviewService({ maxQueued }), RangeError);
   }
+});
+
+test('queued CAD previews retain bounded streaming buffers instead of full source files', async () => {
+  // Isolate array-buffer accounting from the other HTTP tests and allocator state.
+  const script = `
+    import { mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
+    import { join } from 'node:path';
+    import { createArtifactModelPreviewService } from ${JSON.stringify(new URL('../src/server/artifact-model-preview-service.js', import.meta.url).href)};
+    const root = ${JSON.stringify(resolve(import.meta.dirname, '../tmp/codex'))};
+    await mkdir(root, { recursive: true });
+    const dir = await mkdtemp(join(root, 'preview-memory-regression-'));
+    const sourcePath = join(dir, 'source.step');
+    const size = 16 * 1024 * 1024;
+    const file = await open(sourcePath, 'w'); await file.truncate(size); await file.close();
+    let release, started;
+    const gate = new Promise((done) => { release = done; });
+    const entered = new Promise((done) => { started = done; });
+    const service = createArtifactModelPreviewService({ maxConcurrent: 1, maxQueued: 1,
+      async runScript(_script, input) { started(); await gate; await writeFile(input.output_path, 'mesh'); return { success: true }; }
+    });
+    const gc = async () => { global.gc(); await new Promise((done) => setTimeout(done, 10)); global.gc(); };
+    const request = (id) => service.readMesh({ sourcePath, jobId: 'memory', artifactId: id }).catch((error) => ({ status: error.status }));
+    await gc(); const before = process.memoryUsage().arrayBuffers;
+    const active = request('active'); await entered;
+    const queued = request('queued'), overflow = request('overflow');
+    try {
+      const rejected = await Promise.race([queued, overflow]);
+      if (rejected.status !== 503) throw new Error('Expected saturated conversion queue');
+      await gc(); const retained = process.memoryUsage().arrayBuffers - before;
+      console.log(JSON.stringify({ retained, sourceBytes: size }));
+    } finally { release(); await Promise.all([active, queued, overflow]); await service.dispose(); await rm(dir, { recursive: true, force: true }); }
+  `;
+  const { stdout } = await promisify(execFile)(process.execPath, ['--expose-gc', '--input-type=module', '-e', script], { timeout: 15_000 });
+  const memory = JSON.parse(stdout);
+  assert(memory.retained < memory.sourceBytes,
+    `active and queued previews retained ${memory.retained} bytes; they must not retain whole ${memory.sourceBytes}-byte CAD inputs`);
+});
+
+test('a source changed while queued is rejected before native conversion and can retry', async (t) => {
+  const f = await fixture(t, { maxConcurrent: 1, maxQueued: 1 });
+  f.block(); f.track(f.requests[0]);
+  await until(() => f.state.started.length === 1);
+  f.track(f.requests[1]); f.track(f.requests[2]);
+  await until(() => f.state.outcomes.length === 1);
+  const rejected = f.state.outcomes[0]; assert.equal(rejected.error?.status, 503);
+  const queued = f.requests.find((request) => ['1', '2'].includes(request.artifactId) && request.artifactId !== rejected.id);
+  await writeFile(queued.sourcePath, 'changed!'); // Same size; metadata-only freshness is insufficient.
+  f.release(); await Promise.all(f.state.promises);
+  assert.equal(f.state.outcomes.find((outcome) => outcome.id === queued.artifactId).error?.status, 409);
+  assert.deepEqual(f.state.started, ['source-0'], 'never convert a snapshot that differs from the queued content hash');
+  assert.equal((await f.service.readMesh(queued)).toString(), 'mesh:changed!');
 });
 
 test('HTTP saturation returns 503 while individual and all-client cancellation preserve bounded shared work', async (t) => {

@@ -162,6 +162,11 @@ test('unavailable/corrupt session storage does not break editing or shell defaul
 function mountModel(t, state, callbacks = {}, { inspect = false } = {}) {
   state.data.model.profileCatalog.status = 'ready';
   const root = new TestElement();
+  for (const name of ['guided-example-select', 'guided-example-description', 'guided-example-outputs', 'guided-browse-examples', 'guided-continue', 'guided-input-hint', 'example-select']) {
+    const element = new TestElement(name.endsWith('select') ? 'select' : 'button');
+    element.dataset.hook = name;
+    root.append(element);
+  }
   for (const name of ['source-summary', 'validation-summary', 'validation-warnings', 'tracked-validation-notes', 'tracked-status', 'build-log', 'assistant-report', 'parts-list', 'animation-controls', 'model-info', 'build-summary', 'viewport-caption', 'build-button', 'guided-generate', 'guided-save-result', 'model-advanced-tools', 'model-advanced-content', 'ai-create-draft', 'ai-validate-draft', 'validate-button', 'tracked-create-button', 'tracked-report-button', 'load-example', 'clear-result', 'config-textarea']) {
     const element = new TestElement(name.endsWith('button') ? 'button' : 'div'); element.dataset.hook = name;
     const card = new TestElement(name === 'tracked-create-button' ? 'details' : 'div'); card.className = 'studio-card'; card.append(element); root.append(card);
@@ -196,6 +201,70 @@ test('saving a guided preview reveals the existing save preflight without submit
   assert.equal(root.querySelector('[data-hook="tracked-create-button"]').closest('details').open, true);
   assert.equal(submissions, 0);
   assert.equal(requests.length, 0);
+});
+
+test('guided Continue loads the displayed recommended example without replacing the advanced choice on mount', (t) => {
+  const { state } = setup(t);
+  state.data.examples.items = [
+    { id: 'quality_fail_wrong_hole_center', name: 'probe.toml', content: 'name = "probe"' },
+    { id: 'quality_pass_bracket', name: 'quality_pass_bracket.toml', content: 'name = "verified"' },
+  ];
+  state.data.examples.selectedId = 'quality_fail_wrong_hole_center';
+  state.data.examples.status = 'ready';
+  const { root, click } = mountModel(t, state);
+  assert.equal(root.querySelector('[data-hook="guided-example-select"]').value, 'quality_pass_bracket');
+  assert.equal(state.data.examples.selectedId, 'quality_fail_wrong_hole_center');
+  click('guided-continue');
+  assert.equal(state.data.model.configText, 'name = "verified"');
+  assert.equal(state.data.examples.selectedId, 'quality_pass_bracket');
+  assert.equal(state.data.model.guidedFlow.step, 'preflight');
+});
+
+test('guided Continue cannot reuse stale input when no recommended example is available', (t) => {
+  const { state } = setup(t);
+  state.data.examples.items = [{ id: 'runtime_probe', name: 'runtime_probe.toml', content: 'name = "probe"' }];
+  state.data.examples.selectedId = 'runtime_probe';
+  state.data.examples.status = 'ready';
+  const previousConfig = state.data.model.configText;
+  const { root, click } = mountModel(t, state);
+  assert.equal(root.querySelector('[data-hook="guided-continue"]').disabled, true);
+  click('guided-continue');
+  assert.equal(state.data.model.configText, previousConfig);
+  assert.equal(state.data.model.guidedFlow.step, 'select_input');
+  assert.match(root.querySelector('[data-hook="guided-input-hint"]').textContent, /recommended.*unavailable/i);
+});
+
+test('browse all examples opens the existing advanced catalog without loading another config', (t) => {
+  const { state, requests } = setup(t);
+  const previousConfig = state.data.model.configText;
+  const { root, click } = mountModel(t, state);
+  click('guided-browse-examples');
+  assert.equal(root.querySelector('[data-hook="model-advanced-tools"]').open, true);
+  assert.equal(root.querySelector('[data-hook="model-advanced-content"]').hidden, false);
+  assert.equal(document.activeElement, root.querySelector('[data-hook="example-select"]'));
+  assert.equal(state.data.model.configText, previousConfig);
+  assert.equal(requests.length, 0);
+});
+
+test('changing an advanced example keeps the visible guided recommendation aligned with Continue', (t) => {
+  const { state } = setup(t);
+  state.data.examples.items = [
+    { id: 'quality_pass_bracket', name: 'quality_pass_bracket.toml', content: 'name = "verified"' },
+    { id: 'hinge_block', name: 'hinge_block.toml', content: 'name = "hinge"' },
+    { id: 'quality_fail_wrong_hole_center', name: 'probe.toml', content: 'name = "probe"' },
+  ];
+  state.data.examples.selectedId = 'hinge_block';
+  state.data.examples.status = 'ready';
+  const { root, click } = mountModel(t, state);
+  const guidedSelect = root.querySelector('[data-hook="guided-example-select"]');
+  const advancedSelect = root.querySelector('[data-hook="example-select"]');
+  assert.equal(guidedSelect.value, 'hinge_block');
+  advancedSelect.value = 'quality_fail_wrong_hole_center';
+  advancedSelect.dispatch('change', {});
+  assert.equal(guidedSelect.value, 'quality_pass_bracket');
+  assert.equal(state.data.examples.selectedId, 'quality_fail_wrong_hole_center');
+  click('guided-continue');
+  assert.equal(state.data.model.configText, 'name = "verified"');
 });
 
 test('delayed assembly assets receive current viewport options after each mesh load and locale remount', async (t) => {
