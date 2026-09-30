@@ -190,3 +190,7 @@ changes. A missing valid record or incomplete required metric keeps the status
 and a passing bilingual gate may close it as `PASS`. A complete cohort below a
 threshold closes as `FAIL`, and a candidate change requires
 `INVALIDATED_RESTART_REQUIRED`.
+
+## Studio upgrade follow-up packet (2026-09-30)
+
+The [new upgrade facilitator packet](studio-upgrade-uat-2026-09-30.md) prepares a separate candidate after the Studio experience and product-readiness changes land. It reuses the task/scoring protocol while requiring a new immutable candidate and P0 rehearsal. This does not alter the frozen Round 1 identity, count technical runs as human results, or mark the five-person study complete.
