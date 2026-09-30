@@ -1866,7 +1866,8 @@ function browserSmokeDrawingServiceFactory() {
             views: drawingSettings.views || ['front', 'top', 'right', 'iso'],
           },
           scale: drawingSettings.scale || 'auto',
-          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 24"><rect x="2" y="2" width="36" height="20" fill="none" stroke="currentColor"/></svg>',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 24"><rect x="2" y="2" width="36" height="20" fill="none" stroke="currentColor"/><text x="4" y="12" data-dim-id="WIDTH" data-value-mm="40">40</text></svg>',
+          plan_path: 'output/browser-smoke-drawing.plan.json',
           bom: [{ id: 'body', count: 1 }],
           annotations: ['Browser smoke drawing preview.'],
           qa_summary: {
@@ -2607,6 +2608,9 @@ try {
     return {
       labels: choices.map((choice) => choice.querySelector('h3')?.textContent?.trim() || ''),
       actions: choices.map((choice) => choice.querySelector('[data-action-kind="primary"]')?.dataset?.action || ''),
+      recentStatuses: [...document.querySelectorAll('.home-recent-item')].map((item) => (
+        item.querySelector('[data-hook="home-recent-status"]')?.textContent?.trim() || ''
+      )),
       text: root?.innerText || '',
     };
   })()`);
@@ -2616,6 +2620,10 @@ try {
     'Open previous work',
   ]);
   assert.deepEqual(beginnerHome.actions, ['go-model', 'go-console', 'go-history']);
+  assert.equal(beginnerHome.recentStatuses.length, 3);
+  for (const status of beginnerHome.recentStatuses) {
+    assertIncludesAll(status, ['Execution: Completed', 'Quality: Not available']);
+  }
   assertExcludesAll(beginnerHome.text, ['tracked', 'artifact', 'manifest', 'Stage 5B']);
 
   let guidedModelPrimaryActions = 0;
@@ -2899,6 +2907,64 @@ try {
   });
   assert.equal(drawingReady.canvasHasSvg, true);
 
+  for (const activation of [
+    { key: 'Enter', code: 'Enter', virtualKeyCode: 13 },
+    { key: ' ', code: 'Space', virtualKeyCode: 32 },
+  ]) {
+    const dimensionTarget = await cdp.evaluate(`(() => {
+      const target = document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]');
+      target?.focus();
+      return {
+        focused: document.activeElement === target,
+        role: target?.getAttribute('role') || '',
+        label: target?.getAttribute('aria-label') || '',
+      };
+    })()`);
+    assert.equal(dimensionTarget.focused, true, `Drawing dimensions must accept keyboard focus: ${JSON.stringify(dimensionTarget)}`);
+    assert.equal(dimensionTarget.role, 'button');
+    assertIncludesAll(dimensionTarget.label, ['WIDTH', '40 mm']);
+    for (const type of ['keyDown', 'keyUp']) {
+      await cdp.send('Input.dispatchKeyEvent', {
+        type,
+        key: activation.key,
+        code: activation.code,
+        windowsVirtualKeyCode: activation.virtualKeyCode,
+        nativeVirtualKeyCode: activation.virtualKeyCode,
+      });
+    }
+    await waitFor(async () => {
+      const editor = await cdp.evaluate(`(() => {
+        const input = document.querySelector('.dim-edit-input');
+        return {
+          focused: Boolean(input) && document.activeElement === input,
+          label: input?.getAttribute('aria-label') || '',
+          value: input?.value || '',
+        };
+      })()`);
+      assert.equal(editor.focused, true);
+      assertIncludesAll(editor.label, ['WIDTH', 'mm']);
+      assert.equal(editor.value, '40');
+    });
+    for (const type of ['keyDown', 'keyUp']) {
+      await cdp.send('Input.dispatchKeyEvent', {
+        type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+      });
+    }
+    await waitFor(async () => {
+      const restored = await cdp.evaluate(`(() => {
+        const target = document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]');
+        return {
+          editorPresent: Boolean(document.querySelector('.dim-edit-input')),
+          focused: document.activeElement === target,
+          visible: Boolean(target?.getClientRects().length),
+        };
+      })()`);
+      assert.equal(restored.editorPresent, false);
+      assert.equal(restored.focused, true);
+      assert.equal(restored.visible, true);
+    });
+  }
+
   await cdp.evaluate(`(() => {
     const localeSelect = document.getElementById('studio-locale-select');
     localeSelect.value = 'ko';
@@ -2912,6 +2978,7 @@ try {
       reportLabel: document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || '',
       reportStatus: document.querySelector('[data-hook="drawing-report-status"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       canvasLabel: document.querySelector('[data-hook="drawing-canvas"]')?.getAttribute('aria-label') || '',
+      dimensionLabel: document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]')?.getAttribute('aria-label') || '',
     }))()`);
     assert.equal(snapshot.lang, 'ko');
     assertIncludesAll(snapshot.previewText, ['필요한 입력', '예상 결과', 'FreeCAD 실행', '파일 변경']);
@@ -2925,6 +2992,7 @@ try {
     assert.equal(snapshot.reportLabel, '보고서 생성');
     assert.equal(snapshot.reportStatus, '현재 불러온 설정으로 보고서를 생성할 준비가 되었습니다.');
     assert.equal(snapshot.canvasLabel, '도면 미리보기 캔버스');
+    assert.equal(snapshot.dimensionLabel, '치수 WIDTH 편집: 40 mm');
     return snapshot;
   });
 
@@ -4189,16 +4257,18 @@ try {
     delayMs: 150,
   });
 
-  await cdp.evaluate(`document.getElementById('advanced-mode-toggle')?.click()`);
+  await keyboardActivate(cdp, '#advanced-mode-toggle');
   await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => ({
       open: document.getElementById('advanced-work-navigation')?.open ?? true,
       checked: document.getElementById('advanced-mode-toggle')?.checked ?? true,
       stored: localStorage.getItem('studio_experience_mode'),
+      summaryFocused: document.activeElement === document.querySelector('#advanced-work-navigation > summary'),
     }))()`);
     assert.equal(snapshot.open, false);
     assert.equal(snapshot.checked, false);
     assert.equal(snapshot.stored, 'default');
+    assert.equal(snapshot.summaryFocused, true, 'Collapsing advanced navigation must return keyboard focus to its summary');
     return snapshot;
   });
 
@@ -4215,43 +4285,53 @@ try {
     return snapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
+  await keyboardActivate(cdp, '#jobs-toggle');
   let drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, true);
     assert.equal(nextSnapshot.jobsExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('jobs-close')?.click()`);
+  await keyboardActivate(cdp, '#jobs-close');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, false);
     assert.equal(nextSnapshot.jobsExpanded, 'false');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-toggle');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('log-toggle')?.click()`);
+  await keyboardActivate(cdp, '#log-toggle');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, true);
     assert.equal(nextSnapshot.logExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'log-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('log-close')?.click()`);
+  await keyboardActivate(cdp, '#log-close');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, false);
     assert.equal(nextSnapshot.logExpanded, 'false');
+    assert.equal(nextSnapshot.activeElementId, 'log-toggle');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
+  await keyboardActivate(cdp, '#jobs-toggle');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, true);
     assert.equal(nextSnapshot.jobsExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
   await cdp.send('Input.dispatchKeyEvent', {
@@ -4276,11 +4356,13 @@ try {
     return nextSnapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('log-toggle')?.click()`);
+  await keyboardActivate(cdp, '#log-toggle');
   drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, true);
     assert.equal(nextSnapshot.logExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'log-close');
+    assert.equal(nextSnapshot.activeElementInViewport, true);
     return nextSnapshot;
   });
   await cdp.send('Input.dispatchKeyEvent', {

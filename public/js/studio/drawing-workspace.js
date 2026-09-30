@@ -456,6 +456,7 @@ export function mountDrawingWorkspace({
       drawingRenderer.showDrawing(preview.svg, preview.bom || [], preview.scale || drawing.settings.scale, previewReference(preview));
       renderedSignature = nextSignature;
     }
+    drawingRenderer?.syncDimensionEditingAvailability();
   }
 
   function syncAnnotations() {
@@ -596,6 +597,7 @@ export function mountDrawingWorkspace({
         input.min = '0.01';
         input.value = drawing.dimensionDrafts[dimension.id] ?? formatNumber(dimension.value_mm);
         input.dataset.dimId = dimension.id;
+        input.setAttribute('aria-label', t('studio.drawing.dimension.value', { dimension: dimension.id || 'Unnamed dimension' }));
 
         const applyButton = document.createElement('button');
         applyButton.className = 'action-button action-button-ghost';
@@ -603,6 +605,7 @@ export function mountDrawingWorkspace({
         applyButton.textContent = 'Apply';
         applyButton.dataset.action = 'drawing-apply-dimension';
         applyButton.dataset.dimId = dimension.id;
+        applyButton.setAttribute('aria-label', t('studio.drawing.dimension.apply', { dimension: dimension.id || 'Unnamed dimension' }));
         applyButton.disabled = hasPendingRequest() || drawing.trackedRun.submitting || isDrawingPreviewStale(drawing, state.data.model);
 
         controls.append(input, applyButton);
@@ -1011,6 +1014,9 @@ export function mountDrawingWorkspace({
     zoomInButton: root.querySelector('[data-hook="drawing-zoom-in"]'),
     zoomOutButton: root.querySelector('[data-hook="drawing-zoom-out"]'),
     fitButton: root.querySelector('[data-hook="drawing-fit"]'),
+    isDimensionEditingAvailable: () => Boolean(drawing.preview?.editable_plan_available)
+      && !isDrawingPreviewStale(drawing, state.data.model)
+      && !drawing.trackedRun.submitting,
     onStatus(message, tone = 'info') {
       drawing.summary = message;
       if (tone === 'error') {

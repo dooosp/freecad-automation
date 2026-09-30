@@ -252,10 +252,18 @@ export function createStudioShellDomController(app) {
     });
 
     elements.advancedModeToggle.checked = state.experienceMode === 'advanced';
-    elements.advancedWorkNavigation.open = shouldExpandAdvancedNavigation({
+    const expandAdvancedNavigation = shouldExpandAdvancedNavigation({
       route: state.route,
       experienceMode: state.experienceMode,
     });
+    if (
+      !expandAdvancedNavigation
+      && elements.advancedWorkNavigation.open
+      && elements.advancedWorkNavigation.contains(documentRef.activeElement)
+    ) {
+      elements.advancedWorkNavigation.querySelector('summary')?.focus();
+    }
+    elements.advancedWorkNavigation.open = expandAdvancedNavigation;
   }
 
   function renderCompletionNotice() {

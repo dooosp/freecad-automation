@@ -22,7 +22,10 @@ export class TestElement {
   removeChild(node) { this.children = this.children.filter((child) => child !== node); node.parentNode = null; }
   set textContent(value) { this.replaceChildren({ nodeValue: String(value), children: [] }); }
   get textContent() { return this.children.map((child) => child.nodeValue ?? child.textContent).join(''); }
-  setAttribute(name, value) { this.attrs.set(name, String(value)); }
+  setAttribute(name, value) {
+    this.attrs.set(name, String(value));
+    if (name.startsWith('data-')) this.dataset[name.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = String(value);
+  }
   hasAttribute(name) { return this.attrs.has(name); }
   getAttribute(name) { return this.attrs.get(name) ?? null; }
   removeAttribute(name) { this.attrs.delete(name); }
@@ -44,11 +47,15 @@ export class TestElement {
   querySelectorAll(selector) { return this.children.flatMap((child) => child instanceof TestElement ? [...(child.matches(selector) ? [child] : []), ...child.querySelectorAll(selector)] : []); }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
   get isContentEditable() { const value = this.getAttribute('contenteditable'); return value === 'false' ? false : value != null || Boolean(this.parentElement?.isContentEditable); }
+  get isConnected() { return this.connectedOverride ?? (this === document || Boolean(this.parentNode?.isConnected)); }
+  set isConnected(value) { this.connectedOverride = Boolean(value); }
+  getBoundingClientRect() { return { left: 0, top: 0, width: this.clientWidth, height: this.clientHeight }; }
+  getClientRects() { return this.isConnected ? [this.getBoundingClientRect()] : []; }
   focus() { document.activeElement = this; }
   select() {}
 }
 
-export function installDrawingTestDom() {
+export function installDrawingTestDom({ dimensions = [] } = {}) {
   const saved = new Map(['document', 'window', 'Element', 'HTMLElement', 'NodeFilter', 'DOMParser', 'requestAnimationFrame'].map((key) => [key, globalThis[key]]));
   const document = new TestElement('document');
   document.documentElement = new TestElement('html');
@@ -69,6 +76,12 @@ export function installDrawingTestDom() {
         const svg = new TestElement('svg');
         svg.setAttribute('viewBox', '0 0 400 300');
         svg.viewBox = { baseVal: { width: 400, height: 300 } };
+        for (const dimension of dimensions) {
+          const text = new TestElement('text');
+          text.setAttribute('data-dim-id', dimension.id);
+          text.setAttribute('data-value-mm', dimension.value);
+          svg.append(text);
+        }
         return { documentElement: svg, getElementsByTagName: () => [] };
       }
     },

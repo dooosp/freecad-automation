@@ -270,6 +270,17 @@ assert.match(failedQualityCompletionNotice.message, /Ready No/);
 assert.match(failedQualityCompletionNotice.message, /1 other active job still running/);
 assert.equal(failedQualityCompletionNotice.messageParts.includes('1 other active job still running.'), true);
 
+const failedDrawingQualityNotice = buildStudioJobCompletionNotice({
+  id: 'job-drawing-quality-fail',
+  type: 'draw',
+  status: 'succeeded',
+  result: { success: true, drawing_quality: { status: 'fail' } },
+}, { route: 'artifacts' });
+assert.equal(failedDrawingQualityNotice.tone, 'warn');
+assert.match(failedDrawingQualityNotice.message, /Job succeeded/);
+assert.match(failedDrawingQualityNotice.message, /Quality failed/);
+assert.match(failedDrawingQualityNotice.message, /Ready Unknown/);
+
 const failedJobCompletionNotice = buildStudioJobCompletionNotice(
   {
     id: 'job-failed-123456789',

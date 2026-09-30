@@ -1159,7 +1159,7 @@ export function bootStudioShell({
     const openedFromModalSidebar = open && app.elements.sidebar.classList.contains('is-open');
     if (openedFromModalSidebar) app.dom.setSidebar(false);
     app.dom.setJobsDrawer(open, {
-      focusEntry: openedFromModalSidebar,
+      focusEntry: open,
       returnFocusTarget: openedFromModalSidebar
         ? app.elements.navToggle
         : app.elements.jobsToggle,
@@ -1173,7 +1173,7 @@ export function bootStudioShell({
     const openedFromModalSidebar = open && app.elements.sidebar.classList.contains('is-open');
     if (openedFromModalSidebar) app.dom.setSidebar(false);
     app.dom.setLogDrawer(open, {
-      focusEntry: openedFromModalSidebar,
+      focusEntry: open,
       returnFocusTarget: openedFromModalSidebar
         ? app.elements.navToggle
         : app.elements.logToggle,

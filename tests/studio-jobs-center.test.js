@@ -86,6 +86,39 @@ for (const [status, expected] of [
   }
 }
 
+for (const [status, expected, needsAttention] of [
+  ['fail', 'Quality failed', true],
+  ['warning', 'Quality warning', true],
+  ['pass', 'Quality passed', false],
+  ['not_run', 'Quality Unknown', true],
+]) {
+  const job = {
+    type: 'draw',
+    status: 'succeeded',
+    request: { config: { name: 'tracked_drawing' } },
+    result: { success: true, drawing_quality: { status } },
+  };
+  const actual = deriveRecentJobQualityStatus(job);
+  assert.equal(actual.qualityStatus, expected, 'tracked draw must expose its canonical quality decision');
+  assert.equal(actual.jobExecutionStatus, 'Job succeeded');
+  assert.equal(actual.readyForManufacturingReview, 'Ready Unknown', 'drawing QA alone does not establish manufacturing readiness');
+  assert.equal(deriveRecentJobDecisionState(job).needsAttention, needsAttention);
+  assert.equal(deriveRecentJobDecisionState({ ...job, status: 'failed' }).reason, 'execution');
+}
+
+assert.equal(deriveRecentJobQualityStatus({
+  type: 'draw', status: 'succeeded', result: { drawing_quality: {} },
+}).qualityStatus, 'Quality Unknown', 'absent drawing evidence must never imply a pass');
+
+assert.equal(deriveRecentJobQualityStatus({
+  type: 'report', status: 'succeeded',
+  result: {
+    report_summary: { overall_status: 'warning' },
+    drawing_quality: { status: 'pass' },
+    create_quality: { status: 'pass' },
+  },
+}).qualityStatus, 'Quality warning', 'the aggregate report decision keeps precedence over component checks');
+
 assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-older']);
 
 {

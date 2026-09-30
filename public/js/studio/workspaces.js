@@ -509,6 +509,22 @@ function isVerifiedBracketLoaded(model = {}) {
     || model.sourceName === `${VERIFIED_BRACKET_EXAMPLE_ID}.toml`;
 }
 
+// Decorative marks share the same visual language as the workspace navigation.
+// The SVG paths are static; no configuration or artifact data enters this markup.
+const HOME_GOAL_MARKS = {
+  'create-model': '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9m-4-16.2 8 4.5"/>',
+  'review-cad': '<path d="M8 3H4v4m12-4h4v4M4 17v4h4m12-4v4h-4"/><path d="m8 12 3 3 5-6"/>',
+  'previous-work': '<path d="M3 11a9 9 0 1 1 2.4 7M3 5v6h6m3-4v5l3 2"/>',
+};
+
+function createHomeGoalMark(goal) {
+  return el('span', {
+    className: 'home-goal-mark',
+    attrs: { 'aria-hidden': 'true' },
+    html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" focusable="false">${HOME_GOAL_MARKS[goal] || ''}</svg>`,
+  });
+}
+
 function createHomeStartChoice({
   goal,
   title,
@@ -526,6 +542,7 @@ function createHomeStartChoice({
       el('div', {
         className: 'home-start-card-copy',
         children: [
+          createHomeGoalMark(goal),
           el('h3', { className: 'home-start-card-title', text: title }),
           el('p', { className: 'home-start-card-description', text: copy }),
         ],
@@ -567,6 +584,29 @@ function createHomeRuntimeStatus(state) {
   });
 }
 
+function createHomeRecentStatus(job) {
+  const status = deriveRecentJobQualityStatus(job);
+  const qualityTones = {
+    'Quality passed': 'ok',
+    'Quality failed': 'bad',
+    'Quality warning': 'warn',
+  };
+  return el('div', {
+    className: 'home-recent-status',
+    dataset: { hook: 'home-recent-status' },
+    children: [
+      el('span', {
+        text: `${t('studio.history.execution')}: ${userExecutionStatus(job.status)}`,
+        dataset: { tone: job.status === 'failed' ? 'bad' : 'info' },
+      }),
+      el('span', {
+        text: `${t('studio.history.quality')}: ${userQualityStatus(job)}`,
+        dataset: { tone: qualityTones[status.qualityStatus] || 'info' },
+      }),
+    ],
+  });
+}
+
 function createHomeRecentRuns(state) {
   const recentJobs = state.data.recentJobs || {};
   const items = Array.isArray(recentJobs.items) ? recentJobs.items.slice(0, 3) : [];
@@ -604,6 +644,7 @@ function createHomeRecentRuns(state) {
               children: [
                 el('p', { className: 'home-recent-title', text: userRunTitle(job) }),
                 el('p', { className: 'home-recent-meta', text: `${userRunTypeLabel(job.type)} · ${formatRelativeTime(job.updated_at || job.created_at)}` }),
+                createHomeRecentStatus(job),
               ],
             }),
             createSecondaryAction({

@@ -23,18 +23,21 @@ function key(target, key = 'z', extra = {}) {
   document.dispatch('keydown', event);
   return event;
 }
-function setupRenderer(t, index = 0) {
-  const restoreDom = installDrawingTestDom();
+function setupRenderer(t, index = 0, options = {}) {
+  const restoreDom = installDrawingTestDom(options);
   const state = createViewerStore().state;
   state.dimensions.history = [structuredClone(edit)];
   state.dimensions.index = index;
   state.drawing.lastPlanPath = 'preview-A';
   const overlay = new TestElement();
   overlay.classList.add('open');
+  const container = new TestElement();
+  document.append(overlay);
+  overlay.append(container);
   const updates = [];
-  const renderer = createDrawingRenderer({ state, drawingOverlayElement: overlay, drawingContainerElement: new TestElement(), drawingBomElement: new TestElement(), sendDimensionUpdate: (update) => updates.push(update) });
+  const renderer = createDrawingRenderer({ state, drawingOverlayElement: overlay, drawingContainerElement: container, drawingBomElement: new TestElement(), sendDimensionUpdate: (update) => updates.push(update), ...options.renderer });
   t.after(() => { renderer.destroy(); restoreDom(); });
-  return { state, updates, renderer, overlay };
+  return { state, updates, renderer, overlay, container };
 }
 
 for (const kind of ['input', 'textarea', 'contenteditable descendant']) {
@@ -67,8 +70,8 @@ test('canvas undo and uppercase Shift+Z redo use the same plan and values', (t) 
   assert.equal(state.dimensions.index, 0);
 });
 
-function setupWorkspace(t, index = 0) {
-  const restoreDom = installDrawingTestDom();
+function setupWorkspace(t, index = 0, options = {}) {
+  const restoreDom = installDrawingTestDom(options);
   setLocale('en', { persist: false });
   const preview = { id: 'A', preview_reference: 'preview-A', svg: '<svg viewBox="0 0 400 300"/>', drawn_at: '2026-01-01', dimensions: [] };
   const state = { connectionState: 'connected', data: { drawing: { status: 'ready', preview, history: [structuredClone(edit)], historyIndex: index }, health: { available: true }, model: { configText: '[model]' }, recentJobs: { items: [] } } };
@@ -77,6 +80,7 @@ function setupWorkspace(t, index = 0) {
   const mounts = [];
   function mount() {
     const root = drawingWorkspaceRoot();
+    document.append(root);
     const workspace = mountDrawingWorkspace({ root, state, addLog() {} });
     mounts.push(workspace);
     return { root, workspace };
@@ -144,4 +148,108 @@ test('editing after undo discards only the undone redo branch', (t) => {
   assert.equal(state.dimensions.index, 0);
   key(new TestElement(), 'y');
   assert.deepEqual(updates, []);
+});
+
+function dimensionKey(target, pressed) {
+  const event = { target, key: pressed, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.propagationStopped = true; } };
+  target.dispatch('keydown', event);
+  return event;
+}
+
+for (const pressed of ['Enter', ' ']) {
+  test(`sheet dimension ${JSON.stringify(pressed)} opens a named editor and Escape returns focus without updating`, (t) => {
+    const { renderer, container, updates } = setupRenderer(t, 0, { dimensions: [{ id: 'WIDTH', value: 142 }] });
+    setLocale('en', { persist: false });
+    renderer.showDrawing('<svg/>', [], 'auto', 'preview-A');
+    const dimension = container.querySelector('text[data-dim-id]');
+    assert.equal(dimension.getAttribute('role'), 'button');
+    assert.equal(dimension.getAttribute('tabindex'), '0');
+    assert.match(dimension.getAttribute('aria-label'), /WIDTH.*142.*mm/);
+    dimension.focus();
+    assert.equal(dimensionKey(dimension, pressed).defaultPrevented, true);
+    const input = container.querySelector('input');
+    assert.ok(input);
+    assert.equal(document.activeElement, input);
+    assert.match(input.getAttribute('aria-label'), /WIDTH.*mm/);
+    input.value = '160';
+    const escape = dimensionKey(input, 'Escape');
+    assert.equal(escape.defaultPrevented, true);
+    assert.equal(escape.propagationStopped, true);
+    assert.equal(container.querySelector('input'), null);
+    assert.equal(document.activeElement, dimension);
+    assert.deepEqual(updates, []);
+  });
+}
+
+test('keyboard dimension submission keeps the original annotation payload', (t) => {
+  const { renderer, container, updates } = setupRenderer(t, 0, { dimensions: [{ id: 'WIDTH', value: 142 }] });
+  renderer.showDrawing('<svg/>', [], 'auto', 'preview-A');
+  const dimension = container.querySelector('text[data-dim-id]');
+  dimensionKey(dimension, 'Enter');
+  const input = container.querySelector('input');
+  assert.ok(input);
+  input.value = '150';
+  dimensionKey(input, 'Enter');
+  assert.deepEqual(updates, [{ dimId: 'WIDTH', valueMm: 150, planPath: 'preview-A', configToml: '', historyOp: 'edit' }]);
+});
+
+test('canceling and immediately reopening does not let the old blur dismiss the new editor', async (t) => {
+  const { renderer, container } = setupRenderer(t, 0, { dimensions: [{ id: 'WIDTH', value: 142 }] });
+  renderer.showDrawing('<svg/>', [], 'auto', 'preview-A');
+  const dimension = container.querySelector('text[data-dim-id]');
+  dimensionKey(dimension, 'Enter');
+  const firstInput = container.querySelector('input');
+  firstInput.dispatch('blur', {});
+  dimensionKey(firstInput, 'Escape');
+  dimensionKey(dimension, ' ');
+  const nextInput = container.querySelector('input');
+  assert.notEqual(nextInput, firstInput);
+  await new Promise((resolve) => setTimeout(resolve, 175));
+  assert.equal(container.querySelector('input'), nextInput);
+  assert.equal(document.activeElement, nextInput);
+});
+
+test('an unavailable preview removes keyboard edit actions from the retained sheet', (t) => {
+  let available = true;
+  const { renderer, container } = setupRenderer(t, 0, {
+    dimensions: [{ id: 'WIDTH', value: 142 }],
+    renderer: { isDimensionEditingAvailable: () => available },
+  });
+  renderer.showDrawing('<svg/>', [], 'auto', 'preview-A');
+  const dimension = container.querySelector('text[data-dim-id]');
+  assert.equal(dimension.getAttribute('role'), 'button');
+  available = false;
+  renderer.syncDimensionEditingAvailability();
+  assert.equal(dimension.getAttribute('role'), null);
+  assert.equal(dimension.getAttribute('tabindex'), null);
+  dimensionKey(dimension, 'Enter');
+  assert.equal(container.querySelector('input'), null);
+});
+
+test('preview-only sheets do not advertise interactive dimension buttons', (t) => {
+  const { state, mount } = setupWorkspace(t, 0, { dimensions: [{ id: 'WIDTH', value: 142 }] });
+  state.data.drawing.preview.editable_plan_available = false;
+  const { root } = mount();
+  const dimension = root.querySelector('text[data-dim-id]');
+  assert.ok(dimension);
+  assert.equal(dimension.getAttribute('role'), null);
+  assert.equal(dimension.getAttribute('tabindex'), null);
+  dimensionKey(dimension, 'Enter');
+  assert.equal(root.querySelector('.dim-edit-input'), null);
+});
+
+test('dimension panel controls identify their dimension and millimeter units in both locales', (t) => {
+  const { state, mount } = setupWorkspace(t);
+  state.data.drawing.preview.editable_plan_available = true;
+  state.data.drawing.preview.dimensions = [{ id: 'WIDTH', value_mm: 142, feature: 'body_width' }];
+  for (const locale of ['en', 'ko']) {
+    setLocale(locale, { persist: false });
+    const { root, workspace } = mount();
+    const input = root.querySelector('input[data-dim-id]');
+    const button = root.querySelector('[data-action="drawing-apply-dimension"]');
+    assert.match(input.getAttribute('aria-label'), /WIDTH.*mm/);
+    assert.match(button.getAttribute('aria-label'), /WIDTH/);
+    if (locale === 'ko') assert.match(input.getAttribute('aria-label'), /[가-힣]/);
+    workspace.destroy();
+  }
 });

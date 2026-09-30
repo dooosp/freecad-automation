@@ -4,6 +4,7 @@ const RESULT_GROUP_ORDER = Object.freeze([
   'technical',
   'system',
 ]);
+const DRAWING_SIDECAR_MATCHERS = ['drawing', 'draw.', 'feature-catalog', 'feature_catalog'];
 
 function artifactSearchText(artifact = {}) {
   return [
@@ -52,6 +53,9 @@ export function classifyResultFilePurpose(artifact = {}) {
 
   if (includesAny(search, [
     'quality',
+    'drawing.qa',
+    'drawing_qa',
+    'drawing qa',
     'readiness',
     'review-pack',
     'review_pack',
@@ -67,9 +71,13 @@ export function classifyResultFilePurpose(artifact = {}) {
     'stabilization',
     'report_summary',
     'report summary',
+    'report.summary',
   ])) {
     return 'quality';
   }
+
+  // Drawing plans and catalogs are supporting files; JSON reports keep their contract.
+  if (extension === '.json' && includesAny(search, DRAWING_SIDECAR_MATCHERS)) return 'technical';
 
   if (
     extension === '.pdf'
@@ -106,10 +114,7 @@ function jobTypePreferenceScore(artifact = {}, jobType = '') {
     ['.fcstd', '.brep', '.brp', '.step', '.stp', '.stl'].includes(extension)
     || includesAny(search, ['3d model', 'model preview'])
   )) return -250;
-  if (normalizedType === 'draw' && (
-    ['.svg', '.dxf', '.pdf'].includes(extension)
-    || search.includes('drawing')
-  )) return -250;
+  if (normalizedType === 'draw' && ['.svg', '.dxf', '.pdf'].includes(extension)) return -250;
   if (normalizedType === 'report' && (extension === '.pdf' || search.includes('report'))) return -250;
   if (includesAny(normalizedType, ['review', 'inspect', 'readiness', 'compare', 'stabilization'])
     && classifyResultFilePurpose(artifact) === 'quality') return -200;
@@ -189,9 +194,10 @@ export function resultFileLabelKey(artifact = {}) {
   if (classifyResultFilePurpose(artifact) === 'system') return 'studio.artifacts.file.system';
   if (includesAny(search, ['bom', 'bill of material'])) return 'studio.artifacts.file.bom';
   if (includesAny(search, ['readiness'])) return 'studio.artifacts.file.readiness';
-  if (includesAny(search, ['quality', 'dfm', 'inspection', 'review', 'revision', 'stabilization', 'report_summary', 'report summary'])) {
+  if (classifyResultFilePurpose(artifact) === 'quality') {
     return 'studio.artifacts.file.quality';
   }
+  if (extension === '.json' && includesAny(search, DRAWING_SIDECAR_MATCHERS)) return '';
   if (extension === '.svg' || extension === '.dxf' || search.includes('drawing')) return 'studio.artifacts.file.drawing';
   if (classifyResultFilePurpose(artifact) === 'system') return 'studio.artifacts.file.system';
   if (search.includes('report')) return 'studio.artifacts.file.report';

@@ -1,4 +1,5 @@
 import { buildSafeSvg, clearElement, makeElement } from './dom.js';
+import { t } from '../i18n/index.js';
 
 export function renderBom(bomElement, bom) {
   if (!bomElement) return;
@@ -47,9 +48,12 @@ export function createDrawingRenderer({
   sendDimensionUpdate = () => {},
   getConfigToml = () => '',
   onDrawingStateChange = () => {},
+  isDimensionEditingAvailable = () => true,
 }) {
   const drawingState = state.drawing;
   const dimensionState = state.dimensions;
+  let dimensionEditTarget = null;
+  let dimensionTargets = [];
 
   function syncDrawingState() {
     onDrawingStateChange({
@@ -104,13 +108,18 @@ export function createDrawingRenderer({
     syncDrawingState();
   }
 
-  function closeDimEdit() {
+  function closeDimEdit({ restoreFocus = false } = {}) {
+    const returnTarget = dimensionEditTarget;
+    dimensionEditTarget = null;
     if (dimensionState.input?.parentNode) {
       dimensionState.input.parentNode.removeChild(dimensionState.input);
     }
     dimensionState.input = null;
     dimensionState.editing = false;
     syncDrawingState();
+    if (restoreFocus && returnTarget?.isConnected && returnTarget.getClientRects().length > 0) {
+      returnTarget.focus();
+    }
   }
 
   function addEditHistory(dimId, oldValue, newValue) {
@@ -185,12 +194,13 @@ export function createDrawingRenderer({
   }
 
   function openDimEdit(textElement) {
+    if (!isDimensionEditingAvailable() || dimensionState.pending) return;
     closeDimEdit();
     dimensionState.editing = true;
 
     const dimId = textElement.getAttribute('data-dim-id');
     const valueMm = Number.parseFloat(textElement.getAttribute('data-value-mm'));
-    if (!dimId || Number.isNaN(valueMm)) {
+    if (!dimId || !Number.isFinite(valueMm) || valueMm <= 0) {
       dimensionState.editing = false;
       return;
     }
@@ -217,24 +227,52 @@ export function createDrawingRenderer({
     input.style.color = '#000';
     input.dataset.dimId = dimId;
     input.dataset.origValue = String(valueMm);
+    input.setAttribute('aria-label', t('studio.drawing.dimension.value', { dimension: dimId }));
+    input.setAttribute('title', t('studio.drawing.dimension.instructions'));
 
     drawingContainerElement.style.position = 'relative';
     drawingContainerElement.appendChild(input);
     dimensionState.input = input;
+    dimensionEditTarget = textElement;
     input.focus();
     input.select();
 
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
         submitDimEdit(input);
       } else if (event.key === 'Escape') {
-        closeDimEdit();
+        event.preventDefault();
+        event.stopPropagation();
+        closeDimEdit({ restoreFocus: true });
       }
     });
 
     input.addEventListener('blur', () => {
-      setTimeout(() => closeDimEdit(), 150);
+      setTimeout(() => {
+        if (dimensionState.input === input) closeDimEdit();
+      }, 150);
     });
+  }
+
+  function syncDimensionEditingAvailability() {
+    const available = isDimensionEditingAvailable();
+    dimensionTargets.forEach((element) => {
+      element.style.cursor = available ? 'pointer' : '';
+      if (available) {
+        element.setAttribute('role', 'button');
+        element.setAttribute('tabindex', '0');
+        element.setAttribute('data-dimension-editable', 'true');
+        element.setAttribute('aria-label', t('studio.drawing.dimension.edit', {
+          dimension: element.getAttribute('data-dim-id'),
+          value: element.getAttribute('data-value-mm'),
+        }));
+      } else {
+        for (const attribute of ['role', 'tabindex', 'data-dimension-editable', 'aria-label']) element.removeAttribute(attribute);
+      }
+    });
+    if (!available && dimensionState.input) closeDimEdit();
   }
 
   function initDimensionEditing({ preserveHistory = false } = {}) {
@@ -248,19 +286,21 @@ export function createDrawingRenderer({
     const svgElement = drawingContainerElement.querySelector('svg');
     if (!svgElement) return;
 
-    const dimTexts = svgElement.querySelectorAll('text[data-dim-id]');
-    dimTexts.forEach((element) => {
-      element.style.cursor = 'pointer';
+    dimensionTargets = [...svgElement.querySelectorAll('text[data-dim-id]')].filter((element) => {
+      const value = Number.parseFloat(element.getAttribute('data-value-mm'));
+      return element.getAttribute('data-dim-id') && Number.isFinite(value) && value > 0;
+    });
+    dimensionTargets.forEach((element) => {
 
       element.addEventListener('mouseenter', () => {
-        if (dimensionState.editing) return;
+        if (dimensionState.editing || !isDimensionEditingAvailable()) return;
         element.setAttribute('data-orig-fill', element.getAttribute('fill') || '#000');
         element.setAttribute('fill', '#0066cc');
         element.style.fontWeight = 'bold';
       });
 
       element.addEventListener('mouseleave', () => {
-        if (dimensionState.editing) return;
+        if (dimensionState.editing || !isDimensionEditingAvailable()) return;
         element.setAttribute('fill', element.getAttribute('data-orig-fill') || '#000');
         element.style.fontWeight = '';
       });
@@ -270,7 +310,15 @@ export function createDrawingRenderer({
         event.preventDefault();
         openDimEdit(element);
       });
+      element.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        if (!isDimensionEditingAvailable()) return;
+        event.stopPropagation();
+        event.preventDefault();
+        openDimEdit(element);
+      });
     });
+    syncDimensionEditingAvailability();
     syncDrawingState();
   }
 
@@ -420,5 +468,6 @@ export function createDrawingRenderer({
     },
     handleDimensionUpdated,
     showDrawing,
+    syncDimensionEditingAvailability,
   };
 }
