@@ -1,0 +1,1288 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "c19398ca9fc70492472dcd982aea22f75cbfff84",
+  "service_sha256": "763f03d8556fad3421ee803b1a329189c68ba15c1b73f9eaaf582aaaf976550a",
+  "benchmark_sha256": "347fde1f4b1d5f418c831393f0de4441f9bf0717ce96c5e1d0a8d0dd054a12bb",
+  "fixture_generator_sha256": "4e520f975dde075fef1d6d0e6062c2b5b9c64306923e5ae5da86d5842cc329a1",
+  "runs": {
+    "baseline": {
+      "schema_version": 1,
+      "recorded_at": "2026-09-30T12:31:26.602Z",
+      "platform": "darwin 25.6.0",
+      "node": "v25.8.0",
+      "method": {
+        "fresh_child_per_scenario": true,
+        "explicit_gc": true,
+        "memory_sample_ms": 5,
+        "worker_timeout_ms": 90000,
+        "fixture_geometry_validated": false,
+        "source_sizes_mib": [
+          0.5,
+          5,
+          20
+        ],
+        "cycles_per_size": 10,
+        "not_measured": [
+          "GPU memory",
+          "FreeCAD subprocess RSS",
+          "browser rendering",
+          "OS-cache-cold I/O",
+          "production tail percentiles",
+          "long soak",
+          "cross-platform behavior"
+        ]
+      },
+      "results": [
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 0.5,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 1.502,
+            "p95_ms": 3.976,
+            "samples_ms": [
+              3.976,
+              1.637,
+              1.786,
+              1.622,
+              1.428,
+              1.433,
+              1.504,
+              1.317,
+              1.502,
+              1.394
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 0.371,
+            "p95_ms": 0.443,
+            "samples_ms": [
+              0.443,
+              0.385,
+              0.412,
+              0.373,
+              0.356,
+              0.371,
+              0.349,
+              0.349,
+              0.373,
+              0.366
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 53149696,
+              "heapTotal": 8011776,
+              "heapUsed": 4401856,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 69795840,
+              "heapTotal": 8798208,
+              "heapUsed": 4662944,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 69795840,
+              "heapTotal": 8798208,
+              "heapUsed": 5495952,
+              "external": 18063297,
+              "arrayBuffers": 15786259
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 5,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 10.086,
+            "p95_ms": 14.065,
+            "samples_ms": [
+              14.065,
+              10.485,
+              10.795,
+              10.141,
+              10.038,
+              10.086,
+              9.952,
+              9.74,
+              9.661,
+              11.188
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 3.162,
+            "p95_ms": 4.936,
+            "samples_ms": [
+              3.312,
+              3.102,
+              3.771,
+              3.444,
+              4.936,
+              2.998,
+              3.121,
+              3.143,
+              3.369,
+              3.162
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 52887552,
+              "heapTotal": 8536064,
+              "heapUsed": 4420024,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 132677632,
+              "heapTotal": 8798208,
+              "heapUsed": 4682608,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 132677632,
+              "heapTotal": 8798208,
+              "heapUsed": 5218680,
+              "external": 80986617,
+              "arrayBuffers": 73466099
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 20,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 39.476,
+            "p95_ms": 55.029,
+            "samples_ms": [
+              35.722,
+              42.345,
+              55.029,
+              41.353,
+              48.176,
+              40.034,
+              38.287,
+              37.159,
+              39.476,
+              36.902
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 11.415,
+            "p95_ms": 13.293,
+            "samples_ms": [
+              12.473,
+              11.415,
+              11.552,
+              13.293,
+              11.11,
+              11.045,
+              11.389,
+              12.731,
+              11.183,
+              13.1
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 54558720,
+              "heapTotal": 10108928,
+              "heapUsed": 4421216,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 181305344,
+              "heapTotal": 10108928,
+              "heapUsed": 4016224,
+              "external": 2290526,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 181305344,
+              "heapTotal": 10108928,
+              "heapUsed": 5215320,
+              "external": 107199407,
+              "arrayBuffers": 104922369
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_queue_failure_recovery",
+          "source_mib": 20,
+          "limits": {
+            "concurrent": 1,
+            "queued": 2
+          },
+          "requests": 6,
+          "conversions": 4,
+          "peak_conversions": 1,
+          "queue_drain_ms": 66.691,
+          "outcomes": [
+            {
+              "artifactId": "overflow",
+              "status": 503,
+              "message": "Model preview is busy. Try opening the result again shortly.",
+              "elapsed_ms": 33.969
+            },
+            {
+              "artifactId": "active",
+              "status": 500,
+              "message": "synthetic converter failure",
+              "elapsed_ms": 175.064
+            },
+            {
+              "artifactId": "queued-b",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 161.879
+            },
+            {
+              "artifactId": "queued-a",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 195.246
+            },
+            {
+              "artifactId": "queued-a",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 148.162
+            },
+            {
+              "artifactId": "active",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 45.12
+            }
+          ],
+          "active_held_memory_bytes": {
+            "rss": 75530240,
+            "heapTotal": 9846784,
+            "heapUsed": 4491184,
+            "external": 23265256,
+            "arrayBuffers": 20992239
+          },
+          "queued_held_memory_bytes": {
+            "rss": 138608640,
+            "heapTotal": 9846784,
+            "heapUsed": 4530024,
+            "external": 65208296,
+            "arrayBuffers": 62935279
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 54247424,
+              "heapTotal": 9846784,
+              "heapUsed": 4422656,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 201719808,
+              "heapTotal": 9846784,
+              "heapUsed": 4636040,
+              "external": 2297757,
+              "arrayBuffers": 20719
+            },
+            "sampled_peak": {
+              "rss": 201719808,
+              "heapTotal": 9846784,
+              "heapUsed": 5039776,
+              "external": 128171446,
+              "arrayBuffers": 125894408
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_http_cancellation",
+          "source_mib": 0.5,
+          "one_client_abort_ms": 1.672,
+          "conversions": 2,
+          "outcomes": [
+            {
+              "status": 503,
+              "bytes": 148,
+              "elapsed_ms": 2.188
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 10.509
+            },
+            {
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 13.933
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 6.786
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 6.562
+            },
+            {
+              "status": 503,
+              "bytes": 148,
+              "elapsed_ms": 1.352
+            },
+            {
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 1.683
+            }
+          ],
+          "all_client_disconnect_policy": "admitted shared work completes; its slot remains occupied until cleanup"
+        }
+      ]
+    },
+    "streamed": {
+      "schema_version": 1,
+      "recorded_at": "2026-09-30T12:33:24.974Z",
+      "platform": "darwin 25.6.0",
+      "node": "v25.8.0",
+      "method": {
+        "fresh_child_per_scenario": true,
+        "explicit_gc": true,
+        "memory_sample_ms": 5,
+        "worker_timeout_ms": 90000,
+        "fixture_geometry_validated": false,
+        "source_sizes_mib": [
+          0.5,
+          5,
+          20
+        ],
+        "cycles_per_size": 10,
+        "not_measured": [
+          "GPU memory",
+          "FreeCAD subprocess RSS",
+          "browser rendering",
+          "OS-cache-cold I/O",
+          "production tail percentiles",
+          "long soak",
+          "cross-platform behavior"
+        ]
+      },
+      "results": [
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 0.5,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 2.265,
+            "p95_ms": 8.869,
+            "samples_ms": [
+              8.869,
+              3.336,
+              2.422,
+              2.239,
+              2.265,
+              4.235,
+              2.423,
+              2.12,
+              1.986,
+              2.001
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 0.417,
+            "p95_ms": 0.577,
+            "samples_ms": [
+              0.577,
+              0.484,
+              0.488,
+              0.454,
+              0.417,
+              0.419,
+              0.4,
+              0.389,
+              0.402,
+              0.39
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 52674560,
+              "heapTotal": 8011776,
+              "heapUsed": 4409792,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 69697536,
+              "heapTotal": 9846784,
+              "heapUsed": 5251104,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 69697536,
+              "heapTotal": 10108928,
+              "heapUsed": 6668008,
+              "external": 14102357,
+              "arrayBuffers": 11825319
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 5,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 16.433,
+            "p95_ms": 21.737,
+            "samples_ms": [
+              21.737,
+              14.903,
+              16.47,
+              16.408,
+              17.762,
+              16.284,
+              16.433,
+              18.654,
+              17.229,
+              15.591
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 3.92,
+            "p95_ms": 4.095,
+            "samples_ms": [
+              3.421,
+              3.638,
+              3.905,
+              3.896,
+              3.953,
+              3.944,
+              3.92,
+              4.018,
+              3.954,
+              4.095
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 53133312,
+              "heapTotal": 8536064,
+              "heapUsed": 4428160,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 82837504,
+              "heapTotal": 10108928,
+              "heapUsed": 5314272,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 82837504,
+              "heapTotal": 10108928,
+              "heapUsed": 7043696,
+              "external": 25303053,
+              "arrayBuffers": 23026015
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 20,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 60.103,
+            "p95_ms": 64.5,
+            "samples_ms": [
+              64.5,
+              57.482,
+              57.096,
+              61.616,
+              58.335,
+              61.024,
+              60.178,
+              60.103,
+              59.993,
+              61.099
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 15.191,
+            "p95_ms": 15.964,
+            "samples_ms": [
+              15.964,
+              15.61,
+              15.301,
+              15.566,
+              14.836,
+              15.153,
+              15.021,
+              15.192,
+              15.191,
+              15.079
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 54493184,
+              "heapTotal": 10108928,
+              "heapUsed": 4429152,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 133496832,
+              "heapTotal": 13516800,
+              "heapUsed": 5319816,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 133496832,
+              "heapTotal": 13516800,
+              "heapUsed": 8733008,
+              "external": 69408447,
+              "arrayBuffers": 63527331
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_queue_failure_recovery",
+          "source_mib": 20,
+          "limits": {
+            "concurrent": 1,
+            "queued": 2
+          },
+          "requests": 6,
+          "conversions": 4,
+          "peak_conversions": 1,
+          "queue_drain_ms": 90.822,
+          "outcomes": [
+            {
+              "artifactId": "overflow",
+              "status": 503,
+              "message": "Model preview is busy. Try opening the result again shortly.",
+              "elapsed_ms": 36.278
+            },
+            {
+              "artifactId": "active",
+              "status": 500,
+              "message": "synthetic converter failure",
+              "elapsed_ms": 206.737
+            },
+            {
+              "artifactId": "queued-b",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 182.543
+            },
+            {
+              "artifactId": "queued-a",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 225.786
+            },
+            {
+              "artifactId": "queued-a",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 171.257
+            },
+            {
+              "artifactId": "active",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 64.974
+            }
+          ],
+          "active_held_memory_bytes": {
+            "rss": 80478208,
+            "heapTotal": 10108928,
+            "heapUsed": 4866872,
+            "external": 2293736,
+            "arrayBuffers": 20719
+          },
+          "queued_held_memory_bytes": {
+            "rss": 88801280,
+            "heapTotal": 10108928,
+            "heapUsed": 4911184,
+            "external": 2293736,
+            "arrayBuffers": 20719
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 54345728,
+              "heapTotal": 10108928,
+              "heapUsed": 4430960,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 91914240,
+              "heapTotal": 10108928,
+              "heapUsed": 5110672,
+              "external": 2297757,
+              "arrayBuffers": 20719
+            },
+            "sampled_peak": {
+              "rss": 91930624,
+              "heapTotal": 10108928,
+              "heapUsed": 6894632,
+              "external": 31659443,
+              "arrayBuffers": 26104047
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_http_cancellation",
+          "source_mib": 0.5,
+          "one_client_abort_ms": 1.631,
+          "conversions": 2,
+          "outcomes": [
+            {
+              "status": 503,
+              "bytes": 148,
+              "elapsed_ms": 2.213
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 9.634
+            },
+            {
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 12.837
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 6.721
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 6.516
+            },
+            {
+              "status": 503,
+              "bytes": 148,
+              "elapsed_ms": 1.623
+            },
+            {
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 1.761
+            }
+          ],
+          "all_client_disconnect_policy": "admitted shared work completes; its slot remains occupied until cleanup"
+        }
+      ]
+    },
+    "native": {
+      "schema_version": 1,
+      "recorded_at": "2026-09-30T12:34:17.343Z",
+      "platform": "darwin 25.6.0",
+      "node": "v25.8.0",
+      "method": {
+        "fresh_child_per_scenario": true,
+        "explicit_gc": true,
+        "memory_sample_ms": 5,
+        "worker_timeout_ms": 45000,
+        "native_scale_timeout_ms": 240000,
+        "fixture_geometry_validated": false,
+        "source_sizes_mib": [
+          0.5,
+          5,
+          20
+        ],
+        "cycles_per_size": 10,
+        "not_measured": [
+          "GPU memory",
+          "FreeCAD subprocess RSS",
+          "browser rendering",
+          "OS-cache-cold I/O",
+          "production tail percentiles",
+          "long soak",
+          "cross-platform behavior"
+        ]
+      },
+      "results": [
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 0.5,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 2.498,
+            "p95_ms": 10.186,
+            "samples_ms": [
+              10.186,
+              3.159,
+              2.498,
+              2.198,
+              3.022,
+              2.388,
+              2.349,
+              3.287,
+              2.189,
+              2.9
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 0.457,
+            "p95_ms": 0.813,
+            "samples_ms": [
+              0.656,
+              0.472,
+              0.459,
+              0.405,
+              0.457,
+              0.423,
+              0.41,
+              0.404,
+              0.479,
+              0.813
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 53231616,
+              "heapTotal": 8536064,
+              "heapUsed": 4411544,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 71221248,
+              "heapTotal": 10108928,
+              "heapUsed": 5255144,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 71221248,
+              "heapTotal": 10108928,
+              "heapUsed": 6739608,
+              "external": 15281535,
+              "arrayBuffers": 13004497
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 5,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 16.408,
+            "p95_ms": 23.401,
+            "samples_ms": [
+              23.401,
+              17.136,
+              17.026,
+              17.533,
+              15.459,
+              16.04,
+              16.408,
+              16.16,
+              16.009,
+              16.62
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 3.872,
+            "p95_ms": 4.354,
+            "samples_ms": [
+              3.699,
+              4.354,
+              3.536,
+              3.473,
+              4.027,
+              3.912,
+              3.795,
+              3.886,
+              3.872,
+              3.939
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 53313536,
+              "heapTotal": 8273920,
+              "heapUsed": 4430176,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 85049344,
+              "heapTotal": 10108928,
+              "heapUsed": 5312728,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 85049344,
+              "heapTotal": 10108928,
+              "heapUsed": 7092160,
+              "external": 27072927,
+              "arrayBuffers": 24795889
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_service_cycles",
+          "source_mib": 20,
+          "requests": 20,
+          "conversions": 10,
+          "miss": {
+            "count": 10,
+            "median_ms": 55.133,
+            "p95_ms": 64.064,
+            "samples_ms": [
+              64.064,
+              57.8,
+              57.049,
+              56.679,
+              54.189,
+              54.403,
+              55.788,
+              54.451,
+              50.976,
+              55.133
+            ]
+          },
+          "hit": {
+            "count": 10,
+            "median_ms": 15.118,
+            "p95_ms": 16.215,
+            "samples_ms": [
+              15.745,
+              15.681,
+              14.787,
+              15.239,
+              15.118,
+              14.699,
+              14.34,
+              14.52,
+              16.215,
+              15.196
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 54132736,
+              "heapTotal": 10108928,
+              "heapUsed": 4430872,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 134283264,
+              "heapTotal": 13254656,
+              "heapUsed": 5324720,
+              "external": 2297891,
+              "arrayBuffers": 20853
+            },
+            "sampled_peak": {
+              "rss": 134283264,
+              "heapTotal": 13516800,
+              "heapUsed": 8763432,
+              "external": 69866399,
+              "arrayBuffers": 67131877
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_queue_failure_recovery",
+          "source_mib": 20,
+          "limits": {
+            "concurrent": 1,
+            "queued": 2
+          },
+          "requests": 6,
+          "conversions": 4,
+          "peak_conversions": 1,
+          "queue_drain_ms": 103.285,
+          "outcomes": [
+            {
+              "artifactId": "queued-b",
+              "status": 503,
+              "message": "Model preview is busy. Try opening the result again shortly.",
+              "elapsed_ms": 36.85
+            },
+            {
+              "artifactId": "active",
+              "status": 500,
+              "message": "synthetic converter failure",
+              "elapsed_ms": 195.731
+            },
+            {
+              "artifactId": "overflow",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 182.713
+            },
+            {
+              "artifactId": "queued-a",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 237.37
+            },
+            {
+              "artifactId": "queued-a",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 183.243
+            },
+            {
+              "artifactId": "active",
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 65.902
+            }
+          ],
+          "active_held_memory_bytes": {
+            "rss": 80560128,
+            "heapTotal": 10108928,
+            "heapUsed": 4876048,
+            "external": 2293736,
+            "arrayBuffers": 20719
+          },
+          "queued_held_memory_bytes": {
+            "rss": 88997888,
+            "heapTotal": 10108928,
+            "heapUsed": 4913752,
+            "external": 2293736,
+            "arrayBuffers": 20719
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 54722560,
+              "heapTotal": 9846784,
+              "heapUsed": 4432680,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 92782592,
+              "heapTotal": 10108928,
+              "heapUsed": 5111256,
+              "external": 2297757,
+              "arrayBuffers": 20719
+            },
+            "sampled_peak": {
+              "rss": 92782592,
+              "heapTotal": 10108928,
+              "heapUsed": 7009680,
+              "external": 29889971,
+              "arrayBuffers": 27612911
+            }
+          }
+        },
+        {
+          "scenario": "synthetic_http_cancellation",
+          "source_mib": 0.5,
+          "one_client_abort_ms": 3.272,
+          "conversions": 2,
+          "outcomes": [
+            {
+              "status": 503,
+              "bytes": 148,
+              "elapsed_ms": 3.586
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 28.686
+            },
+            {
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 35.617
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 6.281
+            },
+            {
+              "error": "AbortError",
+              "elapsed_ms": 5.88
+            },
+            {
+              "status": 503,
+              "bytes": 148,
+              "elapsed_ms": 2.832
+            },
+            {
+              "status": 200,
+              "bytes": 134,
+              "elapsed_ms": 2.379
+            }
+          ],
+          "all_client_disconnect_policy": "admitted shared work completes; its slot remains occupied until cleanup"
+        },
+        {
+          "scenario": "real_freecad_service",
+          "source": "repo-owned quality_pass_bracket STEP from prior runtime-smoke",
+          "source_bytes": 32571,
+          "source_sha256": "6ea71460417e67b621327a90c8aab4f3526bc123c346b28a6c90054706f20ed3",
+          "requests": 6,
+          "conversions": 3,
+          "mesh_bytes": 153884,
+          "triangles": 3076,
+          "converter_timeout_ms": 20000,
+          "miss": {
+            "count": 3,
+            "median_ms": 235.653,
+            "p95_ms": 424.866,
+            "samples_ms": [
+              424.866,
+              225.936,
+              235.653
+            ]
+          },
+          "hit": {
+            "count": 3,
+            "median_ms": 0.22,
+            "p95_ms": 0.299,
+            "samples_ms": [
+              0.212,
+              0.299,
+              0.22
+            ]
+          },
+          "memory_bytes": {
+            "before": {
+              "rss": 53313536,
+              "heapTotal": 8536064,
+              "heapUsed": 4505600,
+              "external": 2293696,
+              "arrayBuffers": 20719
+            },
+            "after": {
+              "rss": 55836672,
+              "heapTotal": 9322496,
+              "heapUsed": 5084976,
+              "external": 2451641,
+              "arrayBuffers": 174603
+            },
+            "sampled_peak": {
+              "rss": 55836672,
+              "heapTotal": 9322496,
+              "heapUsed": 6029808,
+              "external": 4895156,
+              "arrayBuffers": 2454475
+            }
+          }
+        },
+        {
+          "scenario": "real_freecad_solid_scale",
+          "freecad_version": "1.1.4",
+          "fixture": "disjoint 8 x 6 x 4 mm boxes in a regular grid; synthetic nonmanufacturing workload",
+          "total_source_bytes": 1912403,
+          "sequential": true,
+          "measurements": [
+            {
+              "scenario": "real_freecad_service",
+              "source": "generated/boxes_1.step",
+              "source_bytes": 6841,
+              "source_sha256": "d952cf02e1c30ff077c827d22ff8b92542123dacab71a368c64e3a2c353ee740",
+              "requests": 6,
+              "conversions": 3,
+              "mesh_bytes": 684,
+              "triangles": 12,
+              "converter_timeout_ms": 20000,
+              "miss": {
+                "count": 3,
+                "median_ms": 202.866,
+                "p95_ms": 208.369,
+                "samples_ms": [
+                  208.369,
+                  202.201,
+                  202.866
+                ]
+              },
+              "hit": {
+                "count": 3,
+                "median_ms": 0.166,
+                "p95_ms": 0.173,
+                "samples_ms": [
+                  0.173,
+                  0.166,
+                  0.146
+                ]
+              },
+              "memory_bytes": {
+                "before": {
+                  "rss": 53444608,
+                  "heapTotal": 9060352,
+                  "heapUsed": 4645776,
+                  "external": 2323253,
+                  "arrayBuffers": 20719
+                },
+                "after": {
+                  "rss": 54886400,
+                  "heapTotal": 9584640,
+                  "heapUsed": 5125328,
+                  "external": 2327998,
+                  "arrayBuffers": 21403
+                },
+                "sampled_peak": {
+                  "rss": 54886400,
+                  "heapTotal": 9584640,
+                  "heapUsed": 6230664,
+                  "external": 4126945,
+                  "arrayBuffers": 1682437
+                }
+              },
+              "solids": 1,
+              "faces": 6
+            },
+            {
+              "scenario": "real_freecad_service",
+              "source": "generated/boxes_64.step",
+              "source_bytes": 367516,
+              "source_sha256": "d7632980684cef878651e1d991c2765e055020c3db6609202655a49fe10bb58d",
+              "requests": 6,
+              "conversions": 3,
+              "mesh_bytes": 38484,
+              "triangles": 768,
+              "converter_timeout_ms": 20000,
+              "miss": {
+                "count": 3,
+                "median_ms": 322.317,
+                "p95_ms": 386.275,
+                "samples_ms": [
+                  322.317,
+                  321.15,
+                  386.275
+                ]
+              },
+              "hit": {
+                "count": 3,
+                "median_ms": 0.403,
+                "p95_ms": 0.416,
+                "samples_ms": [
+                  0.403,
+                  0.416,
+                  0.354
+                ]
+              },
+              "memory_bytes": {
+                "before": {
+                  "rss": 54968320,
+                  "heapTotal": 9584640,
+                  "heapUsed": 5115640,
+                  "external": 2327314,
+                  "arrayBuffers": 20719
+                },
+                "after": {
+                  "rss": 61374464,
+                  "heapTotal": 10371072,
+                  "heapUsed": 5297968,
+                  "external": 2365798,
+                  "arrayBuffers": 59203
+                },
+                "sampled_peak": {
+                  "rss": 61374464,
+                  "heapTotal": 10371072,
+                  "heapUsed": 6462936,
+                  "external": 8932795,
+                  "arrayBuffers": 6127612
+                }
+              },
+              "solids": 64,
+              "faces": 384
+            },
+            {
+              "scenario": "real_freecad_service",
+              "source": "generated/boxes_256.step",
+              "source_bytes": 1538046,
+              "source_sha256": "3e37cc1273296e6e5c819a13c7fbb37465754e9b2c581488700d25029ffd1a17",
+              "requests": 6,
+              "conversions": 3,
+              "mesh_bytes": 153684,
+              "triangles": 3072,
+              "converter_timeout_ms": 20000,
+              "miss": {
+                "count": 3,
+                "median_ms": 663.86,
+                "p95_ms": 664.601,
+                "samples_ms": [
+                  664.601,
+                  654.327,
+                  663.86
+                ]
+              },
+              "hit": {
+                "count": 3,
+                "median_ms": 1.174,
+                "p95_ms": 1.259,
+                "samples_ms": [
+                  1.107,
+                  1.174,
+                  1.259
+                ]
+              },
+              "memory_bytes": {
+                "before": {
+                  "rss": 61571072,
+                  "heapTotal": 10371072,
+                  "heapUsed": 5286312,
+                  "external": 2327314,
+                  "arrayBuffers": 20719
+                },
+                "after": {
+                  "rss": 72351744,
+                  "heapTotal": 10895360,
+                  "heapUsed": 5465488,
+                  "external": 2480998,
+                  "arrayBuffers": 174403
+                },
+                "sampled_peak": {
+                  "rss": 72351744,
+                  "heapTotal": 10895360,
+                  "heapUsed": 7061816,
+                  "external": 18121288,
+                  "arrayBuffers": 15814693
+                }
+              },
+              "solids": 256,
+              "faces": 1536
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "post_measurement_hardening": {
+    "scope": "Benchmark input/output canonicalization and atomic report save only; measured service and workload algorithms unchanged",
+    "current_benchmark_sha256": "db0fbd62c9550e7f93d96044f078992d96c24ceab36ae1d327de531a9b1eb1f8",
+    "historical_fingerprint_preserved": true,
+    "verification": "7 path-preservation regressions passed; complete synthetic CLI rerun passed; historical sample arrays above were not replaced"
+  }
+}
