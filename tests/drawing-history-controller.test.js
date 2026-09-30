@@ -80,6 +80,9 @@ function setupWorkspace(t, index = 0, options = {}) {
   const mounts = [];
   function mount() {
     const root = drawingWorkspaceRoot();
+    const caption = new TestElement('p');
+    caption.dataset.hook = 'drawing-canvas-caption';
+    root.append(caption);
     document.append(root);
     const workspace = mountDrawingWorkspace({ root, state, addLog() {} });
     mounts.push(workspace);
@@ -252,4 +255,21 @@ test('dimension panel controls identify their dimension and millimeter units in 
     if (locale === 'ko') assert.match(input.getAttribute('aria-label'), /[가-힣]/);
     workspace.destroy();
   }
+});
+
+test('Korean drawing guidance explains keyboard editing and required dimensions without translating feature IDs', (t) => {
+  const { state, mount } = setupWorkspace(t);
+  setLocale('ko', { persist: false });
+  state.data.drawing.preview.editable_plan_available = true;
+  state.data.drawing.preview.dimensions = [{ id: 'WIDTH', value_mm: 142, feature: 'body_width', required: true }];
+  const { root } = mount();
+  const caption = root.querySelector('[data-hook="drawing-canvas-caption"]').textContent;
+  assert.match(caption, /Enter/);
+  assert.match(caption, /Space/);
+  assert.match(caption, /Escape/);
+  assert.match(caption, /취소/);
+  const dimensions = root.querySelector('[data-hook="drawing-dimensions"]').textContent;
+  assert.match(dimensions, /body_width/);
+  assert.match(dimensions, /필수/);
+  assert.doesNotMatch(dimensions, /required/);
 });
