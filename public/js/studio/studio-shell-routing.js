@@ -6,6 +6,8 @@ import {
 } from './studio-state.js';
 
 export function createStudioShellRouting(app) {
+  let navigationRevision = 0;
+
   function setRoute(nextRoute, { focus = false, hash = false, selectedJobId } = {}) {
     const nextLocation = deriveStudioWorkspaceSelection(
       {
@@ -18,6 +20,9 @@ export function createStudioShellRouting(app) {
       }
     );
 
+    if (app.state.route !== nextLocation.route || app.state.selectedJobId !== nextLocation.selectedJobId) {
+      navigationRevision += 1;
+    }
     app.state.route = nextLocation.route;
     app.state.selectedJobId = nextLocation.selectedJobId;
 
@@ -62,6 +67,9 @@ export function createStudioShellRouting(app) {
   function handleHashChange() {
     const nextLocation = parseStudioLocationState(app.window.location);
     const shouldFocusWorkspaceRoot = !app.state.pendingFocus;
+    if (app.state.route !== nextLocation.route || app.state.selectedJobId !== nextLocation.selectedJobId) {
+      navigationRevision += 1;
+    }
     app.state.route = nextLocation.route;
     app.state.selectedJobId = nextLocation.selectedJobId;
     app.commitRender();
@@ -91,6 +99,7 @@ export function createStudioShellRouting(app) {
   }
 
   return {
+    getNavigationRevision: () => navigationRevision,
     setRoute,
     navigateTo,
     syncSelectedJobFromLocation,

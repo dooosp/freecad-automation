@@ -26,6 +26,21 @@ import { RECENT_JOBS_LIMIT, JOB_MONITOR_POLL_MS } from './studio-shell-store.js'
 
 export function createStudioJobMonitorController(app) {
   let openJobRequestSeq = 0;
+  const completionNavigationContexts = new Map();
+
+  function navigationContext() {
+    return {
+      revision: app.routing?.getNavigationRevision?.() || 0,
+      route: app.state.route,
+      selectedJobId: app.state.selectedJobId,
+      hash: app.window.location?.hash || '',
+    };
+  }
+
+  function stillOwnsNavigation(context) {
+    const current = navigationContext();
+    return context && Object.keys(current).every((key) => current[key] === context[key]);
+  }
 
   function findKnownJob(jobId) {
     return app.state.data.recentJobs.items.find((job) => job.id === jobId)
@@ -106,6 +121,8 @@ export function createStudioJobMonitorController(app) {
   }
 
   async function runMonitoredJobCompletionAction(job, completionAction = null) {
+    const submittedNavigation = completionNavigationContexts.get(job.id);
+    completionNavigationContexts.delete(job.id);
     let artifacts = [];
     try {
       const payload = await app.fetchJson(`/jobs/${encodeURIComponent(job.id)}/artifacts`);
@@ -160,14 +177,18 @@ export function createStudioJobMonitorController(app) {
       return;
     }
 
-    if (remainingActiveCount > 0) {
+    if (remainingActiveCount > 0 || !stillOwnsNavigation(submittedNavigation)) {
       app.addLog({
         status: 'Tracked run',
-        message: `${job.type} ${shortJobId(job.id)} finished. Completion handoff is ready in ${target.route} while other jobs continue.`,
+        message: `${job.type} ${shortJobId(job.id)} finished with status ${job.status}. Completion notice is ready in the shell.`,
         tone: 'ok',
         time: 'job',
       });
-      app.refreshShellChrome({ syncWorkspace: true });
+      if (app.state.selectedJobId === job.id && app.state.data.activeJob.summary?.id === job.id) {
+        await openJob(job.id, { summaryHint: job, refresh: true, navigate: false });
+      } else {
+        app.refreshShellChrome({ syncWorkspace: true });
+      }
       return;
     }
 
@@ -286,8 +307,13 @@ export function createStudioJobMonitorController(app) {
     scheduleJobMonitoring();
   }
 
-  function beginJobMonitoring(job, { origin = 'submit', completionAction = null, announce = true } = {}) {
+  function beginJobMonitoring(job, {
+    origin = 'submit', completionAction = null, announce = true, submittedNavigation = navigationContext(),
+  } = {}) {
     if (!job?.id) return;
+    if (origin === 'submit' && !completionNavigationContexts.has(job.id)) {
+      completionNavigationContexts.set(job.id, submittedNavigation);
+    }
     syncJobIntoState(job);
     const previous = findStudioMonitoredJob(app.state.data.jobMonitor, job.id);
     app.runtime.jobMonitorErrors.delete(job.id);
@@ -355,6 +381,7 @@ export function createStudioJobMonitorController(app) {
     options,
     completionAction,
   }) {
+    const submittedNavigation = navigationContext();
     const job = await submitStudioTrackedJob({
       type,
       configToml,
@@ -379,7 +406,7 @@ export function createStudioJobMonitorController(app) {
       reportOptions,
       options,
     });
-    beginJobMonitoring(job, { origin: 'submit', completionAction });
+    beginJobMonitoring(job, { origin: 'submit', completionAction, submittedNavigation });
     return job;
   }
 
@@ -398,7 +425,7 @@ export function createStudioJobMonitorController(app) {
       }
       if (currentJob?.id) {
         const entry = findStudioMonitoredJob(app.state.data.jobMonitor, jobId);
-        beginJobMonitoring(currentJob, { completionAction: entry?.completionAction, announce: false });
+        beginJobMonitoring(currentJob, { origin: 'monitor', completionAction: entry?.completionAction, announce: false });
       } else {
         scheduleJobMonitoring();
       }
@@ -413,6 +440,7 @@ export function createStudioJobMonitorController(app) {
     }
 
     syncJobIntoState(job);
+    completionNavigationContexts.delete(job.id);
     app.runtime.jobMonitorErrors.delete(job.id);
     app.state.data.jobMonitor = upsertStudioMonitoredJob(app.state.data.jobMonitor, job, {
       lastPollTime: new Date().toISOString(),
@@ -430,6 +458,7 @@ export function createStudioJobMonitorController(app) {
   }
 
   async function retryTrackedJobById(jobId) {
+    const submittedNavigation = navigationContext();
     const payload = await retryStudioJob(jobId);
     const job = payload?.job || null;
     if (!job?.id) {
@@ -443,7 +472,7 @@ export function createStudioJobMonitorController(app) {
       tone: 'info',
       time: 'job',
     });
-    beginJobMonitoring(job, { origin: 'submit', announce: false });
+    beginJobMonitoring(job, { origin: 'submit', announce: false, submittedNavigation });
     await refreshRecentJobs({ silent: true, preserveRender: true });
     return job;
   }
@@ -458,15 +487,17 @@ export function createStudioJobMonitorController(app) {
     return payload?.job || null;
   }
 
-  async function openJob(jobId, { route = 'artifacts', summaryHint = null } = {}) {
+  async function openJob(jobId, {
+    route = 'artifacts', summaryHint = null, refresh = false, navigate = true,
+  } = {}) {
     const normalizedJobId = String(jobId || '').trim();
     if (!normalizedJobId) return;
 
     const currentJobId = app.state.data.activeJob.summary?.id || '';
     const sameJob = currentJobId === normalizedJobId;
 
-    if (sameJob && app.state.data.activeJob.status === 'ready') {
-      app.navigateTo(route, { selectedJobId: normalizedJobId });
+    if (sameJob && app.state.data.activeJob.status === 'ready' && !refresh) {
+      if (navigate) app.navigateTo(route, { selectedJobId: normalizedJobId });
       return;
     }
 
@@ -497,7 +528,7 @@ export function createStudioJobMonitorController(app) {
         storage: null,
         errorMessage: '',
       };
-      app.navigateTo(route, { selectedJobId: normalizedJobId });
+      if (navigate) app.navigateTo(route, { selectedJobId: normalizedJobId });
     }
 
     let summary = null;
@@ -522,7 +553,7 @@ export function createStudioJobMonitorController(app) {
       errorMessage: '',
     };
 
-    if (sameJob) {
+    if (sameJob && navigate) {
       app.navigateTo(route, { selectedJobId: normalizedJobId });
     } else {
       app.commitRender();
