@@ -65,8 +65,8 @@ export function workingConfigRows(model = {}) {
 }
 
 export function drawingWorkspaceSummary(drawing = {}, model) {
-  if (model && isDrawingPreviewStale(drawing, model)) return STALE_DRAWING_COPY;
   if (drawing.errorMessage) return drawing.errorMessage;
+  if (model && isDrawingPreviewStale(drawing, model)) return STALE_DRAWING_COPY;
   return drawing.status === 'ready' && drawing.preview && !drawing.trackedRun?.submitting
     ? 'Drawing ready. Review dimensions before saving.'
     : drawing.summary || 'Load a config, then preview the drawing.';

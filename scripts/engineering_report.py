@@ -16,6 +16,10 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _bootstrap import log, read_input, respond, respond_error, safe_filename_component
+from _report_decision import (
+    format_items as _format_list, render_rows as _render_key_value_rows,
+    render_block as _render_text_block, render_outputs, render_json_reference,
+)
 
 
 def _resolve_model_result(config):
@@ -119,55 +123,6 @@ def _format_scalar(value, fallback="n/a"):
     return str(value)
 
 
-def _format_list(items, fallback="None", limit=5):
-    if not isinstance(items, list) or not items:
-        return [fallback]
-    lines = []
-    for item in items[:limit]:
-        wrapped = textwrap.wrap(str(item), width=52) or [str(item)]
-        lines.extend(wrapped)
-    return lines
-
-
-def _compact_path(value, max_length=56, tail_segments=2):
-    text = str(value or "n/a")
-    if len(text) <= max_length:
-        return text
-    normalized = text.replace("\\", "/")
-    parts = [part for part in normalized.split("/") if part]
-    if len(parts) >= tail_segments:
-        compact = ".../" + "/".join(parts[-tail_segments:])
-        if len(compact) <= max_length:
-            return compact
-    return "..." + text[-(max_length - 3):]
-
-
-def _render_key_value_rows(ax, rows, label_x=0.0, value_x=0.32, wrap_width=36):
-    y = 0.95
-    for label, value in rows:
-        rendered = _compact_path(value) if label in {"Input"} else _format_scalar(value)
-        wrapped_value = textwrap.wrap(rendered, width=wrap_width) or [rendered]
-        ax.text(label_x, y, label, fontsize=8, fontweight="bold", va="top", color="#2c3e50")
-        for index, line in enumerate(wrapped_value):
-            ax.text(value_x, y - (index * 0.09), line, fontsize=8, va="top", color="#333333", clip_on=True)
-        y -= max(0.12, 0.09 * len(wrapped_value) + 0.03)
-
-
-def _render_text_block(fig, title, lines, rect):
-    ax = fig.add_axes(rect)
-    ax.axis("off")
-    ax.set_title(title, fontsize=10, fontweight="bold", loc="left")
-    y = 0.95
-    wrap_width = 34 if rect[2] <= 0.22 else 48
-    for line in lines:
-        wrapped_lines = textwrap.wrap(str(line), width=wrap_width) or [str(line)]
-        for index, wrapped_line in enumerate(wrapped_lines):
-            prefix = "- " if index == 0 else "  "
-            ax.text(0.0, y, f"{prefix}{wrapped_line}", fontsize=8, va="top", color="#333333", clip_on=True)
-            y -= 0.09
-        y -= 0.03
-
-
 def _render_executive_summary_page(fig, model_name, summary, artifacts):
     generated_at = summary.get("generated_at") or datetime.now().isoformat()
     status = summary.get("overall_status", "incomplete")
@@ -202,27 +157,14 @@ def _render_executive_summary_page(fig, model_name, summary, artifacts):
     ]
     _render_key_value_rows(info_ax, info_rows)
 
-    _render_text_block(fig, "Top Risks", _format_list((summary.get("top_risks") or [])[:4], limit=4), [0.50, 0.55, 0.20, 0.25])
-    _render_text_block(fig, "Recommended Actions", _format_list((summary.get("recommended_actions") or [])[:3], limit=3), [0.73, 0.55, 0.22, 0.25])
-    _render_text_block(fig, "Blocking Issues", _format_list((summary.get("blocking_issues") or [])[:4], limit=4), [0.05, 0.20, 0.40, 0.25])
-    _render_text_block(fig, "Warnings", _format_list((summary.get("warnings") or [])[:3], limit=3), [0.50, 0.20, 0.20, 0.25])
+    _render_text_block(fig, "Top Risks", _format_list((summary.get("top_risks") or []), limit=4), [0.50, 0.55, 0.20, 0.25])
+    _render_text_block(fig, "Recommended Actions", _format_list((summary.get("recommended_actions") or []), limit=3), [0.73, 0.55, 0.22, 0.25])
+    _render_text_block(fig, "Blocking Issues", _format_list((summary.get("blocking_issues") or []), limit=4), [0.05, 0.20, 0.40, 0.25])
+    _render_text_block(fig, "Warnings", _format_list((summary.get("warnings") or []), limit=3), [0.50, 0.20, 0.20, 0.25])
 
-    artifact_ax = fig.add_axes([0.73, 0.20, 0.22, 0.25])
-    artifact_ax.axis("off")
-    artifact_ax.set_title("Generated Outputs", fontsize=10, fontweight="bold", loc="left")
-    artifact_lines = []
-    for artifact in (artifacts or [])[:5]:
-        label = artifact.get("label") or artifact.get("key") or "artifact"
-        status_text = artifact.get("status") or "unknown"
-        path = artifact.get("path") or "n/a"
-        artifact_lines.append(f"{label} [{status_text}]")
-        artifact_lines.extend(textwrap.wrap(_compact_path(path, max_length=44), width=34) or ["n/a"])
-    if not artifact_lines:
-        artifact_lines = ["No artifact references available."]
-    y = 0.95
-    for line in artifact_lines[:10]:
-        artifact_ax.text(0.0, y, line, fontsize=7, va="top", color="#333333", wrap=True, clip_on=True)
-        y -= 0.08 if len(line) < 42 else 0.10
+    render_outputs(fig, artifacts)
+    render_json_reference(fig, model_name, summary)
+
 
 def main():
     try:
@@ -582,6 +524,10 @@ def generate_legacy_report(config):
 
             pdf.savefig(fig2)
             plt.close(fig2)
+
+        if config.get('_drawing_sheet'):
+            from _report_drawing_sheet import append_drawing_sheet
+            append_drawing_sheet(pdf, config['_drawing_sheet'])
 
     file_size = os.path.getsize(pdf_path)
     log(f"  PDF exported: {pdf_path} ({file_size} bytes)")

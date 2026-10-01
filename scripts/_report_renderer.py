@@ -10,6 +10,10 @@ import os
 import json
 import textwrap
 from datetime import datetime
+from _report_decision import (
+    format_items as _format_list, render_rows as _render_key_value_rows,
+    render_block as _render_decision_summary_block, render_outputs, render_json_reference,
+)
 from _report_styles import (
     STYLE_PROFESSIONAL, SEVERITY_COLORS, PAGE_WIDTH, PAGE_HEIGHT,
     MARGIN_TOP, MARGIN_BOTTOM, MARGIN_LEFT, MARGIN_RIGHT,
@@ -32,54 +36,6 @@ def _ready_label(value):
     if value is False:
         return "No"
     return "Unknown"
-
-
-def _format_list(items, fallback="None", limit=5):
-    if not isinstance(items, list) or not items:
-        return [fallback]
-    lines = []
-    for item in items[:limit]:
-        lines.extend(textwrap.wrap(str(item), width=50) or [str(item)])
-    return lines
-
-
-def _compact_path(value, max_length=56, tail_segments=2):
-    text = str(value or "n/a")
-    if len(text) <= max_length:
-        return text
-    normalized = text.replace("\\", "/")
-    parts = [part for part in normalized.split("/") if part]
-    if len(parts) >= tail_segments:
-        compact = ".../" + "/".join(parts[-tail_segments:])
-        if len(compact) <= max_length:
-            return compact
-    return "..." + text[-(max_length - 3):]
-
-
-def _render_key_value_rows(ax, rows, label_x=0.0, value_x=0.32, wrap_width=36):
-    y = 0.95
-    for label, value in rows:
-        rendered = _compact_path(value) if label in {"Input"} else str(value or "n/a")
-        wrapped_value = textwrap.wrap(rendered, width=wrap_width) or [rendered]
-        ax.text(label_x, y, label, fontsize=8, fontweight='bold', va='top', color='#2c3e50')
-        for index, line in enumerate(wrapped_value):
-            ax.text(value_x, y - (index * 0.09), line, fontsize=8, va='top', color='#333333', clip_on=True)
-        y -= max(0.12, 0.09 * len(wrapped_value) + 0.03)
-
-
-def _render_decision_summary_block(fig, title, lines, rect):
-    ax = fig.add_axes(rect)
-    ax.axis('off')
-    ax.set_title(title, fontsize=10, fontweight='bold', loc='left')
-    y = 0.95
-    wrap_width = 34 if rect[2] <= 0.22 else 48
-    for line in lines:
-        wrapped_lines = textwrap.wrap(str(line), width=wrap_width) or [str(line)]
-        for index, wrapped_line in enumerate(wrapped_lines):
-            prefix = "- " if index == 0 else "  "
-            ax.text(0.0, y, f"{prefix}{wrapped_line}", fontsize=8, va='top', color='#333333', clip_on=True)
-            y -= 0.09
-        y -= 0.03
 
 
 def render_decision_summary_page(fig, config, summary, report_artifacts, style):
@@ -114,25 +70,13 @@ def render_decision_summary_page(fig, config, summary, report_artifacts, style):
     ]
     _render_key_value_rows(info_ax, rows)
 
-    _render_decision_summary_block(fig, 'Top Risks', _format_list((summary.get('top_risks') or [])[:4], limit=4), [0.50, 0.55, 0.20, 0.25])
-    _render_decision_summary_block(fig, 'Recommended Actions', _format_list((summary.get('recommended_actions') or [])[:3], limit=3), [0.73, 0.55, 0.22, 0.25])
-    _render_decision_summary_block(fig, 'Blocking Issues', _format_list((summary.get('blocking_issues') or [])[:4], limit=4), [0.05, 0.20, 0.40, 0.25])
-    _render_decision_summary_block(fig, 'Warnings', _format_list((summary.get('warnings') or [])[:3], limit=3), [0.50, 0.20, 0.20, 0.25])
+    _render_decision_summary_block(fig, 'Top Risks', _format_list((summary.get('top_risks') or []), limit=4), [0.50, 0.55, 0.20, 0.25])
+    _render_decision_summary_block(fig, 'Recommended Actions', _format_list((summary.get('recommended_actions') or []), limit=3), [0.73, 0.55, 0.22, 0.25])
+    _render_decision_summary_block(fig, 'Blocking Issues', _format_list((summary.get('blocking_issues') or []), limit=4), [0.05, 0.20, 0.40, 0.25])
+    _render_decision_summary_block(fig, 'Warnings', _format_list((summary.get('warnings') or []), limit=3), [0.50, 0.20, 0.20, 0.25])
 
-    artifact_ax = fig.add_axes([0.73, 0.20, 0.22, 0.25])
-    artifact_ax.axis('off')
-    artifact_ax.set_title('Generated Outputs', fontsize=10, fontweight='bold', loc='left')
-    lines = []
-    for artifact in (report_artifacts or [])[:5]:
-        label = artifact.get('label') or artifact.get('key') or 'artifact'
-        lines.append(f"{label} [{artifact.get('status', 'unknown')}]")
-        lines.extend(textwrap.wrap(_compact_path(artifact.get('path') or 'n/a', max_length=44), width=34) or ['n/a'])
-    if not lines:
-        lines = ['No artifact references available.']
-    y = 0.95
-    for line in lines[:10]:
-        artifact_ax.text(0.0, y, line, fontsize=7, va='top', color='#333333', wrap=True, clip_on=True)
-        y -= 0.08 if len(line) < 42 else 0.10
+    render_outputs(fig, report_artifacts)
+    render_json_reference(fig, model_name, summary)
 
 
 def render_report(config, template, data, output_path, decision_summary=None, report_artifacts=None):
@@ -152,7 +96,7 @@ def render_report(config, template, data, output_path, decision_summary=None, re
 
     with PdfPages(output_path) as pdf:
         page_num = 0
-        total_pages_estimate = _count_total_pages(template, decision_summary)
+        total_pages_estimate = _count_total_pages(template, decision_summary) + bool(config.get('_drawing_sheet'))
 
         if isinstance(decision_summary, dict) and decision_summary:
             page_num += 1
@@ -263,6 +207,10 @@ def render_report(config, template, data, output_path, decision_summary=None, re
             _render_footer(fig, page_num, total_pages_estimate, style)
             pdf.savefig(fig)
             plt.close(fig)
+
+        if config.get('_drawing_sheet'):
+            from _report_drawing_sheet import append_drawing_sheet
+            append_drawing_sheet(pdf, config['_drawing_sheet'])
 
     return output_path
 

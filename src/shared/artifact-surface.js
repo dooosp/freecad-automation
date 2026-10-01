@@ -244,6 +244,14 @@ export function collectReportManifestArtifacts(result, { surface = 'tracked-job'
 
   if (surface !== 'tracked-job') return artifacts;
 
+  if (result?.drawing_result) {
+    for (const artifact of collectDrawManifestArtifacts(result.drawing_result)) {
+      if (!artifacts.some((entry) => entry.type === artifact.type && entry.path === artifact.path)) {
+        artifacts.push(artifact);
+      }
+    }
+  }
+
   const seededArtifacts = result?.seeded_artifacts || {};
   for (const entry of REPORT_TRACKED_SEEDED_ENTRIES) {
     if (!seededArtifacts[entry.key]) continue;

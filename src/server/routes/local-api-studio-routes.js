@@ -219,6 +219,9 @@ export function registerStudioRoutes(app, {
     const requestErrors = [];
     validateObjectRequestBody(req.body, requestErrors);
     validateOptionalPlainObject(req.body, 'drawing_settings', requestErrors);
+    for (const key of ['drawing_preview_id', 'drawing_preview_revision']) {
+      if (req.body?.[key] !== undefined && (typeof req.body[key] !== 'string' || !req.body[key].trim())) requestErrors.push(`${key} must be a non-empty string when provided.`);
+    }
     if (requestErrors.length > 0) {
       invalidRequest(res, requestErrors);
       return;
@@ -227,6 +230,8 @@ export function registerStudioRoutes(app, {
       const payload = await studioDrawingService.buildPreview({
         configToml: req.body?.config_toml,
         drawingSettings: req.body?.drawing_settings || {},
+        drawingPreviewId: req.body?.drawing_preview_id,
+        drawingPreviewRevision: req.body?.drawing_preview_revision,
       });
       res.json(assertResponse('studio_drawing_preview', {
         api_version: LOCAL_API_VERSION,
@@ -235,7 +240,7 @@ export function registerStudioRoutes(app, {
       }));
     } catch (error) {
       const rawMessage = errorMessage(error);
-      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
+      const status = /TOML parse error|Config TOML is required|must include|invalid|preview cannot be preserved/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'drawing_preview_failed',
         [publicErrorMessage(error)],
@@ -271,6 +276,7 @@ export function registerStudioRoutes(app, {
     if (req.body?.history_op !== undefined && (typeof req.body.history_op !== 'string' || !['edit', 'undo', 'redo'].includes(req.body.history_op))) {
       requestErrors.push('history_op must be edit, undo, or redo when provided.');
     }
+    if (req.body?.drawing_preview_revision !== undefined && (typeof req.body.drawing_preview_revision !== 'string' || !req.body.drawing_preview_revision.trim())) requestErrors.push('drawing_preview_revision must be a non-empty string when provided.');
     if (requestErrors.length > 0) {
       invalidRequest(res, requestErrors);
       return;
@@ -278,6 +284,7 @@ export function registerStudioRoutes(app, {
     try {
       const payload = await studioDrawingService.updateDimension({
         previewId: req.params.id,
+        previewRevision: req.body?.drawing_preview_revision,
         dimId: req.body?.dim_id,
         valueMm: req.body?.value_mm,
         historyOp: req.body?.history_op,
@@ -289,7 +296,7 @@ export function registerStudioRoutes(app, {
       }));
     } catch (error) {
       const rawMessage = errorMessage(error);
-      const status = /No drawing preview found|editable plan path|Could not update|dim_intent|Invalid value|positive/i.test(rawMessage) ? 400 : 500;
+      const status = /No drawing preview found|editable plan path|Could not update|dim_intent|Invalid value|positive|preview cannot be edited/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'drawing_dimension_update_failed',
         [publicErrorMessage(error)],

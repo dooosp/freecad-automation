@@ -206,6 +206,8 @@ export function formatQualityStatus(status = '') {
   if (normalized === 'pass' || normalized === 'passed') return 'Quality passed';
   if (normalized === 'fail' || normalized === 'failed') return 'Quality failed';
   if (normalized === 'warning' || normalized === 'warn') return 'Quality warning';
+  if (normalized === 'not_run' || normalized === 'skipped') return 'Quality not run';
+  if (['incomplete', 'missing', 'not_available'].includes(normalized)) return 'Quality incomplete';
   return 'Quality Unknown';
 }
 
@@ -297,7 +299,7 @@ export function deriveRecentJobDecisionState(job = {}) {
     };
   }
 
-  if (quality === 'quality failed' || quality === 'quality warning') {
+  if (['quality failed', 'quality warning', 'quality incomplete', 'quality not run'].includes(quality)) {
     return {
       label: status.qualityStatus,
       tone: 'warn',

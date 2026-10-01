@@ -57,7 +57,7 @@ import {
   resultFileLabelKey,
   selectPrimaryResultArtifact,
 } from './result-files.js';
-import { applyTranslations, t } from '../i18n/index.js';
+import { applyTranslations, t, translateText } from '../i18n/index.js';
 import { canPreviewSavedModel, createArtifactModelViewer } from './artifact-model-viewer.js';
 
 const DFM_EDGE_DISTANCE_BLOCKER_PATTERN = /^Hole '([^']+)' edge distance (\d+(?:\.\d+)?)mm < required (\d+(?:\.\d+)?)mm \((\d+(?:\.\d+)?)x dia (\d+(?:\.\d+)?)mm\) in box '([^']+)'$/;
@@ -1332,10 +1332,15 @@ function renderQualityDashboard(model, state = {}) {
   const checks = model.checks || {};
   const failedChecks = (checks.failed || []).filter((entry) => !entry.decision);
   const passedChecks = (checks.passed || []).filter((entry) => !entry.decision);
-  const unavailableChecks = checks.unavailable || [];
+  const warningChecks = (checks.unavailable || []).filter((entry) => !entry.decision && entry.status === 'warning');
+  const unavailableChecks = (checks.unavailable || []).filter((entry) => entry.status !== 'warning');
   const commonHeader = [
     ...renderQualityDashboardHeader(model),
     ...renderDecisionNotes(model),
+    ...(warningChecks.length > 0 ? [renderCheckSection({
+      title: t('Warnings'),
+      items: warningChecks,
+    })] : []),
   ];
 
   if (model.layout === 'passed') {
@@ -1458,6 +1463,8 @@ function localizedQualityStatus(job = {}) {
     'Quality passed': 'passed',
     'Quality failed': 'failed',
     'Quality warning': 'warning',
+    'Quality incomplete': 'incomplete',
+    'Quality not run': 'not-run',
   };
   return t(`studio.history.quality.${keys[quality] || 'unknown'}`);
 }
@@ -1585,6 +1592,30 @@ function renderQualityAttentionCard(dashboardModel = {}, jobSummary = {}) {
   if (!attention) return null;
 
   const dfm = attention.dfm || {};
+  const evidenceSections = (attention.requiredEvidence || []).map((entry) => {
+    const artifact = entry.evidenceArtifact;
+    return el('section', {
+      className: 'support-note',
+      dataset: { qualityEvidence: entry.surface.toLowerCase() },
+      children: [
+        el('div', {
+          className: 'review-detail-actions',
+          children: [
+            el('p', { className: 'list-label', text: entry.surface }),
+            createPill(entry.statusLabel, entry.status === 'fail' ? 'bad' : 'warn'),
+          ],
+        }),
+        el('p', { text: entry.summary || t('studio.artifacts.attention.no-details') }),
+        artifact ? el('a', {
+          className: 'action-button action-button-ghost',
+          children: artifact.actionKind === 'download'
+            ? [el('span', { text: 'Download' }), el('span', { text: ` ${artifact.label}` })]
+            : [el('span', { text: t('studio.artifacts.attention.open-evidence', { surface: translateText(entry.surface) }) })],
+          attrs: { href: artifact.href, target: artifact.target, rel: artifact.rel },
+        }) : null,
+      ],
+    });
+  });
   const rows = [
     dfm.score !== null && dfm.score !== undefined
       ? { label: t('studio.artifacts.attention.dfm-score'), value: String(dfm.score) }
@@ -1612,9 +1643,13 @@ function renderQualityAttentionCard(dashboardModel = {}, jobSummary = {}) {
       label: t('studio.artifacts.attention.badge'),
       tone: attention.overallStatus === 'fail' ? 'bad' : 'warn',
     }],
-    body: rows.length > 0
-      ? [createInfoGrid(rows)]
-      : [el('p', { className: 'support-note support-note-warn', text: t('studio.artifacts.attention.no-dfm-evidence') })],
+    body: [
+      ...(evidenceSections.length > 0 ? [
+        el('p', { className: 'list-label', text: t('studio.artifacts.attention.required-evidence') }),
+        ...evidenceSections,
+      ] : []),
+      createInfoGrid(rows),
+    ],
   });
 }
 

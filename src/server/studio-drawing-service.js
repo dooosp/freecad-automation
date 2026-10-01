@@ -149,6 +149,7 @@ export function createStudioDrawingService({
   loadDrawingPlanFn = loadDrawingPlan,
 }) {
   const previews = new Map();
+  const updatingPreviews = new Set();
 
   async function cleanupPreview(id) {
     const preview = previews.get(id);
@@ -159,7 +160,8 @@ export function createStudioDrawingService({
 
   async function trimPreviews(maxEntries = 6) {
     while (previews.size > maxEntries) {
-      const [oldestId] = previews.keys();
+      const oldestId = [...previews.keys()].find((id) => !updatingPreviews.has(id));
+      if (!oldestId) break;
       await cleanupPreview(oldestId);
     }
   }
@@ -190,8 +192,8 @@ export function createStudioDrawingService({
     configToml,
     drawingSettings = {},
     previewId = randomUUID(),
-    previewDir = null,
-    planPath = '',
+    drawingPlan = null,
+    dimensionEdit = null,
   }) {
     const source = String(configToml || '').trim();
     if (!source) {
@@ -210,18 +212,17 @@ export function createStudioDrawingService({
       throw new Error(summary.errors.join(' | '));
     }
 
-    const nextPreviewDir = previewDir || await mkdtempFn(join(tmpdir(), 'fcad-studio-drawing-'));
+    // Render each revision in isolation; a failed edit must not change the last
+    // successful sheet or the plan subsequently captured by a tracked job.
+    const nextPreviewDir = await mkdtempFn(join(tmpdir(), 'fcad-studio-drawing-'));
     const logs = [];
 
     try {
       ensureDrawSchema(config);
       ensureDrawingViews(config);
 
-      if (planPath) {
-        await loadDrawingPlanFn({
-          config,
-          planPath,
-        });
+      if (drawingPlan) {
+        config.drawing_plan = structuredClone(drawingPlan);
       } else {
         try {
           compileDrawingPlanFn({
@@ -240,10 +241,24 @@ export function createStudioDrawingService({
         ? await saveDrawingPlanFn({
             drawingPlan: config.drawing_plan,
             outputDir: nextPreviewDir,
-            planPath: planPath || join(nextPreviewDir, `${config.name || 'unnamed'}_plan.toml`),
+            planPath: join(nextPreviewDir, `${config.name || 'unnamed'}_plan.toml`),
             modelName: config.name || 'unnamed',
           })
         : '';
+
+      let update = null;
+      if (dimensionEdit) {
+        const result = await updateDimIntentFn(stablePlanPath, dimensionEdit.dimId, dimensionEdit.valueMm);
+        if (!result.ok) throw new Error(result.error || `Could not update ${dimensionEdit.dimId}.`);
+        await loadDrawingPlanFn({ config, planPath: stablePlanPath });
+        update = {
+          dim_id: dimensionEdit.dimId,
+          old_value: result.oldValue,
+          new_value: dimensionEdit.valueMm,
+          history_op: dimensionEdit.historyOp,
+        };
+      }
+      const planSnapshot = config.drawing_plan ? structuredClone(config.drawing_plan) : null;
 
       config.export = {
         formats: [],
@@ -279,6 +294,7 @@ export function createStudioDrawingService({
 
       const preview = {
         id: previewId,
+        revision: randomUUID(),
         drawn_at: new Date().toISOString(),
         settings,
         overview: {
@@ -314,21 +330,44 @@ export function createStudioDrawingService({
         artifacts: artifactPaths,
       };
 
+      const previousRecord = previews.get(previewId);
       previews.set(previewId, {
         previewDir: nextPreviewDir,
         configToml: source,
         planPath: stablePlanPath,
+        drawingPlan: planSnapshot,
         settings,
         preview,
       });
+      if (previousRecord) await rmFn(previousRecord.previewDir, { recursive: true, force: true }).catch(() => {});
       await trimPreviews();
 
-      return { preview };
+      return { ...(update ? { update } : {}), preview };
     } catch (error) {
-      if (!previewDir) {
-        await rmFn(nextPreviewDir, { recursive: true, force: true }).catch(() => {});
-      }
+      await rmFn(nextPreviewDir, { recursive: true, force: true }).catch(() => {});
       throw error;
+    }
+  }
+
+  function resolveSnapshot({ previewId, configToml, previewRevision, drawingSettings, strict = false }) {
+    const record = previews.get(previewId);
+    let reason = 'preserved';
+    if (!record) reason = 'preview_not_found';
+    else if (updatingPreviews.has(previewId)) reason = 'preview_busy';
+    else if (!record.drawingPlan) reason = 'preview_not_editable';
+    else if (String(configToml || '').trim() !== record.configToml) reason = 'config_changed';
+    else if ((strict || previewRevision !== undefined) && previewRevision !== record.preview.revision) reason = 'revision_changed';
+    else if (strict && drawingSettings !== undefined && JSON.stringify(normalizeStudioDrawingSettings(drawingSettings, { drawing: record.settings })) !== JSON.stringify(record.settings)) reason = 'settings_changed';
+    return { record: reason === 'preserved' ? record : null, reason };
+  }
+
+  async function revisePreview(record, args) {
+    const previewId = record.preview.id;
+    updatingPreviews.add(previewId);
+    try {
+      return await renderPreview({ configToml: record.configToml, drawingSettings: record.settings, drawingPlan: record.drawingPlan, previewId, ...args });
+    } finally {
+      updatingPreviews.delete(previewId);
     }
   }
 
@@ -336,30 +375,20 @@ export function createStudioDrawingService({
     async dispose() {
       await Promise.allSettled([...previews.keys()].map((id) => cleanupPreview(id)));
     },
-    async getTrackedDrawPlan({ previewId, configToml }) {
-      const previewRecord = previews.get(previewId);
-      if (!previewRecord) {
-        return { drawingPlan: null, reason: 'preview_not_found' };
-      }
-      if (!previewRecord.planPath) {
-        return { drawingPlan: null, reason: 'preview_not_editable' };
-      }
-      if (String(configToml || '').trim() !== String(previewRecord.configToml || '').trim()) {
-        return { drawingPlan: null, reason: 'config_changed' };
-      }
-
-      const config = {};
-      await loadDrawingPlanFn({
-        config,
-        planPath: previewRecord.planPath,
-      });
-
+    async getTrackedDrawPlan(args) {
+      const { record, reason } = resolveSnapshot(args);
       return {
-        drawingPlan: config.drawing_plan ? structuredClone(config.drawing_plan) : null,
-        reason: config.drawing_plan ? 'preserved' : 'preview_not_editable',
+        drawingPlan: record ? structuredClone(record.drawingPlan) : null,
+        ...(record ? { revision: record.preview.revision, settings: structuredClone(record.settings) } : {}),
+        reason,
       };
     },
-    async buildPreview({ configToml, drawingSettings = {} }) {
+    async buildPreview({ configToml, drawingSettings = {}, drawingPreviewId, drawingPreviewRevision }) {
+      if (drawingPreviewId) {
+        const { record, reason } = resolveSnapshot({ previewId: drawingPreviewId, configToml, previewRevision: drawingPreviewRevision, strict: true });
+        if (!record) throw new Error(`Drawing preview cannot be preserved: ${reason}. Regenerate the preview.`);
+        return revisePreview(record, { drawingSettings });
+      }
       return renderPreview({
         configToml,
         drawingSettings,
@@ -367,6 +396,7 @@ export function createStudioDrawingService({
     },
     async updateDimension({
       previewId,
+      previewRevision,
       dimId,
       valueMm,
       historyOp = 'edit',
@@ -378,29 +408,9 @@ export function createStudioDrawingService({
       if (!previewRecord.planPath) {
         throw new Error('This drawing preview has no editable plan path.');
       }
-
-      const result = await updateDimIntentFn(previewRecord.planPath, dimId, valueMm);
-      if (!result.ok) {
-        throw new Error(result.error || `Could not update ${dimId}.`);
-      }
-
-      const rerendered = await renderPreview({
-        configToml: previewRecord.configToml,
-        drawingSettings: previewRecord.settings,
-        previewId,
-        previewDir: previewRecord.previewDir,
-        planPath: previewRecord.planPath,
-      });
-
-      return {
-        update: {
-          dim_id: dimId,
-          old_value: result.oldValue,
-          new_value: valueMm,
-          history_op: historyOp,
-        },
-        preview: rerendered.preview,
-      };
+      const { record, reason } = resolveSnapshot({ previewId, configToml: previewRecord.configToml, previewRevision });
+      if (!record) throw new Error(`Drawing preview cannot be edited: ${reason}. Regenerate the preview.`);
+      return revisePreview(record, { dimensionEdit: { dimId, valueMm, historyOp } });
     },
   };
 }

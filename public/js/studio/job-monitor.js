@@ -191,6 +191,8 @@ function qualityCompletionNeedsAttention(parts = []) {
     const normalized = String(part || '').toLowerCase();
     return normalized.includes('quality failed')
       || normalized.includes('quality warning')
+      || normalized.includes('quality incomplete')
+      || normalized.includes('quality not run')
       || normalized.includes('ready no')
       || normalized.includes('ready unknown')
       || normalized.includes('ready held');

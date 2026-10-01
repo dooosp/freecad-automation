@@ -2,6 +2,7 @@ import { validateJobRequest } from '../services/jobs/job-executor.js';
 import { LOCAL_API_VERSION } from './local-api-contract.js';
 import { toJobResponse } from './local-api-job-response.js';
 import { assertResponse, createErrorResponse } from './local-api-response-helpers.js';
+import { RESOLVED_STUDIO_DRAWING } from './studio-job-bridge.js';
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -30,11 +31,16 @@ export function createLocalApiJobCoordinator({
   studioDrawingService,
 }) {
   async function prepareStudioJobBody(body = {}) {
-    if (body?.type !== 'draw') return body;
+    if (body?.type !== 'draw' && body?.type !== 'report') return body;
+    // Leave malformed inputs intact for the request validator; resolving a
+    // snapshot must not normalize an invalid caller field into a valid one.
+    if (body.drawing_settings !== undefined && !isPlainObject(body.drawing_settings)) return body;
 
     let drawingPlan = null;
     let previewPlanReason = 'not_requested';
     const previewId = typeof body.drawing_preview_id === 'string' ? body.drawing_preview_id.trim() : '';
+    const strict = body.type === 'report' || body.drawing_preview_revision !== undefined;
+    let snapshot = null;
 
     if (previewId) {
       try {
@@ -42,29 +48,38 @@ export function createLocalApiJobCoordinator({
           ? await studioDrawingService.getTrackedDrawPlan({
               previewId,
               configToml: body.config_toml,
+              previewRevision: body.drawing_preview_revision,
+              ...(strict ? { strict: true, drawingSettings: body.drawing_settings || {} } : {}),
             })
           : { drawingPlan: null, reason: 'preview_not_supported' };
         drawingPlan = resolved.drawingPlan;
         previewPlanReason = resolved.reason || 'not_requested';
+        if (drawingPlan) snapshot = resolved;
       } catch {
         drawingPlan = null;
         previewPlanReason = 'preview_unavailable';
       }
     }
 
-    return {
+    const prepared = {
       ...body,
-      ...(drawingPlan ? { drawing_plan: drawingPlan } : {}),
+      ...(previewId ? { drawing_plan: drawingPlan || undefined } : {}),
       options: mergeStudioOptions(body.options, {
-        source: 'drawing-workspace',
-        drawing_settings: structuredClone(body.drawing_settings || {}),
+        ...(body.type === 'draw' || previewId ? { source: 'drawing-workspace' } : {}),
+        drawing_settings: structuredClone(strict && snapshot ? snapshot.settings : body.drawing_settings || {}),
         preview_plan: {
           requested: Boolean(previewId),
           preserved: Boolean(drawingPlan),
           reason: previewPlanReason,
+          ...(strict && snapshot ? { revision: snapshot.revision, annotation_only: true } : {}),
         },
       }),
     };
+    if (strict && snapshot) {
+      prepared.drawing_settings = structuredClone(snapshot.settings);
+      Object.defineProperty(prepared, RESOLVED_STUDIO_DRAWING, { value: true });
+    }
+    return prepared;
   }
 
   async function enqueueJob(request, res, { trustedPathRoots = [] } = {}) {

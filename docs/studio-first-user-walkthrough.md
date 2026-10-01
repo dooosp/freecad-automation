@@ -96,6 +96,16 @@ If you only want software/project closeout, use Studio and the docs to review ca
 
 If you have genuine inspection evidence later, follow the inspection evidence contract and collection guides, attach a completed real inspection evidence JSON through the canonical flow, and then deliberately refresh the review/readiness/release chain. Studio Review can queue the tracked audit first, or queue a tracked promotion dry-run from a registered intake report artifact; those cards show blockers, future commands, expected artifacts, mutation boundaries, rollback guidance, and the held readiness expectation without mutating canonical package files. Stage 5B remains parked until a genuine completed inspection evidence JSON exists.
 
+## Save an edited Drawing and report
+
+In Drawing, generate a preview, apply dimension annotation edits, and preview any changed views or scale. The current successful preview is the input for both **Save Drawing** and **Save Report**. Changing sheet settings preserves accepted annotations when the source model input is unchanged. These edits change drawing annotations; they do not change the 3D geometry.
+
+Saved jobs capture the preview revision and plan, so later edits do not alter an already queued result. If the preview expired or changed, Studio asks you to generate a new preview instead of silently saving different annotations. After a server restart or browser reload, temporary editing history is not restored; saved SVG, PDF, plans, and quality results remain available through History and the selected job's artifacts.
+
+A report saved from Drawing generates its sheet and drawing QA in the report job's own output directory. Its PDF includes that actual sheet as a bounded high-resolution image; the original SVG remains a separate artifact. The report reproduction is reduced to fit and is not to scale; use the original SVG for scaled printing. The renderer uses the FreeCAD Python environment's Qt SVG support and reports an error if it cannot include the sheet. It does not substitute a placeholder or reuse same-name outputs from an older run.
+
+Check the saved job's quality evidence separately from file-generation success. Required failed checks block the quality decision; missing or unrun required checks remain incomplete. A drawing report does not rerun model export round-trip quality, so missing model-quality evidence stays explicit. Generic CLI reports retain their existing artifact discovery behavior.
+
 ## Validation And Tests
 
 The first-user documentation smoke coverage checks that this walkthrough exists, names the five canonical packages, explains canonical package cards and safe artifact preview, preserves the `release_bundle.zip` boundary, rejects arbitrary local file open/download routes, keeps `needs_more_evidence` and `inspection_evidence` visible, avoids production-readiness claims, and preserves the Stage 5B parked boundary.

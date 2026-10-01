@@ -1,5 +1,5 @@
-import { resolve, join } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { resolve, join, relative, isAbsolute } from 'node:path';
+import { readFile, realpath } from 'node:fs/promises';
 import {
   readJsonIfExists,
   runPythonJsonScript,
@@ -136,6 +136,7 @@ export function createReportService({
     configPath,
     config,
     outputDir = null,
+    drawingResult = null,
     includeDrawing = true,
     includeDfm = true,
     includeTolerance = true,
@@ -154,6 +155,26 @@ export function createReportService({
     const normalizedResults = (analysisResults && typeof analysisResults === 'object')
       ? sanitizeObject(analysisResults)
       : {};
+    let drawingSheet = null;
+    if (drawingResult) {
+      const svgPath = drawingResult.drawing_paths?.find((entry) => entry.format === 'svg')?.path
+        || drawingResult.svg_path || drawingResult.drawing_path;
+      if (drawingResult.success !== true || !svgPath) {
+        throw new Error('Drawing report requires a successfully generated SVG sheet.');
+      }
+      const [outputRoot, sourcePath] = await Promise.all([
+        realpath(resolvedOutputDir), realpath(convertPathFromRuntime(svgPath)),
+      ]);
+      const sourceRelative = relative(outputRoot, sourcePath);
+      if (sourceRelative.startsWith('..') || isAbsolute(sourceRelative)) {
+        throw new Error('Drawing report SVG must be generated inside its report output directory.');
+      }
+      drawingSheet = {
+        svg: await readFileFn(sourcePath, 'utf8'),
+        scale: drawingResult.scale || loadedConfig.drawing?.scale || 'auto',
+        views: drawingResult.views || loadedConfig.drawing?.views || [],
+      };
+    }
 
     const shopProfile = await loadShopProfileFn(freecadRoot, profileName);
     const ruleProfile = await loadRuleProfileFn(freecadRoot, loadedConfig, { silent: true });
@@ -257,6 +278,7 @@ export function createReportService({
       rule_profile_summary: ruleProfileSummary,
       _decision_summary: preliminarySummary,
       _report_artifacts: preliminarySummary.artifacts_referenced,
+      _drawing_sheet: drawingSheet,
     };
 
     if (outputDir) {

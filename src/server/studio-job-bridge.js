@@ -1,5 +1,9 @@
 import { parse as parseTOML } from 'smol-toml';
 
+// Only the in-process preview coordinator can attest that a report plan was
+// captured from a successful preview; JSON callers cannot forge this marker.
+export const RESOLVED_STUDIO_DRAWING = Symbol('resolvedStudioDrawing');
+
 import { validateConfigDocument } from '../../lib/config-schema.js';
 import {
   findPreferredConfigArtifact,
@@ -252,6 +256,7 @@ export function validateStudioJobSubmission(body) {
   }
 
   const request = structuredClone(body);
+  if (body[RESOLVED_STUDIO_DRAWING] === true) Object.defineProperty(request, RESOLVED_STUDIO_DRAWING, { value: true });
   const errors = [];
   const supportedFields = new Set([
     'type',
@@ -277,6 +282,7 @@ export function validateStudioJobSubmission(body) {
     'intake_report_path',
     'drawing_settings',
     'drawing_preview_id',
+    'drawing_preview_revision',
     'drawing_plan',
     'report_options',
     'options',
@@ -311,6 +317,9 @@ export function validateStudioJobSubmission(body) {
     errors.push('drawing_preview_id must be a non-empty string when provided.');
   }
   validateOptionalObject(request.drawing_plan, 'drawing_plan', errors);
+  if (request.drawing_preview_revision !== undefined && (typeof request.drawing_preview_revision !== 'string' || !request.drawing_preview_revision.trim())) {
+    errors.push('drawing_preview_revision must be a non-empty string when provided.');
+  }
   validateOptionalObject(request.report_options, 'report_options', errors);
   validateOptionalObject(request.options, 'options', errors);
   if (
@@ -566,15 +575,23 @@ export function validateStudioJobSubmission(body) {
     errors.push('Provide either config_toml or artifact_ref for type "report", not both.');
   }
 
-  if (request.type !== 'draw' && request.drawing_settings !== undefined) {
+  const drawingReport = request.type === 'report' && request.drawing_preview_id !== undefined;
+  const strictDrawingSnapshot = drawingReport || request.drawing_preview_revision !== undefined;
+  if (strictDrawingSnapshot && request[RESOLVED_STUDIO_DRAWING] !== true) {
+    errors.push(`Drawing preview cannot be preserved: ${request.options?.studio?.preview_plan?.reason || 'preview_not_resolved'}. Regenerate the preview.`);
+  }
+  if (drawingReport && (!hasConfigToml || hasArtifactRef || request.report_options?.include_drawing !== true || !request.drawing_preview_revision)) {
+    errors.push('A Drawing report requires config_toml, drawing_preview_revision and report_options.include_drawing=true.');
+  }
+  if (request.type !== 'draw' && !drawingReport && request.drawing_settings !== undefined) {
     errors.push('drawing_settings is only supported for type "draw".');
   }
 
-  if (request.type !== 'draw' && request.drawing_preview_id !== undefined) {
+  if (request.type !== 'draw' && !drawingReport && request.drawing_preview_id !== undefined) {
     errors.push('drawing_preview_id is only supported for type "draw".');
   }
 
-  if (request.type !== 'draw' && request.drawing_plan !== undefined) {
+  if (request.type !== 'draw' && !(drawingReport && request[RESOLVED_STUDIO_DRAWING] === true) && request.drawing_plan !== undefined) {
     errors.push('drawing_plan is only supported for type "draw".');
   }
 
@@ -1124,7 +1141,7 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
   }
 
   const translatedConfig = structuredClone(config);
-  if (request.type === 'draw') {
+  if (request.type === 'draw' || (request.type === 'report' && request[RESOLVED_STUDIO_DRAWING] === true)) {
     if (isPlainObject(request.drawing_plan)) {
       translatedConfig.drawing_plan = structuredClone(request.drawing_plan);
     }
