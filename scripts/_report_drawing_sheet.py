@@ -82,8 +82,10 @@ def render_drawing_sheet(fig, sheet):
     pixels = mpimg.imread(io.BytesIO(bytes(buffer.data())), format='png')
     fig.suptitle('Drawing sheet', fontsize=14, fontweight='bold', y=0.975)
     views = ', '.join(str(value) for value in sheet.get('views', []))
-    fig.text(0.5, 0.94, f"Scale: {sheet.get('scale', 'auto')} | Views: {views}",
+    fig.text(0.5, 0.94, f"Source SVG scale: {sheet.get('scale', 'auto')} | Views: {views}",
              ha='center', fontsize=8, color='#666666')
+    fig.text(0.5, 0.92, 'Report reproduction is not to scale; use original SVG for scaled printing.',
+             ha='center', fontsize=7, color='#666666')
     ax = fig.add_axes([0.025, 0.05, 0.95, 0.86])
     ax.imshow(pixels, interpolation='none')
     ax.axis('off')

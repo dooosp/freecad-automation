@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -36,8 +37,20 @@ class TestReportDrawingSheet(unittest.TestCase):
                 self.assertEqual(text.count('\f'), 3, 'append one actual sheet to the two existing pages')
                 normalized = ' '.join(text.split())
                 self.assertIn('Drawing sheet', normalized)
-                self.assertIn('Scale: 1:2', normalized)
+                self.assertIn('Source SVG scale: 1:2', normalized)
+                print_note = 'Report reproduction is not to scale; use original SVG for scaled printing.'
+                self.assertIn(print_note, normalized)
                 self.assertIn('Dimension edits are annotations; they do not change 3D geometry.', normalized)
+                bbox = ET.fromstring(subprocess.check_output(['pdftotext', '-bbox', pdf, '-']))
+                page = bbox.findall('.//{*}page')[2]
+                words = page.findall('{*}word')
+                start = next(index for index, word in enumerate(words) if word.text == 'Report')
+                note = words[start:start + len(print_note.split())]
+                self.assertEqual(' '.join(word.text for word in note), print_note)
+                self.assertLess(max(float(word.get('yMax')) for word in note),
+                                float(page.get('height')) * 0.09, 'print-scale note must fit above the sheet image')
+                self.assertGreater(min(float(word.get('xMin')) for word in note), 0)
+                self.assertLess(max(float(word.get('xMax')) for word in note), float(page.get('width')))
                 prefix = str(Path(output) / 'sheet')
                 subprocess.run(['pdftoppm', '-f', '3', '-singlefile', '-r', '72', '-png', pdf, prefix], check=True)
                 pixels = Image.open(prefix + '.png').convert('RGB')
