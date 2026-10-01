@@ -33,6 +33,7 @@ const fakeDrawingService = {
     return {
       preview: {
         id: 'preview-1',
+        revision: 'revision-1',
         drawn_at: '2026-03-28T12:00:00.000Z',
         overview: {
           name: 'demo-sheet',
@@ -107,14 +108,17 @@ const fakeDrawingService = {
       },
     };
   },
-  async getTrackedDrawPlan({ previewId, configToml: requestedConfigToml }) {
+  async getTrackedDrawPlan({ previewId, configToml: requestedConfigToml, previewRevision, strict }) {
     if (previewId !== 'preview-1') {
       return { drawingPlan: null, reason: 'preview_not_found' };
     }
     if (requestedConfigToml !== configToml) {
       return { drawingPlan: null, reason: 'config_changed' };
     }
+    if (strict && previewRevision !== 'revision-1') return { drawingPlan: null, reason: 'revision_changed' };
     return {
+      revision: 'revision-1',
+      settings: { views: ['front', 'top'], scale: '1:2', section_assist: false, detail_assist: false },
       drawingPlan: {
         dim_intents: [
           {
@@ -269,6 +273,27 @@ try {
   assert.equal(trackedPayload.job.request.options.studio.drawing_settings.scale, '1:2');
   assert.equal(trackedPayload.job.request.options.studio.preview_plan.preserved, true);
   assert.equal(trackedPayload.job.request.options.studio.preview_plan.reason, 'preserved');
+
+  const reportRequest = {
+    type: 'report', config_toml: configToml,
+    drawing_preview_id: 'preview-1', drawing_preview_revision: 'revision-1',
+    drawing_settings: { views: ['front', 'top'], scale: '1:2' },
+    report_options: { include_drawing: true },
+    drawing_plan: { dim_intents: [{ id: 'WIDTH', value_mm: 999 }] },
+  };
+  const reportResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(reportRequest),
+  });
+  assert.equal(reportResponse.status, 202);
+  const reportPayload = await reportResponse.json();
+  assert.equal(reportPayload.job.request.config.drawing_plan.dim_intents[0].value_mm, 45, 'server snapshot is authoritative');
+  assert.equal(reportPayload.job.request.config.drawing.scale, '1:2');
+  assert.equal(reportPayload.job.request.options.studio.preview_plan.revision, 'revision-1');
+  const staleResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...reportRequest, drawing_preview_revision: 'old' }),
+  });
+  assert.equal(staleResponse.status, 400);
+  assert.match(JSON.stringify(await staleResponse.json()), /revision_changed/);
 
   console.log('local-api-studio-drawing.test.js: ok');
 } finally {

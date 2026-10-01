@@ -124,6 +124,7 @@ export function toPublicDrawingPreview(preview = {}) {
 
   return {
     id: sanitizePublicValue(source.id || ''),
+    ...(typeof source.revision === 'string' ? { revision: source.revision } : {}),
     drawn_at: sanitizePublicValue(source.drawn_at || ''),
     settings: sanitizePublicValue(structuredClone(isPlainObject(source.settings) ? source.settings : {})),
     overview: sanitizePublicValue(structuredClone(isPlainObject(source.overview) ? source.overview : {})),

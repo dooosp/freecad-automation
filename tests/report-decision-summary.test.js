@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import {
   buildDecisionReportSummary,
@@ -554,3 +555,75 @@ assert.equal(
 );
 
 console.log('report-decision-summary.test.js: ok');
+
+
+test('a failed create roundtrip blocks report readiness even when the generated shape is valid', () => {
+  const input = makeBaseInput();
+  input.createQuality.status = 'fail';
+  input.createQuality.blocking_issues = ['STEP volume mismatch'];
+  const summary = buildDecisionReportSummary(input);
+  assert.equal(summary.overall_status, 'fail');
+  assert.equal(summary.ready_for_manufacturing_review, false);
+  assert.ok(summary.blocking_issues.includes('STEP volume mismatch'));
+  assert.ok(summary.top_risks.includes('STEP volume mismatch'));
+});
+
+for (const [source, key] of [['createQuality', 'create_quality'], ['drawingQuality', 'drawing_quality'], ['dfm', 'dfm']]) {
+  for (const status of ['skipped', 'not_run', 'not_available', 'missing', 'incomplete']) {
+    test(`${source} ${status} cannot clear a required report check`, () => {
+      const input = makeBaseInput();
+      input[source] = { ...input[source], status, warnings: ['The required check did not finish.'] };
+      const summary = buildDecisionReportSummary(input);
+      assert.equal(summary.overall_status, 'incomplete');
+      assert.equal(summary.ready_for_manufacturing_review, null);
+      assert.equal(summary.surfaces[key].status, status);
+      assert.ok(summary.warnings.includes('The required check did not finish.'));
+      assert.equal(validateDecisionReportSummary(summary).ok, true);
+    });
+  }
+  test(`an empty ${source} object is unavailable evidence, not a passing check`, () => {
+    const summary = buildDecisionReportSummary(makeBaseInput({ [source]: {} }));
+    assert.equal(summary.overall_status, 'incomplete');
+    assert.equal(summary.ready_for_manufacturing_review, null);
+  });
+}
+
+for (const source of ['createQuality', 'drawingQuality']) {
+  test(`${source} warnings propagate without inventing an advisory blocker`, () => {
+    const input = makeBaseInput();
+    input[source].status = 'warning';
+    input[source].warnings = ['Inspect the recorded advisory.'];
+    const summary = buildDecisionReportSummary(input);
+    assert.equal(summary.overall_status, 'warning');
+    assert.equal(summary.ready_for_manufacturing_review, true);
+    assert.deepEqual(summary.blocking_issues, []);
+    assert.ok(summary.warnings.includes('Inspect the recorded advisory.'));
+  });
+}
+
+test('a confirmed failure remains blocked when another required surface is incomplete', () => {
+  const input = makeBaseInput();
+  input.createQuality.status = 'fail';
+  input.createQuality.blocking_issues = ['STEP volume mismatch'];
+  input.drawingQuality.status = 'skipped';
+  const summary = buildDecisionReportSummary(input);
+  assert.equal(summary.overall_status, 'fail');
+  assert.equal(summary.ready_for_manufacturing_review, false);
+});
+
+test('metadata-only DFM without a recorded assessment stays incomplete', () => {
+  const summary = buildDecisionReportSummary(makeBaseInput({ dfm: { message: 'Metadata loaded' } }));
+  assert.equal(summary.overall_status, 'incomplete');
+  assert.equal(summary.ready_for_manufacturing_review, null);
+});
+
+test('null drawing and DFM measurements remain unknown rather than zero', () => {
+  const input = makeBaseInput();
+  input.drawingQuality.score = null;
+  input.drawingQuality.traceability.coverage_percent = null;
+  input.dfm.score = null;
+  const summary = buildDecisionReportSummary(input);
+  assert.equal(summary.surfaces.drawing_quality.score, null);
+  assert.equal(summary.surfaces.drawing_quality.traceability_coverage_percent, null);
+  assert.equal(summary.surfaces.dfm.score, null);
+});

@@ -86,6 +86,9 @@ function toStatusTone(status = '') {
 
 function normalizeSurfaceStatus(status = '') {
   const normalized = normalizeString(status);
+  if (normalized === 'passed') return 'pass';
+  if (normalized === 'failed') return 'fail';
+  if (normalized === 'warn') return 'warning';
   if (['pass', 'warning', 'fail', 'available', 'generated', 'in_memory', 'not_run', 'not_available', 'missing'].includes(normalized)) return normalized;
   if (normalized === 'ready') return 'pass';
   return normalized || 'not_available';
@@ -96,7 +99,7 @@ export function formatQualityStatusLabel(status = '', required = false) {
   if (normalized === 'generated') return 'Generated';
   if (normalized === 'available') return 'Available';
   if (normalized === 'in_memory') return 'Computed in report';
-  if (normalized === 'not_run') return required ? 'Required missing' : 'Optional not run';
+  if (normalized === 'not_run' || normalized === 'skipped') return required ? 'Required not run' : 'Optional not run';
   if (normalized === 'not_available' || normalized === 'missing') {
     return required ? 'Required missing' : 'Optional missing';
   }
@@ -236,7 +239,8 @@ function buildSurfaceDetail(surface = {}) {
   }
   if (Number(surface.conflict_count || 0) > 0) details.push(`${surface.conflict_count} dimension conflicts`);
   if (Number(surface.overlap_count || 0) > 0) details.push(`${surface.overlap_count} overlaps`);
-  if (Number.isFinite(Number(surface.traceability_coverage_percent))) {
+  if (surface.traceability_coverage_percent !== null && surface.traceability_coverage_percent !== undefined
+    && surface.traceability_coverage_percent !== '' && Number.isFinite(Number(surface.traceability_coverage_percent))) {
     details.push(`traceability ${Number(surface.traceability_coverage_percent)}%`);
   }
   if (surface.severity_counts?.critical) details.push(`${surface.severity_counts.critical} critical findings`);
@@ -1372,7 +1376,7 @@ function buildDrawingQualityPanel({ artifacts = [], reportSummary = {}, drawingS
 
   const resultStatus = normalizeSurfaceStatus(surface.status || raw.status);
   const available = (surface.available === true || hasRawEvidence)
-    && !['not_available', 'not_run', 'missing', 'incomplete'].includes(resultStatus);
+    && !['not_available', 'not_run', 'skipped', 'missing', 'incomplete'].includes(resultStatus);
   const status = available ? resultStatus : 'not_available';
   const missingRequiredDimensions = uniqueStrings([
     ...safeList(surface.missing_required_dimensions),
@@ -1590,6 +1594,8 @@ function failedRequiredGateChecks(checks = {}) {
     || check.status === 'not_available'
     || check.status === 'missing'
     || check.status === 'not_run'
+    || check.status === 'skipped'
+    || check.status === 'incomplete'
   ));
 }
 
@@ -1616,6 +1622,14 @@ function buildDecisionCopies({ overallStatus, readyForManufacturingReview, check
       blockedCopy: 'No manufacturing blockers',
       readyCopy: 'Ready for manufacturing review: Yes',
       gateCopy: 'All required quality gates passed',
+    };
+  }
+
+  if (overallStatus === 'warning' && readyForManufacturingReview === true) {
+    return {
+      blockedCopy: 'Quality checks reported warnings.',
+      readyCopy: 'Ready for manufacturing review: Yes, with warnings to review',
+      gateCopy: 'Review the recorded warnings before proceeding',
     };
   }
 
@@ -1760,13 +1774,25 @@ function exactDfmTextList(values = [], objectFields = []) {
   }));
 }
 
-function buildReportAttention(reportSummary = {}) {
+function reportSurfaceSummary(surface = {}) {
+  const status = normalizeSurfaceStatus(surface.status);
+  const details = uniqueStrings(stringListFrom(surface.blocking_issues, surface.warnings));
+  if (details.length > 0) return details[0];
+  if (surface.available === false || ['not_run', 'skipped', 'not_available', 'missing', 'incomplete'].includes(status)) {
+    return 'Quality results are not available for this job.';
+  }
+  if (status === 'pass') return 'Quality checks passed.';
+  if (status === 'fail') return 'Quality checks failed.';
+  if (status === 'warning') return 'Quality checks reported warnings.';
+  return 'Quality status is unknown.';
+}
+
+function buildReportAttention(reportSummary = {}, artifactLinks = []) {
   const overallStatus = normalizeSurfaceStatus(reportSummary.overall_status);
   if (overallStatus === 'pass' && reportSummary.ready_for_manufacturing_review !== false) return null;
 
   const dfmSurface = safeObject(safeObject(reportSummary.surfaces).dfm);
   const dfmStatus = normalizeSurfaceStatus(dfmSurface.status);
-  if (dfmStatus !== 'fail' && dfmStatus !== 'warning') return null;
   const rawScore = dfmSurface.score;
   const score = rawScore !== null
     && rawScore !== undefined
@@ -1777,12 +1803,31 @@ function buildReportAttention(reportSummary = {}) {
 
   return {
     overallStatus,
-    dfm: {
+    requiredEvidence: [
+      ['Geometry', 'create_quality', 'create_quality_json'],
+      ['Drawing', 'drawing_quality', 'drawing_quality_json'],
+      ['DFM', 'dfm', 'report_summary_json'],
+    ].flatMap(([surface, key, artifactKind]) => {
+      const source = safeObject(safeObject(reportSummary.surfaces)[key]);
+      const status = source.available === false && normalizeSurfaceStatus(source.status) === 'pass'
+        ? 'not_available' : normalizeSurfaceStatus(source.status);
+      if (status === 'pass') return [];
+      return [{
+        surface,
+        status,
+        statusLabel: formatQualityStatusLabel(status, true),
+        summary: reportSurfaceSummary(source),
+        evidenceArtifact: artifactLinks.find((entry) => entry.id === artifactKind)
+          || artifactLinks.find((entry) => entry.id === 'report_summary_json')
+          || null,
+      }];
+    }),
+    dfm: ['fail', 'warning'].includes(dfmStatus) ? {
       status: dfmStatus,
       score,
       blockers: exactDfmTextList(dfmSurface.blocking_issues, ['message', 'summary']),
       topFixes: exactDfmTextList(dfmSurface.top_fixes, ['suggested_fix', 'message', 'summary']),
-    },
+    } : null,
   };
 }
 
@@ -1803,7 +1848,8 @@ function buildReportSummaryModel({
   const createSurface = safeObject(surfaces.create_quality);
   const drawingSurface = safeObject(surfaces.drawing_quality);
   const dfmSurface = safeObject(surfaces.dfm);
-  const reportArtifactPresent = buildArtifactLinks(artifacts).some((entry) => entry.id === 'report_pdf');
+  const artifactLinks = buildArtifactLinks(artifacts);
+  const reportArtifactPresent = artifactLinks.some((entry) => entry.id === 'report_pdf');
   const checks = buildReportSummaryChecks({ reportSummary, reportArtifactPresent });
 
   return withDecisionFields({
@@ -1826,7 +1872,7 @@ function buildReportSummaryModel({
         status: createSurface.status,
         summary: createSurface.invalid_shape
           ? 'Generated model shape is invalid.'
-          : summaryFromIssues(createSurface.warnings, 'Create quality passed.'),
+          : reportSurfaceSummary(createSurface),
       }),
       buildSurface({
         id: 'drawing',
@@ -1837,7 +1883,7 @@ function buildReportSummaryModel({
           ? `Missing required dimensions: ${drawingSurface.missing_required_dimensions.join(', ')}.`
           : drawingSurface.conflict_count > 0
             ? `Dimension conflicts detected: ${drawingSurface.conflict_count}.`
-            : summaryFromIssues(drawingSurface.warnings, 'Drawing quality passed.'),
+            : reportSurfaceSummary(drawingSurface),
       }),
       buildSurface({
         id: 'dfm',
@@ -1848,7 +1894,7 @@ function buildReportSummaryModel({
           ? `Critical DFM findings: ${dfmSurface.severity_counts.critical}.`
           : summaryFromIssues(
               [...safeList(dfmSurface.top_fixes), ...safeList(dfmSurface.warnings)],
-              'DFM review passed.'
+              reportSurfaceSummary(dfmSurface)
             ),
       }),
       buildSurface({
@@ -1866,8 +1912,8 @@ function buildReportSummaryModel({
     ]),
     warnings: uniqueStrings(safeList(reportSummary.warnings)),
     recommendedActions: uniqueStrings(safeList(reportSummary.recommended_actions)),
-    attention: buildReportAttention(reportSummary),
-    artifactLinks: buildArtifactLinks(artifacts),
+    attention: buildReportAttention(reportSummary, artifactLinks),
+    artifactLinks,
     drawingQuality: buildDrawingQualityPanel({
       artifacts,
       reportSummary,

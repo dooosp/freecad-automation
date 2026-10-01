@@ -749,6 +749,8 @@ function userQualityStatus(job = {}) {
     'Quality passed': 'passed',
     'Quality failed': 'failed',
     'Quality warning': 'warning',
+    'Quality incomplete': 'incomplete',
+    'Quality not run': 'not-run',
   };
   return t(`studio.history.quality.${keys[qualityStatus] || 'unknown'}`);
 }

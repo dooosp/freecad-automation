@@ -300,6 +300,24 @@ export function mountDrawingWorkspace({
     return request;
   }
 
+  function canReusePreviewPlan() {
+    const preview = drawing.preview;
+    // Compare against the accepted sheet settings, so changing only the sheet
+    // can reuse its plan while any source change starts a new plan.
+    return Boolean(preview?.id && preview.revision && preview.settings)
+      && drawing.previewInputSnapshot === drawingInputSnapshot(state.data.model, preview.settings);
+  }
+
+  function recordDrawingFailure(error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (/Drawing preview cannot be (?:preserved|edited): (?:preview_not_found|revision_changed|settings_changed|config_changed)\./.test(detail)) {
+      drawing.previewInputSnapshot = null;
+      return t('studio.drawing.preview-reset-needed');
+    }
+    if (/^No drawing preview found for id .+\.$/.test(detail)) drawing.previewInputSnapshot = null;
+    return drawingFailureMessage(error);
+  }
+
   function syncSettingsFromControls() {
     const views = viewInputs
       .filter((input) => input.checked)
@@ -318,15 +336,20 @@ export function mountDrawingWorkspace({
     const runtimeReady = state.data.health.available === true;
     const hasConfig = Boolean(String(state.data.model.configText || '').trim());
     const canPreview = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating' && !drawing.trackedRun.submitting;
-    const canRunTracked = canPreview && drawing.trackedRun.submitting !== true;
+    const canRunTracked = canPreview && !isDrawingPreviewStale(drawing, state.data.model);
     const hasPreview = drawing.status === 'ready' && Boolean(drawing.preview?.svg) && !isDrawingPreviewStale(drawing, state.data.model);
     const canRunReport = apiReady
       && runtimeReady
       && hasConfig
       && hasPreview
+      && Boolean(drawing.preview?.revision)
       && !currentModel().trackedRun.submitting
       && !reportRunIsActive();
 
+    const settingsLocked = hasPendingRequest();
+    [...viewInputs, scaleSelect, sectionAssistInput, detailAssistInput].filter(Boolean).forEach((input) => {
+      input.disabled = settingsLocked;
+    });
     if (exampleSelect) exampleSelect.value = state.data.examples.selectedId || '';
     const views = new Set(drawing.settings.views || []);
     viewInputs.forEach((input) => {
@@ -441,7 +464,7 @@ export function mountDrawingWorkspace({
       if (children.indexOf(first) > children.indexOf(second)) sectionsParent.insertBefore(first, second);
     }
     bomElement.closest('.studio-card').hidden = !preview?.bom?.length;
-    const nextSignature = showPreview ? `${preview.id}:${preview.drawn_at}` : '';
+    const nextSignature = showPreview ? `${preview.id}:${preview.revision || preview.drawn_at}` : '';
 
     if (!showPreview) {
       renderedSignature = '';
@@ -521,6 +544,7 @@ export function mountDrawingWorkspace({
         dim_id: dimId,
         value_mm: valueMm,
         history_op: historyOp,
+        ...(drawing.preview?.revision ? { drawing_preview_revision: drawing.preview.revision } : {}),
       });
       if (!requestIsCurrent(request)) return;
       restoreRendererHistory();
@@ -544,7 +568,7 @@ export function mountDrawingWorkspace({
       if (!requestIsCurrent(request)) return;
       drawing.activeRequest = null;
       drawing.status = 'error';
-      drawing.errorMessage = drawingFailureMessage(error);
+      drawing.errorMessage = recordDrawingFailure(error);
       drawing.summary = drawing.errorMessage;
       drawingRenderer?.clearPendingEdit();
       addLog({
@@ -770,6 +794,10 @@ export function mountDrawingWorkspace({
       const payload = await postJson('/api/studio/drawing-preview', {
         config_toml: configToml,
         drawing_settings: request.settings,
+        ...(canReusePreviewPlan() ? {
+          drawing_preview_id: drawing.preview.id,
+          drawing_preview_revision: drawing.preview.revision,
+        } : {}),
       });
       if (!requestIsCurrent(request)) return;
       drawing.activeRequest = null;
@@ -796,7 +824,7 @@ export function mountDrawingWorkspace({
       if (!requestIsCurrent(request)) return;
       drawing.activeRequest = null;
       drawing.status = 'error';
-      drawing.errorMessage = drawingFailureMessage(error);
+      drawing.errorMessage = recordDrawingFailure(error);
       drawing.summary = drawing.errorMessage;
       addLog({
         status: 'Drawing',
@@ -819,6 +847,7 @@ export function mountDrawingWorkspace({
     }
 
     syncSettingsFromControls();
+    if (isDrawingPreviewStale(drawing, state.data.model)) return;
     const owner = drawing;
     const ownsSubmission = () => state.data.drawing === owner;
     drawing.trackedRun.submitting = true;
@@ -830,8 +859,9 @@ export function mountDrawingWorkspace({
       const job = await submitTrackedJob({
         type: 'draw',
         configToml,
-        drawingSettings: drawing.settings,
-        drawingPreviewId: isDrawingPreviewStale(drawing, state.data.model) ? '' : drawing.preview?.id || '',
+        drawingSettings: structuredClone(drawing.settings),
+        drawingPreviewId: drawing.preview?.id || '',
+        drawingPreviewRevision: drawing.preview?.revision || '',
         completionAction: {
           type: 'open-artifacts-on-success',
           route: 'artifacts',
@@ -856,7 +886,7 @@ export function mountDrawingWorkspace({
       if (!ownsSubmission()) return;
       drawing.trackedRun.submitting = false;
       drawing.trackedRun.error = error instanceof Error ? error.message : String(error);
-      drawing.errorMessage = drawingFailureMessage(error);
+      drawing.errorMessage = recordDrawingFailure(error);
       drawing.summary = `Tracked draw could not be queued: ${drawing.errorMessage}`;
       addLog({
         status: 'Drawing',
@@ -877,6 +907,7 @@ export function mountDrawingWorkspace({
       || !configToml
       || drawing.status !== 'ready'
       || !drawing.preview?.svg
+      || !drawing.preview?.revision
       || isDrawingPreviewStale(drawing, model)
     ) return;
 
@@ -896,6 +927,10 @@ export function mountDrawingWorkspace({
       const job = await submitTrackedJob({
         type: 'report',
         configToml,
+        drawingSettings: structuredClone(drawing.settings),
+        drawingPreviewId: drawing.preview.id,
+        drawingPreviewRevision: drawing.preview.revision,
+        reportOptions: { include_drawing: true },
         options: buildTrackedReportJobOptions({
           ...model.reportOptions,
           includeDrawing: true,
@@ -920,7 +955,7 @@ export function mountDrawingWorkspace({
       model.trackedRun = {
         ...model.trackedRun,
         submitting: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: recordDrawingFailure(error),
       };
       addLog({
         status: 'Drawing',
@@ -1006,6 +1041,10 @@ export function mountDrawingWorkspace({
     }
 
     if (target.matches('[data-hook="drawing-view"], [data-hook="drawing-scale"], [data-hook="drawing-section-assist"], [data-hook="drawing-detail-assist"]')) {
+      if (hasPendingRequest()) {
+        syncControls();
+        return;
+      }
       syncSettingsFromControls();
       syncAll();
     }

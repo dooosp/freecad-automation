@@ -68,7 +68,10 @@ for (const [status, expected] of [
   ['pass', 'Quality passed'],
   ['fail', 'Quality failed'],
   ['warning', 'Quality warning'],
-  ['not_run', 'Quality Unknown'],
+  ['not_run', 'Quality not run'],
+  ['skipped', 'Quality not run'],
+  ['incomplete', 'Quality incomplete'],
+  ['missing', 'Quality incomplete'],
 ]) {
   const job = {
     type: 'create',
@@ -90,7 +93,10 @@ for (const [status, expected, needsAttention] of [
   ['fail', 'Quality failed', true],
   ['warning', 'Quality warning', true],
   ['pass', 'Quality passed', false],
-  ['not_run', 'Quality Unknown', true],
+  ['not_run', 'Quality not run', true],
+  ['skipped', 'Quality not run', true],
+  ['incomplete', 'Quality incomplete', true],
+  ['missing', 'Quality incomplete', true],
 ]) {
   const job = {
     type: 'draw',
@@ -329,3 +335,20 @@ assert.deepEqual(
 );
 
 console.log('studio-jobs-center.test.js: ok');
+
+
+{
+  const restore = installDrawingTestDom();
+  try {
+    for (const locale of ['en', 'ko']) {
+      setLocale(locale, { persist: false });
+      for (const [status, en, ko] of [['pass', 'Passed', '통과'], ['fail', 'Failed', '실패'], ['warning', 'Warning', '경고'], ['incomplete', 'Incomplete', '미완료'], ['skipped', 'Not run', '미실행'], ['not_run', 'Not run', '미실행'], ['', 'Not available', '결과 없음']]) {
+        const state = createStudioShellState();
+        state.data.recentJobs = { status: 'ready', items: [{ id: 'status-job', type: 'report', status: 'succeeded', result: { report_summary: { overall_status: status, ready_for_manufacturing_review: null } } }] };
+        for (const route of ['start', 'history']) {
+          assert.ok(workspaceDefinitions[route].render(state).textContent.includes(`${locale === 'ko' ? '품질' : 'Quality'}: ${locale === 'ko' ? ko : en}`), `${route} ${locale} ${status}`);
+        }
+      }
+    }
+  } finally { setLocale('en', { persist: false }); restore(); }
+}

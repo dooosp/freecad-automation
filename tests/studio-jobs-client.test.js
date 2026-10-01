@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { createStudioJobMonitorController } from '../public/js/studio/studio-shell-job-monitor.js';
+import { createStudioShellRuntime, createStudioShellState } from '../public/js/studio/studio-shell-store.js';
 
 import {
   findResumableStudioJob,
@@ -107,6 +109,25 @@ try {
     dfm_report_path: 'docs/examples/infotainment-display-bracket/quality-risk.json',
     compare_to_path: 'docs/examples/motor-mount/review/review_pack.json',
   });
+  for (const type of ['draw', 'report']) {
+    const app = {
+      state: createStudioShellState({ hash: '#drawing' }), runtime: createStudioShellRuntime(),
+      window: { location: { hash: '#drawing' }, setTimeout: () => 1, clearTimeout() {} },
+      addLog() {}, refreshShellChrome() {},
+    };
+    const controller = createStudioJobMonitorController(app);
+    await controller.submitTrackedStudioRun({
+      type, configToml: 'name = "edited_bracket"',
+      drawingSettings: { views: ['front', 'iso'], scale: '1:2', section_assist: false, detail_assist: false },
+      drawingPreviewId: 'edited-preview', drawingPreviewRevision: 'accepted-revision-3',
+      ...(type === 'report' ? { options: { include_drawing: true } } : {}),
+    });
+    assert.equal(capturedRequest.body.type, type);
+    assert.equal(capturedRequest.body.drawing_preview_id, 'edited-preview');
+    assert.equal(capturedRequest.body.drawing_preview_revision, 'accepted-revision-3');
+    assert.deepEqual(capturedRequest.body.drawing_settings, { views: ['front', 'iso'], scale: '1:2', section_assist: false, detail_assist: false });
+    if (type === 'report') assert.equal(capturedRequest.body.options.include_drawing, true);
+  }
 } finally {
   globalThis.fetch = originalFetch;
 }

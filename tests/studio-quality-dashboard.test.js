@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { renderArtifactsWorkspace, mountArtifactsWorkspace } from '../public/js/studio/artifacts-workspace.js';
+import { createStudioShellState } from '../public/js/studio/studio-shell-store.js';
+import { setLocale } from '../public/js/i18n/index.js';
+import { installDrawingTestDom } from './helpers/drawing-test-dom.js';
 
 import {
   buildQualityAttentionModel,
@@ -1743,7 +1748,7 @@ assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
   });
 
   const attention = buildQualityAttentionModel({ jobType: 'report', dashboardModel: model });
-  assert.deepEqual(attention, {
+  assert.deepEqual({ overallStatus: attention.overallStatus, dfm: attention.dfm }, {
     overallStatus: 'fail',
     dfm: {
       status: 'fail',
@@ -1755,6 +1760,9 @@ assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
   assert.equal(attention.dfm.blockers.some((entry) => entry.includes("'hole1'") && entry.includes('3.5mm < required 9.0mm')), true);
   assert.equal(attention.dfm.blockers.some((entry) => entry.includes("'hole3'") && entry.includes('3.5mm < required 9.0mm')), true);
   assert.equal(attention.dfm.topFixes.every((entry) => entry.includes('5.5 mm') && entry.includes('widen the local flange')), true);
+  assert.deepEqual(attention.requiredEvidence.map((entry) => [entry.surface, entry.status]), [
+    ['Geometry', 'not_run'], ['Drawing', 'not_run'], ['DFM', 'fail'],
+  ]);
   assert.equal(buildQualityAttentionModel({ jobType: 'create', dashboardModel: model }), null);
   assert.equal(buildQualityAttentionModel({
     jobType: 'report',
@@ -1763,3 +1771,139 @@ assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
 }
 
 console.log('studio-quality-dashboard.test.js: ok');
+
+
+function reportAttentionFixture(overrides = {}, artifacts = []) {
+  const report = makeArtifact({ id: 'current-summary', type: 'report.summary-json', file_name: 'current_report_summary.json', extension: '.json' });
+  const summary = {
+    overall_status: 'incomplete', ready_for_manufacturing_review: null,
+    surfaces: { create_quality: { available: true, status: 'pass' }, drawing_quality: { available: true, status: 'pass' }, dfm: { available: true, status: 'pass' }, ...overrides },
+  };
+  return buildQualityDashboardModel({ artifacts: [report, ...artifacts], artifactPayloads: { [report.id]: summary } });
+}
+
+for (const status of ['skipped', 'not_run', 'missing', 'incomplete', 'fail', 'warning']) {
+  test(`report ${status} geometry shows truthful surface copy and links its actual evidence`, () => {
+    const artifact = makeArtifact({ id: 'current-create', type: 'model.quality-summary', file_name: 'current_create_quality.json', extension: '.json' });
+    const model = reportAttentionFixture({ create_quality: { available: true, status, blocking_issues: status === 'fail' ? ['STEP volume mismatch'] : [], warnings: [] } }, [artifact]);
+    const geometry = model.surfaces.find((surface) => surface.id === 'geometry');
+    assert.doesNotMatch(geometry.summary, /passed/i);
+    const attention = buildQualityAttentionModel({ jobType: 'report', dashboardModel: model });
+    assert.ok(attention);
+    const evidence = attention.requiredEvidence.find((entry) => entry.surface === 'Geometry');
+    assert.equal(evidence.status, status);
+    assert.equal(evidence.evidenceArtifact.artifactId, 'current-create');
+    assert.equal(evidence.evidenceArtifact.href, '/artifacts/job-1/current-create');
+  });
+}
+
+test('missing drawing evidence points to the current report summary and never fabricates a sidecar link', () => {
+  const model = reportAttentionFixture({ drawing_quality: { available: false, status: 'not_available', path: '/old-run/passing_drawing_quality.json' } });
+  const evidence = buildQualityAttentionModel({ jobType: 'report', dashboardModel: model }).requiredEvidence.find((entry) => entry.surface === 'Drawing');
+  assert.equal(evidence.evidenceArtifact.artifactId, 'current-summary');
+  assert.doesNotMatch(evidence.evidenceArtifact.href, /old-run/);
+  assert.doesNotMatch(model.surfaces.find((surface) => surface.id === 'drawing').summary, /passed/i);
+});
+
+test('a missing DFM surface cannot describe the absent check as passed', () => {
+  const model = reportAttentionFixture({ dfm: undefined });
+  assert.doesNotMatch(model.surfaces.find((surface) => surface.id === 'dfm').summary, /passed/i);
+  assert.equal(buildQualityAttentionModel({ jobType: 'report', dashboardModel: model }).requiredEvidence.find((entry) => entry.surface === 'DFM').status, 'not_available');
+});
+
+test('an unknown drawing traceability measurement never displays a measured zero percent', () => {
+  const model = reportAttentionFixture({ drawing_quality: { available: false, status: 'not_run', traceability_coverage_percent: null } });
+  const drawing = model.checks.unavailable.find((entry) => entry.label === 'Drawing');
+  assert.doesNotMatch(drawing.detail, /traceability 0%/);
+});
+
+test('skipped drawing checks remain unavailable and never advertise no drawing action required', () => {
+  const model = reportAttentionFixture({ drawing_quality: { available: true, status: 'skipped' } });
+  assert.equal(model.drawingQuality.available, false);
+  assert.doesNotMatch(model.drawingQuality.decisionImpact, /Does not block/);
+  assert.ok(!model.drawingQuality.suggestedActions.includes('No drawing action required.'));
+});
+
+test('evidence attention preserves download-only permission and leaves unlinked evidence unlinked', () => {
+  const artifact = makeArtifact({ id: 'download-create', type: 'model.quality-summary', file_name: 'current_create_quality.json', extension: '.json', canOpen: false });
+  const model = reportAttentionFixture({ create_quality: { available: true, status: 'fail' } }, [artifact]);
+  const evidence = model.attention.requiredEvidence[0].evidenceArtifact;
+  assert.equal(evidence.actionKind, 'download');
+  assert.equal(evidence.href, '/artifacts/job-1/download-create/download');
+  const closedArtifacts = [makeArtifact({ id: 'closed', type: 'report.summary-json', file_name: 'current_report_summary.json', extension: '.json', canOpen: false, canDownload: false })];
+  const closed = buildQualityDashboardModel({ artifacts: closedArtifacts, artifactPayloads: { closed: { overall_status: 'incomplete', surfaces: {} } } });
+  assert.ok(closed.attention.requiredEvidence.every((entry) => entry.evidenceArtifact === null));
+});
+
+test('result attention renders current evidence links and hides the old run while another is loading', async (t) => {
+  t.after(installDrawingTestDom());
+  setLocale('en', { persist: false });
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, text: async () => '{}' });
+  t.after(() => { globalThis.fetch = previousFetch; });
+  const artifacts = [
+    makeArtifact({ id: 'current-summary', type: 'report.summary-json', file_name: 'current_report_summary.json', extension: '.json' }),
+    makeArtifact({ id: 'current-create', type: 'model.quality-summary', file_name: 'current_create_quality.json', extension: '.json', canOpen: false }),
+  ];
+  const model = reportAttentionFixture({ create_quality: { available: true, status: 'fail', blocking_issues: ['STEP volume mismatch'] } }, [artifacts[1]]);
+  const state = createStudioShellState();
+  state.selectedJobId = 'job-1';
+  state.data.activeJob = { status: 'ready', summary: { id: 'job-1', type: 'report', status: 'succeeded' }, artifacts };
+  Object.assign(state.data.artifactsWorkspace, { qualityData: model, qualityStatus: 'ready', qualityCacheKey: 'job-1:current-summary|current-create' });
+  const root = renderArtifactsWorkspace(state);
+  document.append(root);
+  const controller = mountArtifactsWorkspace({ root, state, addLog() {} });
+  t.after(() => controller.destroy());
+  await new Promise((resolve) => setImmediate(resolve));
+  const attention = root.querySelector('[data-hook="artifacts-quality-attention"]');
+  const geometry = attention.querySelector('[data-quality-evidence="geometry"]');
+  assert.ok(geometry);
+  assert.match(geometry.textContent, /STEP volume mismatch/);
+  assert.match(geometry.textContent, /Download/);
+  assert.equal(geometry.querySelector('a').getAttribute('href'), '/artifacts/job-1/current-create/download');
+  state.data.artifactsWorkspace.qualityData = reportAttentionFixture({ create_quality: { available: true, status: 'warning', warnings: ['Inspect the recorded advisory.'] } }, [artifacts[1]]);
+  controller.syncFromShell();
+  await new Promise((resolve) => setImmediate(resolve));
+  const checkSections = root.querySelectorAll('.quality-check-section');
+  const warnings = checkSections.find((section) => section.querySelector('p')?.textContent.startsWith('Warnings ('));
+  assert.ok(warnings, 'Warnings need their own section instead of being described as not run');
+  assert.match(warnings.textContent, /Geometry/);
+  const unavailable = checkSections.find((section) => section.querySelector('p')?.textContent.startsWith('Not run or unavailable ('));
+  assert.doesNotMatch(unavailable.textContent, /Geometry/);
+  state.selectedJobId = 'job-2';
+  state.data.activeJob = { status: 'loading', summary: { id: 'job-2', type: 'report' }, artifacts: [] };
+  controller.syncFromShell();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attention.hidden, true);
+  assert.equal(attention.querySelector('a'), null);
+});
+
+
+for (const locale of ['en', 'ko']) {
+  test(`result summary preserves every recorded quality status and evidence surface label in ${locale}`, async (t) => {
+    const restore = installDrawingTestDom();
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, text: async () => '{}' });
+    t.after(() => { globalThis.fetch = previousFetch; setLocale('en', { persist: false }); restore(); });
+    setLocale(locale, { persist: false });
+    for (const [status, en, ko] of [['pass', 'Passed', '통과'], ['fail', 'Failed', '실패'], ['warning', 'Warning', '경고'], ['incomplete', 'Incomplete', '미완료'], ['skipped', 'Not run', '미실행'], ['not_run', 'Not run', '미실행'], ['', 'Not available', '결과 없음']]) {
+      const artifact = makeArtifact({ id: 'current-summary', type: 'report.summary-json', file_name: 'current_report_summary.json', extension: '.json' });
+      const model = reportAttentionFixture({ create_quality: { available: false, status: 'not_available' } });
+      const state = createStudioShellState();
+      state.selectedJobId = 'job-1';
+      state.data.activeJob = { status: 'ready', summary: { id: 'job-1', type: 'report', status: 'succeeded', result: { report_summary: { overall_status: status, ready_for_manufacturing_review: null } } }, artifacts: [artifact] };
+      Object.assign(state.data.artifactsWorkspace, { qualityData: model, qualityStatus: 'ready', qualityCacheKey: 'job-1:current-summary' });
+      const root = renderArtifactsWorkspace(state);
+      document.append(root);
+      const controller = mountArtifactsWorkspace({ root, state, addLog() {} });
+      try {
+        await new Promise((resolve) => setImmediate(resolve));
+        const row = root.querySelector('[data-hook="artifacts-result-summary"]').querySelectorAll('.info-row').find((entry) => entry.querySelector('.info-label').textContent === (locale === 'ko' ? '품질' : 'Quality'));
+        assert.equal(row.querySelector('.info-value').textContent, locale === 'ko' ? ko : en, status);
+        const link = root.querySelector('[data-quality-evidence="geometry"]').querySelector('a');
+        assert.equal(link.textContent, locale === 'ko' ? '형상 근거 열기' : 'Open Geometry evidence');
+        assert.equal(link.getAttribute('href'), '/artifacts/job-1/current-summary');
+      } finally { controller.destroy(); document.removeChild(root); }
+    }
+  });
+}

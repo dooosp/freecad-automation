@@ -57,6 +57,14 @@ function asObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function normalizeQualityStatus(value, fallback = 'not_available') {
+  const status = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (status === 'passed') return 'pass';
+  if (status === 'failed') return 'fail';
+  if (status === 'warn') return 'warning';
+  return status || fallback;
+}
+
 function safeString(value, fallback = null) {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
@@ -297,7 +305,7 @@ export function createReportSummaryPath({ primaryOutputPath = null, outputDir = 
 }
 
 function summarizeCreateQuality(createQuality) {
-  if (!createQuality || typeof createQuality !== 'object') {
+  if (Object.keys(asObject(createQuality)).length === 0) {
     return {
       available: false,
       status: 'not_available',
@@ -315,7 +323,7 @@ function summarizeCreateQuality(createQuality) {
 
   return {
     available: true,
-    status: createQuality.status || (blockingIssues.length > 0 ? 'fail' : warnings.length > 0 ? 'warning' : 'pass'),
+    status: normalizeQualityStatus(createQuality.status, blockingIssues.length > 0 ? 'fail' : 'not_available'),
     score: null,
     invalid_shape: invalidShape,
     blocking_issues: blockingIssues,
@@ -465,7 +473,7 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
 }
 
 function summarizeDrawingQuality(drawingQuality) {
-  if (!drawingQuality || typeof drawingQuality !== 'object') {
+  if (Object.keys(asObject(drawingQuality)).length === 0) {
     return {
       available: false,
       status: 'not_available',
@@ -488,8 +496,8 @@ function summarizeDrawingQuality(drawingQuality) {
 
   return {
     available: true,
-    status: drawingQuality.status || 'warning',
-    score: Number.isFinite(Number(drawingQuality.score)) ? Number(drawingQuality.score) : null,
+    status: normalizeQualityStatus(drawingQuality.status),
+    score: finiteNumberOrNull(drawingQuality.score),
     missing_required_dimensions: uniqueStrings(drawingQuality.dimensions?.missing_required_intents || []),
     conflict_count: Number.isFinite(Number(drawingQuality.dimensions?.conflict_count))
       ? Number(drawingQuality.dimensions.conflict_count)
@@ -497,9 +505,7 @@ function summarizeDrawingQuality(drawingQuality) {
     overlap_count: Number.isFinite(Number(drawingQuality.views?.overlap_count))
       ? Number(drawingQuality.views.overlap_count)
       : 0,
-    traceability_coverage_percent: Number.isFinite(Number(drawingQuality.traceability?.coverage_percent))
-      ? Number(drawingQuality.traceability.coverage_percent)
-      : null,
+    traceability_coverage_percent: finiteNumberOrNull(drawingQuality.traceability?.coverage_percent),
     semantic_quality: semanticQuality,
     layout_readability: summarizeLayoutReadability(drawingQuality.layout_readability),
     reviewer_feedback: reviewerFeedback,
@@ -572,7 +578,7 @@ function summarizeLayoutReadability(layoutReadability) {
 }
 
 function summarizeDfm(dfm) {
-  if (!dfm || typeof dfm !== 'object') {
+  if (Object.keys(asObject(dfm)).length === 0) {
     return {
       available: false,
       status: 'not_run',
@@ -590,6 +596,11 @@ function summarizeDfm(dfm) {
   }
 
   const summaryCounts = dfm.summary?.severity_counts || {};
+  const hasAssessment = Boolean(safeString(dfm.status))
+    || Array.isArray(dfm.issues)
+    || Array.isArray(dfm.checks)
+    || Object.hasOwn(asObject(dfm.summary), 'severity_counts')
+    || finiteNumberOrNull(dfm.score) !== null;
   const issues = Array.isArray(dfm.issues) ? dfm.issues : [];
   const severityCounts = {
     critical: Number(summaryCounts.critical || 0),
@@ -618,6 +629,7 @@ function summarizeDfm(dfm) {
     .filter((issue) => issue?.severity === 'major')
     .map((issue) => issue?.message || issue?.rule_name || issue?.rule_id)
     .filter(Boolean);
+  warnings.push(...asArray(dfm.warnings));
 
   const status = severityCounts.critical > 0
     ? 'fail'
@@ -626,9 +638,9 @@ function summarizeDfm(dfm) {
       : 'pass';
 
   return {
-    available: true,
-    status,
-    score: Number.isFinite(Number(dfm.score)) ? Number(dfm.score) : null,
+    available: hasAssessment,
+    status: normalizeQualityStatus(dfm.status, hasAssessment ? status : 'not_available'),
+    score: finiteNumberOrNull(dfm.score),
     severity_counts: severityCounts,
     top_fixes: uniqueStrings(topFixes),
     blocking_issues: uniqueStrings(blockingIssues),
@@ -745,6 +757,7 @@ function renderTopRisks(surfaces, criticalInputsMissing = []) {
   if (surfaces.create_quality.invalid_shape) {
     risks.push('Generated model shape is invalid.');
   }
+  risks.push(...surfaces.create_quality.blocking_issues);
   if (surfaces.drawing_quality.missing_required_dimensions.length > 0) {
     risks.push(`Missing required drawing dimensions: ${surfaces.drawing_quality.missing_required_dimensions.join(', ')}.`);
   }
@@ -793,6 +806,8 @@ function renderRecommendedActions(surfaces, criticalInputsMissing = []) {
   }
   if (surfaces.create_quality.invalid_shape) {
     actions.push('Repair the generated model geometry before proceeding to manufacturing review.');
+  } else if (surfaces.create_quality.status === 'fail') {
+    actions.push('Inspect the create quality findings and rerun the affected export checks before manufacturing review.');
   }
   actions.push(...surfaces.drawing_quality.recommended_actions);
   actions.push(...surfaces.dfm.top_fixes);
@@ -848,16 +863,23 @@ export function buildDecisionReportSummary({
   const warnings = [];
   const criticalInputsMissing = [];
 
-  if (!surfaces.create_quality.available) criticalInputsMissing.push('create_quality');
-  if (!surfaces.drawing_quality.available) criticalInputsMissing.push('drawing_quality');
-  if (!surfaces.dfm.available) criticalInputsMissing.push('dfm');
+  for (const key of ['create_quality', 'drawing_quality', 'dfm']) {
+    const surface = surfaces[key];
+    if (!surface.available || !['pass', 'warning', 'fail'].includes(surface.status)) {
+      criticalInputsMissing.push(key);
+    } else if (surface.status === 'warning') {
+      overallStatus = escalateStatus(overallStatus, 'warning');
+    }
+    warnings.push(...surface.warnings);
+  }
   if (criticalInputsMissing.length > 0) {
     overallStatus = escalateStatus(overallStatus, 'incomplete');
     readyForManufacturingReview = null;
     warnings.push(...criticalInputsMissing.map((key) => `${key.replaceAll('_', ' ')} data is not available.`));
   }
 
-  if (surfaces.create_quality.invalid_shape) {
+  if (surfaces.create_quality.invalid_shape || surfaces.create_quality.status === 'fail'
+    || surfaces.create_quality.blocking_issues.length > 0) {
     overallStatus = 'fail';
     readyForManufacturingReview = false;
     blockingIssues.push(...surfaces.create_quality.blocking_issues);
@@ -868,6 +890,7 @@ export function buildDecisionReportSummary({
     || surfaces.drawing_quality.conflict_count > 0
     || surfaces.drawing_quality.overlap_count > 0
     || surfaces.drawing_quality.status === 'fail'
+    || surfaces.drawing_quality.blocking_issues.length > 0
     || (
       surfaces.drawing_quality.semantic_quality.enforceable
       && surfaces.drawing_quality.semantic_quality.required_blockers.length > 0

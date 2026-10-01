@@ -62,6 +62,7 @@ export async function submitStudioTrackedJob({
   intakeReportPath,
   drawingSettings,
   drawingPreviewId,
+  drawingPreviewRevision,
   reportOptions,
   options,
 }) {
@@ -91,6 +92,7 @@ export async function submitStudioTrackedJob({
       ...(intakeReportPath ? { intake_report_path: intakeReportPath } : {}),
       ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
       ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
+      ...(drawingPreviewRevision ? { drawing_preview_revision: drawingPreviewRevision } : {}),
       ...(reportOptions ? { report_options: reportOptions } : {}),
       ...(options ? { options } : {}),
     }),

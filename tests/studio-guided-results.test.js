@@ -99,7 +99,9 @@ test('ready drawing appears before execution summaries without separating effect
     assert.ok(previewEffects < index('[data-action="drawing-generate"]'));
     assert.ok(reportEffects < index('[data-action="drawing-run-report"]'));
     if (ready) assert.ok(stage < reportEffects);
-    assert.match(root.querySelector('[data-action-summary="create-drawing-report"]').textContent, /not included/);
+    const reportCopy = root.querySelector('[data-action-summary="create-drawing-report"]').textContent;
+    assert.match(reportCopy, /dimension edits and sheet settings are included/);
+    assert.match(reportCopy, /drawing annotations, not 3D geometry/);
   }
 });
 

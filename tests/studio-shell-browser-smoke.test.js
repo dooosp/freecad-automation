@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -335,6 +336,46 @@ function drawingRouteReadinessExpression() {
   })()`;
 }
 
+function editedDrawingSnapshotExpression() {
+  return `(() => ({
+    svgValue: document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]')?.getAttribute('data-value-mm'),
+    panelValue: document.querySelector('[data-hook="drawing-dimensions"] input[data-dim-id="WIDTH"]')?.value,
+    history: [...document.querySelectorAll('[data-hook="drawing-history"] .list-label')].map((node) => node.textContent),
+    historyStates: [...document.querySelectorAll('[data-hook="drawing-history"] .pill')].map((node) => node.textContent),
+    scale: document.querySelector('[data-hook="drawing-scale"]')?.value,
+    views: [...document.querySelectorAll('[data-hook="drawing-view"]:checked')].map((node) => node.dataset.view),
+    previewEnabled: !document.querySelector('[data-hook="drawing-generate"]')?.disabled,
+    reportEnabled: !document.querySelector('[data-hook="drawing-report"]')?.disabled,
+  }))()`;
+}
+
+async function assertStoredEditedDrawing(cdp, jobId) {
+  const snapshot = await cdp.evaluate(`(async () => {
+    const payload = await (await fetch('/jobs/${jobId}/artifacts')).json();
+    const artifact = payload.artifacts.find((entry) => entry.type === 'drawing.svg');
+    if (!artifact) return { missing: true };
+    // Saved SVG is downloadable; the API deliberately blocks inline SVG.
+    if (!artifact.capabilities?.can_download) return { unavailable: true, capabilities: artifact.capabilities };
+    const response = await fetch(artifact.links.download);
+    const svg = new DOMParser().parseFromString(await response.text(), 'image/svg+xml');
+    return {
+      status: response.status,
+      canOpen: artifact.capabilities.can_open,
+      canDownload: artifact.capabilities.can_download,
+      value: svg.querySelector('text[data-dim-id="WIDTH"]')?.getAttribute('data-value-mm'),
+      scale: svg.documentElement.getAttribute('data-sheet-scale'),
+      views: svg.documentElement.getAttribute('data-sheet-views'),
+    };
+  })()`);
+  assert.equal(snapshot.status, 200, JSON.stringify(snapshot));
+  assert.equal(snapshot.canOpen, false);
+  assert.equal(snapshot.canDownload, true);
+  assert.equal(snapshot.value, '47', 'Saved output must use the accepted edited annotation');
+  assert.equal(snapshot.scale, '1:2');
+  assert.equal(snapshot.views, 'front,top,right');
+  return snapshot;
+}
+
 function routeLabelExpression(route) {
   return `(() => document.querySelector('.nav-link[data-route="${route}"] .nav-label')?.textContent?.trim() || '')()`;
 }
@@ -373,6 +414,7 @@ class CdpSession {
     this.pending = new Map();
     this.logs = [];
     this.exceptions = [];
+    this.posts = [];
   }
 
   async connect() {
@@ -404,6 +446,16 @@ class CdpSession {
 
         if (message.method === 'Runtime.exceptionThrown') {
           this.exceptions.push(message.params.exceptionDetails);
+        }
+        if (message.method === 'Network.requestWillBeSent') {
+          const request = message.params.request;
+          if (request.method === 'POST' && request.postData && new URL(request.url).pathname.startsWith('/api/studio/')) {
+            try {
+              this.posts.push({ path: new URL(request.url).pathname, body: JSON.parse(request.postData) });
+            } catch {
+              // Multipart CAD imports are outside the JSON drawing contract.
+            }
+          }
         }
       });
     });
@@ -1225,10 +1277,14 @@ async function completeQualityDecisionJob(jobStore, {
       recommended_actions: reportSummary.surfaces.drawing_quality.recommended_actions || [],
     }, null, 2)}\n`
   );
+  const editedDimension = job.request?.config?.drawing_plan?.dim_intents?.find((dimension) => dimension.id === 'WIDTH');
+  const drawingSvg = editedDimension
+    ? browserSmokeDrawingSvg(editedDimension.value_mm, job.request.config.drawing || {})
+    : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><text x="8" y="32">${configName}</text></svg>\n`;
   const drawingSvgPath = await jobStore.writeJobFile(
     job.id,
     `artifacts/${configName}_drawing.svg`,
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><text x="8" y="32">${configName}</text></svg>\n`
+    drawingSvg
   );
   const manifest = await buildArtifactManifest({
     projectRoot,
@@ -1859,32 +1915,97 @@ function browserSmokeStudioModelServiceFactory() {
   };
 }
 
+function browserSmokeDrawingSvg(value, settings = {}) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 24" data-sheet-scale="${settings.scale || 'auto'}" data-sheet-views="${(settings.views || ['front', 'top', 'right', 'iso']).join(',')}"><rect x="2" y="2" width="36" height="20" fill="none" stroke="currentColor"/><text x="4" y="12" data-dim-id="WIDTH" data-value-mm="${value}">${value}</text></svg>`;
+}
+
+const browserSmokeDrawingSnapshots = [];
+
 function browserSmokeDrawingServiceFactory() {
+  let current = null;
+  let previewSequence = 0;
+  let renderSequence = 0;
+  const normalizeSettings = (settings = {}) => ({
+    views: settings.views || ['front', 'top', 'right', 'iso'],
+    scale: settings.scale || 'auto',
+    section_assist: settings.section_assist === true,
+    detail_assist: settings.detail_assist === true,
+  });
+
+  function requireCurrent({ previewId, previewRevision, configToml, drawingSettings }, requireRevision = true) {
+    if (!current || previewId !== current.id) throw new Error('preview_not_found');
+    if ((requireRevision || previewRevision) && previewRevision !== current.revision) throw new Error('revision_changed');
+    if (configToml !== undefined && String(configToml).trim() !== current.configToml) throw new Error('config_changed');
+    if (drawingSettings && JSON.stringify(normalizeSettings(drawingSettings)) !== JSON.stringify(current.settings)) throw new Error('settings_changed');
+  }
+
+  function render() {
+    current.revision = randomUUID();
+    const preview = {
+      id: current.id,
+      revision: current.revision,
+      drawn_at: new Date(Date.UTC(2026, 6, 19, 0, 0, ++renderSequence)).toISOString(),
+      settings: structuredClone(current.settings),
+      overview: {
+        name: configNameFromTrackedRequest({ config_toml: current.configToml }),
+        scale: current.settings.scale,
+        views: current.settings.views,
+      },
+      views: current.settings.views,
+      scale: current.settings.scale,
+      svg: browserSmokeDrawingSvg(current.value, current.settings),
+      plan_path: 'output/browser-smoke-drawing.plan.toml',
+      bom: [{ id: 'body', count: 1 }],
+      annotations: ['Browser smoke drawing preview.'],
+      qa_summary: {
+        score: 96, weight_profile: 'default', planned_dimension_count: 1,
+        rendered_dimension_count: 1, conflict_count: 0,
+      },
+      dimensions: [{ id: 'WIDTH', value_mm: current.value, feature: 'body_width', required: true }],
+      logs: ['Browser smoke drawing preview completed.'],
+    };
+    browserSmokeDrawingSnapshots.push(structuredClone(preview));
+    return { preview };
+  }
+
   return {
-    async buildPreview({ drawingSettings = {} } = {}) {
+    async buildPreview({ configToml, drawingSettings = {}, drawingPreviewId, drawingPreviewRevision } = {}) {
+      if (drawingPreviewId) {
+        requireCurrent({ previewId: drawingPreviewId, previewRevision: drawingPreviewRevision, configToml });
+        current.settings = normalizeSettings(drawingSettings);
+      } else {
+        current = {
+          id: `browser-smoke-drawing-${++previewSequence}`, configToml: String(configToml || '').trim(),
+          value: 40, settings: normalizeSettings(drawingSettings),
+        };
+      }
+      return render();
+    },
+    async updateDimension({ previewId, previewRevision, dimId, valueMm, historyOp = 'edit' }) {
+      requireCurrent({ previewId, previewRevision });
+      assert.equal(dimId, 'WIDTH');
+      assert.ok(Number.isFinite(Number(valueMm)) && Number(valueMm) > 0);
+      const oldValue = current.value;
+      current.value = Number(valueMm);
       return {
-        preview: {
-          id: 'browser-smoke-drawing',
-          drawn_at: '2026-07-19T00:00:00.000Z',
-          overview: {
-            name: 'quality_pass_bracket',
-            scale: drawingSettings.scale || 'auto',
-            views: drawingSettings.views || ['front', 'top', 'right', 'iso'],
-          },
-          scale: drawingSettings.scale || 'auto',
-          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 24"><rect x="2" y="2" width="36" height="20" fill="none" stroke="currentColor"/><text x="4" y="12" data-dim-id="WIDTH" data-value-mm="40">40</text></svg>',
-          plan_path: 'output/browser-smoke-drawing.plan.json',
-          bom: [{ id: 'body', count: 1 }],
-          annotations: ['Browser smoke drawing preview.'],
-          qa_summary: {
-            score: 96,
-            weight_profile: 'default',
-            planned_dimension_count: 1,
-            rendered_dimension_count: 1,
-            conflict_count: 0,
-          },
-          dimensions: [{ id: 'WIDTH', value_mm: 40, feature: 'body_width', required: true }],
-          logs: ['Browser smoke drawing preview completed.'],
+        ...render(),
+        update: { dim_id: dimId, old_value: oldValue, new_value: current.value, history_op: historyOp },
+      };
+    },
+    async getTrackedDrawPlan({ previewId, previewRevision, configToml, drawingSettings, strict }) {
+      try {
+        requireCurrent({ previewId, previewRevision, configToml, drawingSettings }, strict === true);
+      } catch (error) {
+        return { drawingPlan: null, reason: error.message };
+      }
+      return {
+        reason: 'preserved',
+        revision: current.revision,
+        settings: structuredClone(current.settings),
+        drawingPlan: {
+          views: { enabled: [...current.settings.views] },
+          dim_intents: [{ id: 'WIDTH', value_mm: current.value, feature: 'body_width', required: true }],
+          notes: { general: ['Browser smoke drawing preview.'] },
         },
       };
     },
@@ -2150,6 +2271,7 @@ try {
   await cdp.send('Runtime.enable');
   await cdp.send('Log.enable');
   await cdp.send('Page.enable');
+  await cdp.send('Network.enable');
   await cdp.send('Emulation.setDeviceMetricsOverride', {
     width: 1440,
     height: 1000,
@@ -3041,6 +3163,106 @@ try {
     });
   }
 
+  const firstDrawingSnapshot = browserSmokeDrawingSnapshots.at(-1);
+  assert.equal(firstDrawingSnapshot.dimensions[0].value_mm, 40);
+  await cdp.evaluate(`document.querySelector('[data-hook="drawing-canvas"] text[data-dim-id="WIDTH"]').focus()`);
+  for (const type of ['keyDown', 'keyUp']) {
+    await cdp.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  }
+  await waitFor(async () => {
+    assert.equal(await cdp.evaluate(`document.activeElement?.classList.contains('dim-edit-input') || false`), true);
+  });
+  await cdp.evaluate(`document.querySelector('.dim-edit-input').value = '45'`);
+  for (const type of ['keyDown', 'keyUp']) {
+    await cdp.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  }
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(editedDrawingSnapshotExpression());
+    assert.equal(snapshot.svgValue, '45');
+    assert.equal(snapshot.panelValue, '45');
+    assert.deepEqual(snapshot.history, ['WIDTH: 40 -> 45']);
+  });
+  const canvasEditPost = cdp.posts.findLast((request) => request.path.endsWith('/dimensions'));
+  assert.deepEqual(canvasEditPost.body, {
+    dim_id: 'WIDTH', value_mm: 45, history_op: 'edit', drawing_preview_revision: firstDrawingSnapshot.revision,
+  });
+
+  await cdp.evaluate(`(() => {
+    const input = document.querySelector('[data-hook="drawing-dimensions"] input[data-dim-id="WIDTH"]');
+    input.value = '47';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await keyboardActivate(cdp, '[data-action="drawing-apply-dimension"][data-dim-id="WIDTH"]');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(editedDrawingSnapshotExpression());
+    assert.equal(snapshot.svgValue, '47');
+    assert.equal(snapshot.panelValue, '47');
+    assert.deepEqual(snapshot.history, ['WIDTH: 45 -> 47', 'WIDTH: 40 -> 45']);
+    assert.deepEqual(snapshot.historyStates, ['Applied', 'Applied']);
+  });
+
+  const beforeSettingsSnapshot = browserSmokeDrawingSnapshots.at(-1);
+  await cdp.evaluate(`(() => {
+    const iso = document.querySelector('[data-hook="drawing-view"][data-view="iso"]');
+    iso.checked = false;
+    iso.dispatchEvent(new Event('change', { bubbles: true }));
+    const scale = document.querySelector('[data-hook="drawing-scale"]');
+    scale.value = '1:2';
+    scale.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  const staleSettings = await cdp.evaluate(editedDrawingSnapshotExpression());
+  assert.equal(staleSettings.reportEnabled, false, 'New settings require a matching preview before report submission');
+  const pendingSettings = await cdp.evaluate(`(() => {
+    // Inspect the pending state in the same task, before the response can arrive.
+    document.querySelector('[data-hook="drawing-generate"]').click();
+    const scale = document.querySelector('[data-hook="drawing-scale"]');
+    const locked = {
+      views: [...document.querySelectorAll('[data-hook="drawing-view"]')].map((control) => control.disabled),
+      scale: scale.disabled,
+      sectionAssist: document.querySelector('[data-hook="drawing-section-assist"]')?.disabled,
+      detailAssist: document.querySelector('[data-hook="drawing-detail-assist"]')?.disabled,
+    };
+    scale.value = '1:5';
+    scale.dispatchEvent(new Event('change', { bubbles: true }));
+    return { locked, scaleAfterRejectedChange: scale.value };
+  })()`);
+  assert.deepEqual(pendingSettings.locked, {
+    views: [true, true, true, true], scale: true, sectionAssist: true, detailAssist: true,
+  });
+  assert.equal(pendingSettings.scaleAfterRejectedChange, '1:2', 'A pending regeneration must keep its submitted settings snapshot');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(editedDrawingSnapshotExpression());
+    assert.equal(snapshot.svgValue, '47', 'Regenerating sheet settings must retain applied annotation edits');
+    assert.equal(snapshot.panelValue, '47');
+    assert.equal(snapshot.scale, '1:2');
+    assert.deepEqual(snapshot.views, ['front', 'top', 'right']);
+    assert.deepEqual(snapshot.history, ['WIDTH: 45 -> 47', 'WIDTH: 40 -> 45']);
+    assert.equal(snapshot.reportEnabled, true);
+  });
+  const regeneratedSnapshot = browserSmokeDrawingSnapshots.at(-1);
+  assert.equal(regeneratedSnapshot.id, beforeSettingsSnapshot.id);
+  assert.notEqual(regeneratedSnapshot.revision, beforeSettingsSnapshot.revision);
+  const regenerationPost = cdp.posts.findLast((request) => request.path === '/api/studio/drawing-preview');
+  assert.equal(regenerationPost.body.drawing_preview_id, beforeSettingsSnapshot.id);
+  assert.equal(regenerationPost.body.drawing_preview_revision, beforeSettingsSnapshot.revision);
+
+  for (const [key, code, value, historyState] of [['z', 'KeyZ', '45', 'Undone'], ['y', 'KeyY', '47', 'Applied']]) {
+    await cdp.evaluate(`document.querySelector('[data-hook="drawing-canvas"]').focus()`);
+    for (const type of ['keyDown', 'keyUp']) {
+      await cdp.send('Input.dispatchKeyEvent', {
+        type, key, code, windowsVirtualKeyCode: key.toUpperCase().charCodeAt(0), modifiers: 2,
+      });
+    }
+    await waitFor(async () => {
+      const snapshot = await cdp.evaluate(editedDrawingSnapshotExpression());
+      assert.equal(snapshot.svgValue, value);
+      assert.equal(snapshot.panelValue, value);
+      assert.deepEqual(snapshot.history, ['WIDTH: 45 -> 47', 'WIDTH: 40 -> 45']);
+      assert.equal(snapshot.historyStates[0], historyState);
+    });
+  }
+  const acceptedDrawingSnapshot = browserSmokeDrawingSnapshots.at(-1);
+
   await cdp.evaluate(`(() => {
     const localeSelect = document.getElementById('studio-locale-select');
     localeSelect.value = 'ko';
@@ -3061,14 +3283,17 @@ try {
     assertIncludesAll(snapshot.reportText, [
       '추적 보고서 생성',
       '현재 불러온 설정',
-      '보고서에서 도면을 다시 생성합니다',
-      '미리보기에서만 바꾼 치수와 시트 설정은 보고서에 포함되지 않습니다',
+      '도면 주석',
+      '시트 설정',
       '추적 보고서 PDF와 관련 산출물',
     ]);
+    assert.match(snapshot.reportText, /치수.*포함/);
+    assert.match(snapshot.reportText, /3D 형상.*변경하지 않/);
+    assert.equal(snapshot.reportText.includes('보고서에 포함되지 않습니다'), false);
     assert.equal(snapshot.reportLabel, '보고서 생성');
     assert.equal(snapshot.reportStatus, '현재 불러온 설정으로 보고서를 생성할 준비가 되었습니다.');
     assert.equal(snapshot.canvasLabel, '도면 미리보기 캔버스');
-    assert.equal(snapshot.dimensionLabel, '치수 WIDTH 편집: 40 mm');
+    assert.equal(snapshot.dimensionLabel, '치수 WIDTH 편집: 47 mm');
     return snapshot;
   });
 
@@ -3081,6 +3306,40 @@ try {
     const label = await cdp.evaluate(`document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || ''`);
     assert.equal(label, 'Create report');
     return label;
+  });
+
+  const drawJobsBefore = (await jobStore.listJobs({ limit: 100 })).filter((job) => job.type === 'draw').length;
+  await keyboardActivate(cdp, '[data-hook="drawing-tracked-run"]');
+  const trackedDrawingJob = await waitFor(async () => {
+    const jobs = (await jobStore.listJobs({ limit: 100 })).filter((job) => job.type === 'draw');
+    assert.equal(jobs.length, drawJobsBefore + 1);
+    const job = jobs.find((entry) => configNameFromTrackedRequest(entry.request) === 'drawing_current_config');
+    assert.equal(job?.status, 'succeeded');
+    return job;
+  });
+  await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${trackedDrawingJob.id}` });
+  const drawPost = cdp.posts.findLast((request) => request.path === '/api/studio/jobs' && request.body.type === 'draw');
+  assert.equal(drawPost.body.drawing_preview_id, acceptedDrawingSnapshot.id);
+  assert.equal(drawPost.body.drawing_preview_revision, acceptedDrawingSnapshot.revision);
+  assert.equal(drawPost.body.drawing_settings.scale, '1:2');
+  assert.deepEqual(drawPost.body.drawing_settings.views, ['front', 'top', 'right']);
+  assert.equal(trackedDrawingJob.request.config.drawing_plan.dim_intents.find((dimension) => dimension.id === 'WIDTH').value_mm, 47);
+  assert.equal(trackedDrawingJob.request.config.shapes[0].width, 18, 'Annotation editing must not mutate model geometry input');
+  assert.equal(trackedDrawingJob.request.config.drawing.scale, '1:2');
+  assert.deepEqual(trackedDrawingJob.request.config.drawing.views, ['front', 'top', 'right']);
+  assert.equal(trackedDrawingJob.request.options.studio.preview_plan.preserved, true);
+  assert.equal(trackedDrawingJob.request.options.studio.preview_plan.revision, acceptedDrawingSnapshot.revision);
+  assert.equal(trackedDrawingJob.request.options.studio.preview_plan.annotation_only, true);
+  await assertStoredEditedDrawing(cdp, trackedDrawingJob.id);
+
+  await cdp.evaluate(`window.location.hash = '#drawing'`);
+  await waitForRoute(cdp, 'drawing');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(editedDrawingSnapshotExpression());
+    assert.equal(snapshot.svgValue, '47');
+    assert.equal(snapshot.panelValue, '47');
+    assert.deepEqual(snapshot.history, ['WIDTH: 45 -> 47', 'WIDTH: 40 -> 45']);
+    assert.equal(snapshot.reportEnabled, true);
   });
 
   const reportJobsBefore = (await jobStore.listJobs({ limit: 100 }))
@@ -3117,9 +3376,36 @@ try {
   assert.equal(drawingReportResult.hasPrimaryResult, true);
   const drawingReportJob = await jobStore.getJob(drawingReportResult.jobId);
   assert.equal(configNameFromTrackedRequest(drawingReportJob.request), 'drawing_current_config');
+  const reportPost = cdp.posts.findLast((request) => request.path === '/api/studio/jobs' && request.body.type === 'report');
+  assert.equal(reportPost.body.drawing_preview_id, acceptedDrawingSnapshot.id);
+  assert.equal(reportPost.body.drawing_preview_revision, acceptedDrawingSnapshot.revision);
+  assert.equal(reportPost.body.drawing_settings.scale, '1:2');
+  assert.deepEqual(reportPost.body.drawing_settings.views, ['front', 'top', 'right']);
+  assert.equal(reportPost.body.report_options.include_drawing, true);
+  assert.equal(reportPost.body.options.include_drawing, true);
+  assert.equal(drawingReportJob.request.config.drawing_plan.dim_intents.find((dimension) => dimension.id === 'WIDTH').value_mm, 47);
+  assert.equal(drawingReportJob.request.config.shapes[0].width, 18, 'Report input keeps the unchanged model geometry');
+  assert.equal(drawingReportJob.request.config.drawing.scale, '1:2');
+  assert.deepEqual(drawingReportJob.request.config.drawing.views, ['front', 'top', 'right']);
+  assert.equal(drawingReportJob.request.options.studio.preview_plan.preserved, true);
+  assert.equal(drawingReportJob.request.options.studio.preview_plan.revision, acceptedDrawingSnapshot.revision);
+  assert.equal(drawingReportJob.request.options.studio.preview_plan.annotation_only, true);
+  const reportDrawingBeforeReload = await assertStoredEditedDrawing(cdp, drawingReportJob.id);
   const reportJobsAfter = (await jobStore.listJobs({ limit: 100 }))
     .filter((job) => job.type === 'report').length;
   assert.equal(reportJobsAfter, reportJobsBefore + 1);
+
+  // A new document has no preview cache; saved outputs must retain the accepted snapshot.
+  await cdp.send('Page.reload', { ignoreCache: true });
+  await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${drawingReportJob.id}` });
+  await waitFor(async () => {
+    const text = await cdp.evaluate(`document.querySelector('[data-hook="artifacts-result-summary"]')?.textContent || ''`);
+    assert.ok(text.includes('drawing_current_config'));
+  });
+  assert.deepEqual(await assertStoredEditedDrawing(cdp, drawingReportJob.id), reportDrawingBeforeReload);
+  await cdp.evaluate(`window.location.hash = '#artifacts?job=${trackedDrawingJob.id}'`);
+  await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${trackedDrawingJob.id}` });
+  await assertStoredEditedDrawing(cdp, trackedDrawingJob.id);
 
   await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
   await waitForRoute(cdp, 'start', {
@@ -3132,9 +3418,13 @@ try {
     delayMs: 200,
   });
   await waitFor(async () => {
-    const step = await cdp.evaluate(`document.querySelector('[data-model-guided-step]:not([hidden])')?.dataset?.modelGuidedStep || ''`);
-    assert.equal(step, 'select_input');
-    return step;
+    const snapshot = await cdp.evaluate(`(() => ({
+      step: document.querySelector('[data-model-guided-step]:not([hidden])')?.dataset?.modelGuidedStep || '',
+      mounted: document.getElementById('workspace-root')?.dataset?.modelWorkspaceMounted === 'true',
+    }))()`);
+    assert.equal(snapshot.step, 'select_input');
+    assert.equal(snapshot.mounted, true);
+    return snapshot;
   });
 
   assert.equal(browserSmokeDesignRequests.length, 0);
@@ -3159,6 +3449,7 @@ try {
         specificRows: document.querySelector('[data-hook="guided-ai-request-stage"] > .info-grid')?.querySelectorAll('.info-row')?.length || 0,
         createDisabled: document.querySelector('[data-hook="ai-create-draft"]')?.disabled ?? false,
         visiblePrimaryCount: visiblePrimary.length,
+        panelHidden: document.querySelector('[data-hook="guided-ai-panel"]')?.hidden,
         text: document.querySelector('[data-hook="guided-ai-panel"]')?.innerText || '',
       };
     })()`);
@@ -3169,6 +3460,7 @@ try {
     assert.equal(snapshot.specificRows, 3);
     assert.equal(snapshot.createDisabled, true);
     assert.equal(snapshot.visiblePrimaryCount, 1);
+    assert.equal(snapshot.panelHidden, false);
     return snapshot;
   });
   assertIncludesAll(aiPreflight.text, [
@@ -4141,7 +4433,7 @@ try {
       'at least 5.5 mm',
       'widen the local flange',
       'Verify the fix',
-      'rerun the checks and confirm DFM passes before release',
+      'rerun the affected checks and review their saved results',
     ]);
     return snapshot;
   });

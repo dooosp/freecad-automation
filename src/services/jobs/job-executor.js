@@ -1089,16 +1089,33 @@ export function createJobExecutor({
 
   async function executeReport(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
-    const seededArtifacts = await seedTrackedReportArtifacts({
+    const preservedDrawing = job.request.options?.studio?.preview_plan?.preserved === true;
+    const drawingResult = preservedDrawing
+      ? await executeDraw({ ...job, request: { ...job.request, options: {} } }, resolvedConfig)
+      : null;
+    if (drawingResult && drawingResult.success !== true) {
+      throw new Error(drawingResult.error || 'Drawing generation failed before report creation.');
+    }
+    // A preserved Drawing report is backed only by this run's generated evidence.
+    const seededArtifacts = preservedDrawing ? {} : await seedTrackedReportArtifacts({
       projectRoot,
       resolvedConfig,
       outputDir,
     });
-    const analysisResults = await prepareTrackedReportAnalysisResults({
+    let analysisResults = await prepareTrackedReportAnalysisResults({
       projectRoot,
       resolvedConfig,
       requestOptions: job.request.options || {},
     });
+    if (drawingResult) {
+      const qaPath = drawingResult.drawing_quality?.qa_file;
+      const qa = qaPath ? await readJsonFile(qaPath).catch(() => null) : null;
+      analysisResults = {
+        ...(analysisResults || {}),
+        drawing: { bom: drawingResult.bom || [] },
+        qa,
+      };
+    }
     const result = await generateReport({
       freecadRoot: projectRoot,
       runScript: createLoggedRunner(job.id),
@@ -1106,7 +1123,8 @@ export function createJobExecutor({
       configPath: resolvedConfig.configPath,
       config: resolvedConfig.config,
       outputDir,
-      includeDrawing: job.request.options?.include_drawing === true,
+      drawingResult,
+      includeDrawing: preservedDrawing || job.request.options?.include_drawing === true,
       includeDfm: job.request.options?.include_dfm === true,
       includeTolerance: job.request.options?.include_tolerance !== false,
       includeCost: job.request.options?.include_cost === true,
@@ -1119,6 +1137,7 @@ export function createJobExecutor({
     });
     return {
       ...result,
+      ...(drawingResult ? { drawing_result: sanitizeResult(drawingResult) } : {}),
       seeded_artifacts: seededArtifacts,
     };
   }

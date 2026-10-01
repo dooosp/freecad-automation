@@ -765,6 +765,7 @@ const studioDrawingPreviewSchema = {
   ],
   properties: {
     id: { type: 'string' },
+    revision: { type: 'string', minLength: 1 },
     drawn_at: { type: 'string' },
     settings: looseObjectSchema,
     overview: looseObjectSchema,

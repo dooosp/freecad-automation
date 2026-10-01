@@ -446,3 +446,15 @@ const unavailableQualityNotice = buildStudioJobCompletionNotice({ id: 'run-no-qu
 assert.equal(unavailableQualityNotice.partName, '');
 assert.equal(unavailableQualityNotice.message.includes('Quality passed'), false);
 assert.equal(unavailableQualityNotice.message.includes('Ready Yes'), false);
+
+for (const qualityStatus of ['incomplete', 'not_run']) {
+  test(`${qualityStatus} evidence warns in a successful run completion`, () => {
+    const notice = buildStudioJobCompletionNotice({
+      id: `job-${qualityStatus}`, type: 'report', status: 'succeeded',
+      result: { report_summary: { overall_status: qualityStatus, ready_for_manufacturing_review: true } },
+    }, { route: 'artifacts' });
+    assert.equal(notice.tone, 'warn', `${qualityStatus} evidence must remain visible even when execution succeeded`);
+    assert.match(notice.message, /Quality (incomplete|not run)/);
+    assert.doesNotMatch(notice.message, /Quality passed/);
+  });
+}

@@ -17,7 +17,7 @@ const { mountModelWorkspace } = await import('../public/js/studio/model-workspac
 const { sceneCalls } = await import(barrel);
 hooks.deregister();
 const settle = () => new Promise((resolve) => setImmediate(resolve));
-const preview = (id = 'A', value = 142) => ({ id, svg: '<svg/>', drawn_at: String(value), dimensions: [{ id: 'WIDTH', value_mm: value }], editable_plan_available: true });
+const preview = (id = 'A', value = 142) => ({ id, revision: `revision-${id}-${value}`, settings: { views: ['front', 'top', 'right', 'iso'], scale: 'auto', section_assist: false, detail_assist: false }, svg: '<svg/>', drawn_at: String(value), dimensions: [{ id: 'WIDTH', value_mm: value }], editable_plan_available: true });
 
 function setup(t) {
   const restore = installDrawingTestDom();
@@ -41,6 +41,12 @@ function setup(t) {
       const element = new TestElement(tag); element.dataset.hook = hook; root.append(element);
     }
     const scale = new TestElement('select'); scale.dataset.hook = 'drawing-scale'; root.append(scale);
+    for (const view of ['front', 'top', 'right', 'iso']) {
+      const input = new TestElement('input'); input.dataset.hook = 'drawing-view'; input.dataset.view = view; root.append(input);
+    }
+    for (const hook of ['drawing-section-assist', 'drawing-detail-assist']) {
+      const input = new TestElement('input'); input.dataset.hook = hook; root.append(input);
+    }
     for (const name of ['job-surface', 'result-surface']) {
       const surface = new TestElement(); surface.dataset.hook = `drawing-${name}`;
       const title = new TestElement(); title.className = 'model-status-title';
@@ -122,15 +128,16 @@ test('a drawing response cannot focus a sheet after its workspace was destroyed'
   assert.equal(document.activeElement, nextControl);
 });
 
-test('changed sheet settings obsolete an in-flight result and do not advertise it as current', async (t) => {
+test('sheet setting events during a preview cannot invalidate its accepted revision', async (t) => {
   const { state, requests, mount } = setup(t);
   const { scale, root, click } = mount(); click('drawing-generate');
   scale.value = '1:2'; root.dispatch('change', { target: scale });
   requests[0].resolve({ preview: preview('old') }); await settle();
   assert.equal(requests[0].body.drawing_settings.scale, 'auto');
-  assert.equal(state.data.drawing.settings.scale, '1:2');
-  assert.equal(state.data.drawing.preview.id, 'A');
-  assert.match(root.querySelector('[data-hook="drawing-summary"]').textContent, /regenerate/i);
+  assert.equal(state.data.drawing.settings.scale, 'auto');
+  assert.equal(scale.value, 'auto');
+  assert.equal(state.data.drawing.preview.id, 'old');
+  assert.equal(state.data.drawing.preview.revision, 'revision-old-142');
   assert.notEqual(state.data.drawing.status, 'generating');
 });
 
@@ -478,14 +485,17 @@ for (const operation of ['edit', 'undo', 'redo']) {
     if (operation === 'edit') applyDimension(first, '150');
     else drawingHistoryKey(first, operation);
     assert.equal(requests.length, 1);
+    assertSheetSettingsLocked(first, true);
     first.workspace.destroy();
     setLocale('ko', { persist: false });
     const second = mount();
+    assertSheetSettingsLocked(second, true);
     assert.equal(second.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, true);
     requests[0].resolve({ update: { dim_id: 'WIDTH', old_value: initialValue, new_value: finalValue, history_op: operation }, preview: preview('A', finalValue) });
     await settle();
 
     assert.equal(state.data.drawing.activeRequest, null);
+    assertSheetSettingsLocked(second, false);
     assert.equal(second.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, false, 'completion refreshes current controls without a shell sync');
     assert.equal(second.input().value, String(finalValue));
     assert.deepEqual(state.data.drawing.history, [edit]);
@@ -497,7 +507,7 @@ for (const operation of ['edit', 'undo', 'redo']) {
     const nextOperation = operation === 'undo' ? 'redo' : 'undo';
     drawingHistoryKey(second, nextOperation);
     assert.equal(requests.length, 2, 'the mounted renderer can use the accepted history');
-    assert.deepEqual(requests[1].body, { dim_id: 'WIDTH', value_mm: operation === 'undo' ? 150 : 142, history_op: nextOperation });
+    assert.deepEqual(requests[1].body, { dim_id: 'WIDTH', value_mm: operation === 'undo' ? 150 : 142, history_op: nextOperation, drawing_preview_revision: `revision-A-${finalValue}` });
     requests[1].reject(new Error('Controlled follow-up failure')); await settle();
   });
 }
@@ -796,4 +806,164 @@ test('Drawing report preserves a pending model create submission on the shared m
   active.click('drawing-run-report'); await settle();
   assert.equal(submissions.length, 0);
   assert.equal(state.data.model.activeTrackedSubmission, owner);
+});
+
+
+test('accepted dimension edits survive a sheet-settings preview and reach both saved Draw and report snapshots', async (t) => {
+  const { state, requests, mount } = setup(t);
+  const configBefore = state.data.model.configText;
+  const submissions = [];
+  const active = mount({ submitTrackedJob: async (body) => {
+    submissions.push(structuredClone(body));
+    return { id: `${body.type}-saved`, status: 'queued' };
+  } });
+  const apply = new TestElement('button');
+  apply.dataset.action = 'drawing-apply-dimension'; apply.dataset.dimId = 'WIDTH';
+  active.input().value = '150';
+  active.root.dispatch('click', { target: apply });
+  assert.equal(requests[0].body.drawing_preview_revision, 'revision-A-142');
+  requests[0].resolve({ update: { dim_id: 'WIDTH', old_value: 142, new_value: 150, history_op: 'edit' }, preview: preview('A', 150) });
+  await settle();
+  assert.deepEqual(state.data.drawing.history, [{ dimId: 'WIDTH', oldValue: 142, newValue: 150 }]);
+
+  active.scale.value = '1:2'; active.root.dispatch('change', { target: active.scale });
+  active.click('drawing-generate');
+  assert.equal(requests[1].body.drawing_preview_id, 'A');
+  assert.equal(requests[1].body.drawing_preview_revision, 'revision-A-150');
+  assert.equal(requests[1].body.drawing_settings.scale, '1:2');
+  requests[1].resolve({ preview: { ...preview('A', 150), revision: 'settings-revision', settings: { ...preview().settings, scale: '1:2' }, scale: '1:2' } });
+  await settle();
+  assert.equal(active.input().value, '150');
+  assert.equal(state.data.drawing.historyIndex, 0);
+  assert.deepEqual(state.data.drawing.history, [{ dimId: 'WIDTH', oldValue: 142, newValue: 150 }]);
+
+  active.click('drawing-run-tracked'); await settle();
+  active.click('drawing-run-report'); await settle();
+  assert.deepEqual(submissions.map((entry) => entry.type), ['draw', 'report']);
+  for (const entry of submissions) {
+    assert.equal(entry.configToml, configBefore);
+    assert.equal(entry.drawingPreviewId, 'A');
+    assert.equal(entry.drawingPreviewRevision, 'settings-revision');
+    assert.deepEqual(entry.drawingSettings, { views: ['front', 'top', 'right', 'iso'], scale: '1:2', section_assist: false, detail_assist: false });
+  }
+  assert.equal(submissions[1].options.include_drawing, true);
+  assert.equal(submissions[1].reportOptions?.include_drawing, true);
+  assert.equal(state.data.model.configText, configBefore, 'annotation edits do not mutate model geometry input');
+});
+
+test('a different model source never reuses the previous drawing plan revision', (t) => {
+  const { state, requests, mount } = setup(t);
+  const active = mount();
+  state.data.model.configText += '\nwidth = 20';
+  active.click('drawing-generate');
+  assert.equal(requests[0].body.drawing_preview_id, undefined);
+  assert.equal(requests[0].body.drawing_preview_revision, undefined);
+});
+
+test('saved Drawing waits for the changed sheet settings to be previewed', async (t) => {
+  const { mount } = setup(t);
+  const submissions = [];
+  const active = mount({ submitTrackedJob: async (body) => { submissions.push(body); return { id: 'unsafe', status: 'queued' }; } });
+  active.scale.value = '1:2'; active.root.dispatch('change', { target: active.scale });
+  active.click('drawing-run-tracked'); await settle();
+  assert.equal(submissions.length, 0, 'stale settings must not silently drop accepted annotation edits');
+});
+
+test('Drawing report requires a confirmed preview revision for strict snapshot preservation', async (t) => {
+  const { state, mount } = setup(t);
+  delete state.data.drawing.preview.revision;
+  const submissions = [];
+  const active = mount({ submitTrackedJob: async (body) => { submissions.push(body); return { id: 'unconfirmed', status: 'queued' }; } });
+  active.click('drawing-run-report'); await settle();
+  assert.equal(submissions.length, 0);
+});
+
+
+for (const action of ['drawing-generate', 'drawing-apply-dimension', 'drawing-run-tracked', 'drawing-run-report']) {
+  test(`${action} revision rejection keeps the last sheet but regeneration starts a fresh preview`, async (t) => {
+    const { state, requests, mount } = setup(t);
+    const retained = state.data.drawing.preview;
+    const error = new Error('Drawing preview cannot be preserved: revision_changed. Regenerate the preview.');
+    const submissions = [];
+    const active = mount({ submitTrackedJob: async (body) => { submissions.push(body); throw error; } });
+    if (action === 'drawing-apply-dimension') {
+      const apply = new TestElement('button'); apply.dataset.action = action; apply.dataset.dimId = 'WIDTH';
+      active.input().value = '150'; active.root.dispatch('click', { target: apply });
+    } else active.click(action);
+    if (requests.length) requests[0].reject(error);
+    await settle();
+    assert.equal(state.data.drawing.preview, retained, 'last accepted sheet remains available for inspection');
+    assert.equal(state.data.drawing.history.length, 0, 'rejected edit is not accepted history');
+    const submittedCount = submissions.length;
+    active.click('drawing-run-tracked'); active.click('drawing-run-report'); await settle();
+    assert.equal(submissions.length, submittedCount, 'saving cannot silently fall back after losing the preview revision');
+    active.click('drawing-generate');
+    const regeneration = requests.at(-1);
+    assert.equal(regeneration.url, '/api/studio/drawing-preview');
+    assert.equal(regeneration.body.drawing_preview_id, undefined);
+    assert.equal(regeneration.body.drawing_preview_revision, undefined);
+    regeneration.resolve({ preview: preview('recovered') }); await settle();
+    assert.equal(state.data.drawing.preview.id, 'recovered');
+    assert.equal(state.data.drawing.status, 'ready');
+  });
+}
+
+
+function assertSheetSettingsLocked(active, expected) {
+  const controls = active.root.querySelectorAll('[data-hook="drawing-view"], [data-hook="drawing-scale"], [data-hook="drawing-section-assist"], [data-hook="drawing-detail-assist"]');
+  assert.equal(controls.length, 7);
+  for (const control of controls) assert.equal(control.disabled, expected, `${control.dataset.hook} lock`);
+}
+
+test('pending same-plan regeneration preserves accepted edits and revision through locale remount and the next sheet setup', async (t) => {
+  const { state, requests, mount } = setup(t);
+  const submissions = [];
+  const callbacks = { submitTrackedJob: async (body) => {
+    submissions.push(structuredClone(body)); return { id: `${body.type}-saved`, status: 'queued' };
+  } };
+  const first = mount(callbacks);
+  applyDimension(first, '150');
+  requests[0].resolve({ update: { dim_id: 'WIDTH', old_value: 142, new_value: 150, history_op: 'edit' }, preview: preview('A', 150) });
+  await settle();
+  first.scale.value = '1:2'; first.root.dispatch('change', { target: first.scale });
+  first.click('drawing-generate');
+  assert.equal(requests[1].body.drawing_preview_revision, 'revision-A-150');
+  first.scale.value = '1:5'; first.root.dispatch('change', { target: first.scale });
+  assert.equal(state.data.drawing.settings.scale, '1:2', 'pending settings must not discard the response that advances server revision');
+  assert.equal(first.scale.value, '1:2');
+  assertSheetSettingsLocked(first, true);
+
+  first.workspace.destroy(); setLocale('ko', { persist: false });
+  const second = mount(callbacks);
+  assertSheetSettingsLocked(second, true);
+  for (const hook of ['drawing-view', 'drawing-section-assist', 'drawing-detail-assist']) {
+    const input = second.root.querySelector(`[data-hook="${hook}"]`);
+    const previous = input.checked; input.checked = !previous;
+    second.root.dispatch('change', { target: input });
+    assert.equal(input.checked, previous, 'synthetic changes cannot bypass pending setting protection');
+  }
+  requests[1].resolve({ preview: { ...preview('A', 150), revision: 'accepted-settings-2', settings: { ...preview().settings, scale: '1:2' }, scale: '1:2' } });
+  await settle();
+  assertSheetSettingsLocked(second, false);
+  assert.equal(state.data.drawing.preview.revision, 'accepted-settings-2');
+  assert.equal(second.input().value, '150');
+  assert.deepEqual(state.data.drawing.history, [{ dimId: 'WIDTH', oldValue: 142, newValue: 150 }]);
+
+  second.scale.value = '1:5'; second.root.dispatch('change', { target: second.scale });
+  second.click('drawing-generate');
+  assert.equal(requests[2].body.drawing_preview_id, 'A');
+  assert.equal(requests[2].body.drawing_preview_revision, 'accepted-settings-2');
+  requests[2].resolve({ preview: { ...preview('A', 150), revision: 'accepted-settings-3', settings: { ...preview().settings, scale: '1:5' }, scale: '1:5' } });
+  await settle();
+  second.click('drawing-run-tracked'); await settle();
+  second.click('drawing-run-report'); await settle();
+  assert.deepEqual(submissions.map((entry) => entry.type), ['draw', 'report']);
+  for (const body of submissions) {
+    assert.equal(body.drawingPreviewId, 'A');
+    assert.equal(body.drawingPreviewRevision, 'accepted-settings-3');
+    assert.equal(body.drawingSettings.scale, '1:5');
+  }
+  assert.equal(state.data.drawing.preview.dimensions[0].value_mm, 150);
+  assert.equal(state.data.drawing.historyIndex, 0);
+  assert.equal(state.data.model.configText, '[model]\nlength = 142');
 });

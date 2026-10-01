@@ -409,6 +409,7 @@ export function createStudioJobMonitorController(app) {
     intakeReportPath,
     drawingSettings,
     drawingPreviewId,
+    drawingPreviewRevision,
     reportOptions,
     options,
     completionAction,
@@ -435,6 +436,7 @@ export function createStudioJobMonitorController(app) {
       intakeReportPath,
       drawingSettings,
       drawingPreviewId,
+      drawingPreviewRevision,
       reportOptions,
       options,
     });
