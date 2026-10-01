@@ -1,4 +1,5 @@
 import { deriveModelTrackedRunPresentation } from './model-tracked-runs.js';
+import { t } from '../i18n/index.js';
 
 export function isModelPreviewStale(model = {}) {
   return Boolean(model.preview)
@@ -28,7 +29,8 @@ export function modelWorkspaceBadges(state) {
   return [
     { label: model.configText?.trim() ? 'Input loaded' : 'Input pending', tone: model.configText?.trim() ? 'ok' : 'warn' },
     preview,
-    { label: tracked.badgeLabel, tone: tracked.tone },
+    { label: tracked.status === 'idle' && !tracked.job && !model.trackedRun.lastJobId
+      ? t('studio.model.status.unsaved') : tracked.badgeLabel, tone: tracked.tone },
   ];
 }
 

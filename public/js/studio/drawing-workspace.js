@@ -215,6 +215,8 @@ export function mountDrawingWorkspace({
   const summaryElement = root.querySelector('[data-hook="drawing-summary"]');
   const emptyElement = root.querySelector('[data-hook="drawing-empty"]');
   const canvasElement = root.querySelector('[data-hook="drawing-canvas"]');
+  const sheetSection = root.querySelector('[data-hook="drawing-sheet-section"]');
+  const actionSection = root.querySelector('[data-hook="drawing-action-section"]');
   const canvasCaptionElement = root.querySelector('[data-hook="drawing-canvas-caption"]');
   const bomElement = root.querySelector('[data-hook="drawing-bom"]');
   const annotationsElement = root.querySelector('[data-hook="drawing-annotations"]');
@@ -431,6 +433,13 @@ export function mountDrawingWorkspace({
   function syncCanvas() {
     const preview = drawing.preview;
     const showPreview = Boolean(preview?.svg);
+    const sectionsParent = sheetSection?.parentElement;
+    if (sectionsParent && actionSection?.parentElement === sectionsParent) {
+      const first = showPreview ? sheetSection : actionSection;
+      const second = showPreview ? actionSection : sheetSection;
+      const children = [...sectionsParent.children];
+      if (children.indexOf(first) > children.indexOf(second)) sectionsParent.insertBefore(first, second);
+    }
     bomElement.closest('.studio-card').hidden = !preview?.bom?.length;
     const nextSignature = showPreview ? `${preview.id}:${preview.drawn_at}` : '';
 
@@ -462,10 +471,13 @@ export function mountDrawingWorkspace({
   }
 
   function syncAnnotations() {
+    const notes = Array.isArray(drawing.preview?.annotations) ? drawing.preview.annotations : [];
+    const emptyState = !drawing.preview ? 'pending'
+      : Array.isArray(drawing.preview.annotations) ? 'empty' : 'unavailable';
     renderNoteList(
       annotationsElement,
-      (drawing.preview?.annotations || []).map((note) => ({ label: note })),
-      'Drawing notes, plan callouts, and annotation summaries will appear here after a sheet is ready.'
+      notes.map((note) => ({ label: note })),
+      t(`studio.drawing.annotations.${emptyState}`)
     );
   }
 
@@ -775,8 +787,11 @@ export function mountDrawingWorkspace({
         time: 'drawing',
       });
       syncAll();
-      reportButton?.focus();
-      requestAnimationFrame(() => reportButton?.focus());
+      const focusSheet = () => {
+        if (!destroyed && canvasElement.isConnected && canvasElement.getClientRects().length) canvasElement.focus();
+      };
+      focusSheet();
+      requestAnimationFrame(focusSheet);
     } catch (error) {
       if (!requestIsCurrent(request)) return;
       drawing.activeRequest = null;

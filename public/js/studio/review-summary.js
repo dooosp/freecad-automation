@@ -83,6 +83,7 @@ export function buildReviewSummary({
       decision: 'choose_run',
       tone: 'info',
       issues: [],
+      issueDetails: [],
       hasAdvancedIssues: false,
       nextStep: '',
       supportingFiles: [],
@@ -97,6 +98,7 @@ export function buildReviewSummary({
       decision: normalizedStatus === 'error' ? 'unavailable' : 'preparing',
       tone: normalizedStatus === 'error' ? 'bad' : 'info',
       issues: [],
+      issueDetails: [],
       hasAdvancedIssues: false,
       nextStep: '',
       supportingFiles: collectSupportingFiles(activeJob.artifacts || []),
@@ -107,6 +109,10 @@ export function buildReviewSummary({
   const attentionCards = populatedCards.filter(hasAttention);
   const beginnerCards = populatedCards.filter((card) => BEGINNER_REVIEW_CARD_IDS.has(card.id));
   const beginnerAttentionCards = beginnerCards.filter(hasAttention);
+  const issueDetails = beginnerAttentionCards
+    .map((card) => ({ cardId: card.id, text: sanitizeReviewSummaryText(card.summary) }))
+    .filter((issue) => issue.text)
+    .slice(0, 3);
 
   let decision = 'more_information';
   let tone = 'info';
@@ -121,10 +127,8 @@ export function buildReviewSummary({
   return {
     decision,
     tone,
-    issues: beginnerAttentionCards
-      .map((card) => sanitizeReviewSummaryText(card.summary))
-      .filter(Boolean)
-      .slice(0, 3),
+    issues: issueDetails.map((issue) => issue.text),
+    issueDetails,
     hasAdvancedIssues: attentionCards.some((card) => !BEGINNER_REVIEW_CARD_IDS.has(card.id)),
     nextStep: findRecommendedAction(beginnerAttentionCards),
     supportingFiles: collectSupportingFiles(activeJob.artifacts || []),

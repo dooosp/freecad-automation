@@ -2,10 +2,81 @@ import { fetchArtifactText } from './artifact-insights.js';
 import { mountArtifactsWorkspace } from './artifacts-workspace.js';
 import { getSelectedStudioExample } from './examples.js';
 import { mountReviewWorkspace } from './review-workspace.js';
-import { workspaceDefinitions } from './workspaces.js';
+import { createHomeRecentRuns, createRunHistoryWorkspace, workspaceDefinitions } from './workspaces.js';
 import { applyTranslations } from '../i18n/index.js';
 
 export function createStudioWorkspaceController(app) {
+  const actionKey = (element) => JSON.stringify([
+    element?.dataset?.action, element?.dataset?.jobId, element?.dataset?.route,
+  ]);
+
+  function syncStaticJobList(current, next) {
+    const active = app.document.activeElement;
+    const focusedRow = active?.closest?.('.home-recent-item, .result-card');
+    const restoreFocus = active?.closest?.('.home-recent-list, .run-history-list') === current;
+    const rowId = (row) => row.dataset.historyJobId || row.querySelector('[data-job-id]')?.dataset.jobId;
+    const previous = new Map([...current.children].map((row) => [rowId(row), row]));
+    const rows = [...next.children].map((nextRow) => {
+      const row = previous.get(rowId(nextRow));
+      if (!row) return nextRow;
+      // Status/name/time are noninteractive; keep the existing result buttons and menus.
+      if (row.children[0].textContent !== nextRow.children[0].textContent) {
+        row.children[0].replaceChildren(...nextRow.children[0].children);
+      }
+      const menu = row.querySelector('.overflow-menu-popover');
+      const nextMenu = nextRow.querySelector('.overflow-menu-popover');
+      if (menu && nextMenu) {
+        const itemsByAction = new Map([...menu.children].map((item) => [actionKey(item), item]));
+        const items = [...nextMenu.children].map((item) => itemsByAction.get(actionKey(item)) || item);
+        if (items.length !== menu.children.length || items.some((item, index) => menu.children[index] !== item)) {
+          menu.replaceChildren(...items);
+        }
+        row.querySelector('.overflow-menu-trigger').setAttribute('aria-label',
+          nextRow.querySelector('.overflow-menu-trigger').getAttribute('aria-label'));
+      }
+      return row;
+    });
+    if (rows.length !== current.children.length || rows.some((row, index) => current.children[index] !== row)) {
+      current.replaceChildren(...rows);
+    }
+    if (restoreFocus && app.document.activeElement !== active && active?.isConnected) {
+      active.focus({ preventScroll: true });
+    } else if (restoreFocus && !active?.isConnected) {
+      const fallback = focusedRow?.isConnected
+        ? focusedRow.querySelector('.overflow-menu-trigger, [data-action]')
+        : app.elements.workspaceRoot;
+      fallback?.focus({ preventScroll: true });
+    }
+  }
+
+  function syncFromShell() {
+    if (app.runtime.activeWorkspaceController) {
+      app.runtime.activeWorkspaceController.syncFromShell?.();
+      return;
+    }
+    const home = app.state.route === 'start';
+    if (!home && app.state.route !== 'history') return;
+    const selector = home ? '[data-hook="home-recent-runs"]' : '.run-history-workspace';
+    const current = app.elements.workspaceRoot.querySelector(selector);
+    if (!current) return;
+    const next = home ? createHomeRecentRuns(app.state) : createRunHistoryWorkspace(app.state);
+    const listSelector = home ? '.home-recent-list' : '.run-history-list';
+    const currentList = current.querySelector(listSelector);
+    const nextList = next.querySelector(listSelector);
+    if (currentList && nextList) {
+      syncStaticJobList(currentList, nextList);
+    } else {
+      const body = home ? current.querySelector('.card-body') : current;
+      const nextBody = home ? next.querySelector('.card-body') : next;
+      if (body.textContent === nextBody.textContent) return;
+      const active = app.document.activeElement;
+      const restoreFocus = active?.closest?.(selector) === current;
+      if (home) body.replaceChildren(...nextBody.children);
+      else body.replaceChildren(body.children[0], ...[...nextBody.children].slice(1));
+      if (restoreFocus && !active?.isConnected) app.elements.workspaceRoot.focus({ preventScroll: true });
+    }
+  }
+
   function loadModelWorkspaceModule() {
     if (!app.runtime.modelWorkspaceModulePromise) {
       app.runtime.modelWorkspaceModulePromise = app.loaders.loadModelWorkspaceModule();
@@ -284,6 +355,7 @@ export function createStudioWorkspaceController(app) {
 
   return {
     renderWorkspace,
+    syncFromShell,
     loadSelectedExampleIntoSharedModel,
     loadConfigFileIntoSharedModel,
     openConfigArtifactInModel,

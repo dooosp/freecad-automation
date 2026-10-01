@@ -288,7 +288,7 @@ function reviewDecisionCopy(summary) {
 }
 
 function reviewNextStepCopy(summary) {
-  return summary.nextStep || t(REVIEW_NEXT_STEP_KEYS[summary.decision] || REVIEW_NEXT_STEP_KEYS.more_information);
+  return summary.nextStep ? t(summary.nextStep) : t(REVIEW_NEXT_STEP_KEYS[summary.decision] || REVIEW_NEXT_STEP_KEYS.more_information);
 }
 
 function renderBeginnerIssues(summary) {
@@ -296,7 +296,17 @@ function renderBeginnerIssues(summary) {
   if (summary.issues.length > 0) {
     children.push(el('ul', {
       className: 'review-summary-list',
-      children: summary.issues.map((issue) => el('li', { text: issue })),
+      children: summary.issueDetails.map((issue) => el('li', {
+        children: [
+          el('p', { text: issue.text.split(' • ').map((part) => t(part)).join(' · ') }),
+          createButton({
+            label: t('studio.review.action.evidence'),
+            action: 'review-open-issue',
+            tone: 'ghost',
+            dataset: { cardId: issue.cardId },
+          }),
+        ],
+      })),
     }));
   }
   if (summary.hasAdvancedIssues) {
@@ -896,6 +906,20 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
   async function handleClick(event) {
     const actionTarget = event.target instanceof Element ? event.target.closest('[data-action]') : null;
     if (!actionTarget) return;
+
+    if (actionTarget.dataset.action === 'review-open-issue') {
+      const card = review.cards.find((candidate) => candidate.id === actionTarget.dataset.cardId && !candidate.empty);
+      if (!card) return;
+      review.selectedCardId = card.id;
+      review.activeTab = 'summary';
+      root.querySelector('[data-hook="review-advanced-tools"]').open = true;
+      syncCards();
+      syncDetail();
+      applyTranslations(root);
+      detailSummaryElement.setAttribute('tabindex', '-1');
+      detailSummaryElement.focus();
+      return;
+    }
 
     if (actionTarget.dataset.action === 'review-select-card') {
       review.selectedCardId = actionTarget.dataset.cardId || '';
