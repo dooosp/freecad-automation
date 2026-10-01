@@ -18,6 +18,15 @@ export class TestElement {
   dispatch(type, event) { for (const fn of this.listeners.get(type) || []) fn(event); }
   append(...nodes) { for (const node of nodes) { node.parentNode = this; node.parentElement = this; this.children.push(node); } }
   appendChild(node) { this.append(node); return node; }
+  insertBefore(node, reference) {
+    if (node === reference) return node;
+    if (reference && !this.children.includes(reference)) throw new Error('Reference is not a child');
+    node.parentNode?.removeChild(node);
+    const index = reference ? this.children.indexOf(reference) : this.children.length;
+    node.parentNode = this; node.parentElement = this;
+    this.children.splice(index, 0, node);
+    return node;
+  }
   replaceChildren(...nodes) { for (const child of this.children) child.parentNode = null; this.children = []; this.append(...nodes); }
   removeChild(node) { this.children = this.children.filter((child) => child !== node); node.parentNode = null; }
   set textContent(value) { this.replaceChildren({ nodeValue: String(value), children: [] }); }

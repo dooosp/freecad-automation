@@ -10,11 +10,22 @@ export function sortStudioJobsByUpdatedAt(jobs = []) {
   return [...jobs].sort((left, right) => jobTimestamp(right) - jobTimestamp(left));
 }
 
+export function latestStudioJobSnapshot(previous, incoming) {
+  if (!previous || previous.id !== incoming?.id) return incoming;
+  const terminal = (job) => ['succeeded', 'failed', 'cancelled'].includes(job?.status);
+  // A run ID has one lifecycle; retry creates a new ID. A delayed active
+  // snapshot must never resurrect a terminal run, even without timestamps.
+  if (terminal(previous) && !terminal(incoming)) return previous;
+  if (previous.status === 'running' && incoming.status === 'queued') return previous;
+  if (jobTimestamp(previous) > jobTimestamp(incoming)) return previous;
+  return incoming;
+}
+
 export function mergeTrackedJobIntoRecentJobs(job, jobs = [], limit = 6) {
   if (!job?.id) return sortStudioJobsByUpdatedAt(jobs).slice(0, limit);
 
   return sortStudioJobsByUpdatedAt([
-    job,
+    latestStudioJobSnapshot(jobs.find((entry) => entry.id === job.id), job),
     ...jobs.filter((entry) => entry.id !== job.id),
   ]).slice(0, limit);
 }
@@ -60,6 +71,7 @@ export function upsertStudioMonitoredJob(jobMonitor = {}, job = {}, {
 
   const current = ensureStudioJobMonitorState(jobMonitor);
   const previous = findStudioMonitoredJob(current, job.id);
+  if (latestStudioJobSnapshot(previous, job) === previous) return current;
   const nextEntry = normalizeMonitorEntry({
     ...previous,
     ...job,
@@ -165,11 +177,6 @@ function normalizedJobStatus(job = {}) {
   return String(job.status || '').trim().toLowerCase();
 }
 
-function formatJobType(type = '') {
-  const normalized = String(type || 'job').trim().toLowerCase();
-  return normalized || 'job';
-}
-
 function qualityCompletionParts(job = {}) {
   const status = deriveRecentJobQualityStatus(job);
   if (!status.hasQualityDecision) return [];
@@ -194,6 +201,7 @@ function buildOpenJobAction({ label, jobId, route, tone = 'primary' }) {
   if (!jobId || !route) return null;
   return {
     label,
+    ...(route === 'artifacts' ? { labelKey: 'studio.completion.open-results' } : {}),
     action: 'open-job',
     tone,
     jobId,
@@ -205,7 +213,8 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
   if (!job?.id) return null;
 
   const status = normalizedJobStatus(job);
-  const jobType = formatJobType(job.type);
+  const configName = deriveRecentJobQualityStatus(job).configName;
+  const context = { jobId: job.id, partName: configName === 'Unknown' ? '' : configName };
   const qualityParts = qualityCompletionParts(job);
   const stillRunningCopy = Number(remainingActiveCount) > 0
     ? `${remainingActiveCount} other active job${remainingActiveCount === 1 ? '' : 's'} still running.`
@@ -215,18 +224,18 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
     const primaryRoute = target.route || 'artifacts';
     const secondaryRoute = target.secondaryRoute || '';
     const destinationCopy = primaryRoute === 'review'
-      ? 'Open Review for decision context or Artifacts for generated files.'
-      : 'Open Artifacts to inspect generated files and quality outputs.';
+      ? 'Open Review for decision context or Result files for generated files.'
+      : 'Open Result files to inspect generated files and quality outputs.';
     const messageParts = ['Job succeeded.', ...qualityParts, destinationCopy, stillRunningCopy].filter(Boolean);
     const actions = [
       buildOpenJobAction({
-        label: primaryRoute === 'review' ? 'Open Review' : 'Open Artifacts',
+        label: primaryRoute === 'review' ? 'Open Review' : 'Open Result files',
         jobId: job.id,
         route: primaryRoute,
         tone: 'primary',
       }),
       buildOpenJobAction({
-        label: secondaryRoute === 'review' ? 'Open Review' : 'Open Artifacts',
+        label: secondaryRoute === 'review' ? 'Open Review' : 'Open Result files',
         jobId: job.id,
         route: secondaryRoute,
         tone: 'ghost',
@@ -234,15 +243,18 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
     ].filter(Boolean);
 
     return {
-      jobId: job.id,
+      ...context,
       tone: qualityCompletionNeedsAttention(qualityParts) ? 'warn' : 'ok',
-      title: `Tracked ${jobType} completed`,
+      title: 'Run completed',
+      titleKey: 'studio.completion.succeeded',
+      destinationCopy,
+      destinationKey: primaryRoute === 'review' ? 'studio.completion.destination-review' : 'studio.completion.destination-results',
       message: messageParts.join(' '),
       messageParts,
       primaryRoute,
-      primaryLabel: primaryRoute === 'review' ? 'Open Review' : 'Open Artifacts',
+      primaryLabel: primaryRoute === 'review' ? 'Open Review' : 'Open Result files',
       secondaryRoute,
-      secondaryLabel: secondaryRoute === 'review' ? 'Open Review' : secondaryRoute === 'artifacts' ? 'Open Artifacts' : '',
+      secondaryLabel: secondaryRoute === 'review' ? 'Open Review' : secondaryRoute === 'artifacts' ? 'Open Result files' : '',
       actions,
     };
   }
@@ -253,9 +265,10 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
       stillRunningCopy,
     ].filter(Boolean);
     return {
-      jobId: job.id,
+      ...context,
       tone: 'bad',
-      title: `Tracked ${jobType} failed`,
+      title: 'Run failed',
+      titleKey: 'studio.completion.failed',
       message: messageParts.join(' '),
       messageParts,
       primaryRoute: '',
@@ -284,9 +297,10 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
       stillRunningCopy,
     ].filter(Boolean);
     return {
-      jobId: job.id,
+      ...context,
       tone: 'warn',
-      title: `Tracked ${jobType} cancelled`,
+      title: 'Run cancelled',
+      titleKey: 'studio.completion.cancelled',
       message: messageParts.join(' '),
       messageParts,
       primaryRoute: '',
@@ -308,9 +322,10 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
     stillRunningCopy,
   ].filter(Boolean);
   return {
-    jobId: job.id,
+    ...context,
     tone: 'warn',
-    title: `Tracked ${jobType} stopped`,
+    title: 'Run stopped',
+    titleKey: 'studio.completion.stopped',
     message: messageParts.join(' '),
     messageParts,
     primaryRoute: '',

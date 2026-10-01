@@ -6,6 +6,7 @@ import { createDrawingRenderer } from '../public/js/app/drawing.js';
 import { createViewerStore } from '../public/js/app/store.js';
 import { setLocale } from '../public/js/i18n/index.js';
 import { TestElement, installDrawingTestDom, drawingWorkspaceRoot } from './helpers/drawing-test-dom.js';
+import { workspaceDefinitions } from '../public/js/studio/workspaces.js';
 
 // Keep the real workspace and drawing controller. The browser barrel also
 // exports unrelated WebGL modules whose import map only exists in the browser.
@@ -78,8 +79,8 @@ function setupWorkspace(t, index = 0, options = {}) {
   state.data.drawing.settings = { views: ['front', 'top', 'right', 'iso'], scale: 'auto', section_assist: false, detail_assist: false };
   state.data.drawing.previewInputSnapshot = drawingInputSnapshot(state.data.model, state.data.drawing.settings);
   const mounts = [];
-  function mount() {
-    const root = drawingWorkspaceRoot();
+  function mount(render = drawingWorkspaceRoot) {
+    const root = render();
     const caption = new TestElement('p');
     caption.dataset.hook = 'drawing-canvas-caption';
     root.append(caption);
@@ -91,6 +92,57 @@ function setupWorkspace(t, index = 0, options = {}) {
   t.after(() => { mounts.forEach((workspace) => workspace.destroy()); setLocale('en', { persist: false }); restoreDom(); });
   return { state, mount };
 }
+
+test('annotation state distinguishes pending, known empty, unavailable, and supplied notes', (t) => {
+  const { state, mount } = setupWorkspace(t);
+  const { root, workspace } = mount();
+  const currentPreview = state.data.drawing.preview;
+  const notes = root.querySelector('[data-hook="drawing-annotations"]');
+  assert.match(notes.textContent, /not provided/);
+  state.data.drawing.preview = { ...currentPreview, annotations: [] };
+  workspace.syncFromShell();
+  assert.match(notes.textContent, /No separate notes or callouts were returned/);
+  assert.match(notes.textContent, /Check the sheet for any embedded annotations/);
+  state.data.drawing.preview = { ...currentPreview, annotations: ['Deburr edges'] };
+  workspace.syncFromShell();
+  assert.equal(notes.textContent, 'Deburr edges');
+  state.data.drawing.preview = { ...currentPreview, annotations: 'not an annotation list' };
+  workspace.syncFromShell();
+  assert.match(notes.textContent, /not provided/);
+  state.data.drawing.preview = null;
+  workspace.syncFromShell();
+  assert.match(notes.textContent, /Generate a drawing/);
+});
+
+test('drawing arrival reorders stable sections and polling preserves the focused action', (t) => {
+  const { state, mount } = setupWorkspace(t);
+  state.data.examples = { items: [], selectedId: '' };
+  const preview = state.data.drawing.preview;
+  state.data.drawing.preview = null;
+  state.data.drawing.status = 'idle';
+  const { root, workspace } = mount(() => workspaceDefinitions.drawing.render(state));
+  const sheet = root.querySelector('[data-hook="drawing-sheet-section"]');
+  const actions = root.querySelector('[data-hook="drawing-action-section"]');
+  const parent = sheet.parentElement;
+  const button = root.querySelector('[data-hook="drawing-generate"]');
+  assert.ok(parent.children.indexOf(actions) < parent.children.indexOf(sheet));
+  state.data.drawing.preview = preview;
+  state.data.drawing.status = 'ready';
+  workspace.syncFromShell();
+  assert.ok(parent.children.indexOf(sheet) < parent.children.indexOf(actions));
+  assert.equal(root.querySelector('[data-hook="drawing-generate"]'), button);
+  button.focus();
+  const originalInsert = parent.insertBefore;
+  let repeatedMoves = 0;
+  parent.insertBefore = function (...args) { repeatedMoves += 1; return originalInsert.apply(this, args); };
+  workspace.syncFromShell();
+  assert.equal(repeatedMoves, 0, 'a poll must not detach and reattach focused controls');
+  assert.equal(document.activeElement, button);
+  state.data.drawing.preview = null;
+  workspace.syncFromShell();
+  assert.ok(parent.children.indexOf(actions) < parent.children.indexOf(sheet));
+  assert.equal(root.querySelector('[data-hook="drawing-generate"]'), button);
+});
 
 test('workspace remount retains active annotation history', (t) => {
   const { state, mount } = setupWorkspace(t);

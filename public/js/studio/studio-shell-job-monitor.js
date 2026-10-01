@@ -7,6 +7,7 @@ import {
   findStudioMonitoredJob,
   buildStudioJobCompletionNotice,
   listActiveStudioMonitoredJobs,
+  latestStudioJobSnapshot,
   mergeTrackedJobIntoRecentJobs,
   resolveMonitoredJobCompletionTarget,
   syncActiveJobsIntoMonitor,
@@ -26,6 +27,8 @@ import { RECENT_JOBS_LIMIT, JOB_MONITOR_POLL_MS } from './studio-shell-store.js'
 
 export function createStudioJobMonitorController(app) {
   let openJobRequestSeq = 0;
+  let recentJobsRequestSeq = 0;
+  let completionSequence = 0;
   const completionNavigationContexts = new Map();
 
   function navigationContext() {
@@ -51,6 +54,7 @@ export function createStudioJobMonitorController(app) {
 
   function syncJobIntoState(job) {
     if (!job?.id) return;
+    job = latestStudioJobSnapshot(findKnownJob(job.id), job);
 
     const nextItems = mergeTrackedJobIntoRecentJobs(job, app.state.data.recentJobs.items, RECENT_JOBS_LIMIT);
     app.state.data.recentJobs = {
@@ -120,7 +124,7 @@ export function createStudioJobMonitorController(app) {
     });
   }
 
-  async function runMonitoredJobCompletionAction(job, completionAction = null) {
+  async function runMonitoredJobCompletionAction(job, completionAction = null, sequence = ++completionSequence) {
     const submittedNavigation = completionNavigationContexts.get(job.id);
     completionNavigationContexts.delete(job.id);
     let artifacts = [];
@@ -129,6 +133,14 @@ export function createStudioJobMonitorController(app) {
       artifacts = Array.isArray(payload?.artifacts) ? payload.artifacts : [];
     } catch {
       artifacts = [];
+    }
+    // Reserve this sequence at terminal observation, before history/artifact
+    // requests. Their arrival order must not replace a newer completion.
+    if (sequence !== completionSequence) {
+      if (app.state.selectedJobId === job.id && app.state.data.activeJob.summary?.id === job.id) {
+        await openJob(job.id, { summaryHint: job, refresh: true, navigate: false });
+      }
+      return;
     }
 
     const target = resolveMonitoredJobCompletionTarget(job, {
@@ -196,8 +208,19 @@ export function createStudioJobMonitorController(app) {
   }
 
   async function refreshRecentJobs({ silent = false, preserveRender = false } = {}) {
+    const requestSeq = ++recentJobsRequestSeq;
+    const previousRecentJobs = app.state.data.recentJobs;
+    const previousItems = new Map(previousRecentJobs.items.map((job) => [job.id, job]));
     try {
-      const items = await refreshStudioJobs(RECENT_JOBS_LIMIT);
+      const responseItems = await refreshStudioJobs(RECENT_JOBS_LIMIT);
+      if (requestSeq !== recentJobsRequestSeq) return app.state.data.recentJobs.items;
+      let items = responseItems.map((job) => latestStudioJobSnapshot(findKnownJob(job.id), job));
+      // Keep runs submitted or updated while this list request was in flight.
+      for (const job of app.state.data.recentJobs.items) {
+        if (previousItems.get(job.id) !== job && !items.some((entry) => entry.id === job.id)) {
+          items = mergeTrackedJobIntoRecentJobs(job, items, RECENT_JOBS_LIMIT);
+        }
+      }
       app.state.data.recentJobs = {
         status: items.length > 0 ? 'ready' : 'empty',
         items,
@@ -216,6 +239,9 @@ export function createStudioJobMonitorController(app) {
       }
       return items;
     } catch {
+      if (requestSeq !== recentJobsRequestSeq || app.state.data.recentJobs !== previousRecentJobs) {
+        return app.state.data.recentJobs.items;
+      }
       app.state.data.recentJobs = {
         status: 'unavailable',
         items: [],
@@ -223,10 +249,12 @@ export function createStudioJobMonitorController(app) {
       };
       return [];
     } finally {
-      if (preserveRender) {
-        app.refreshShellChrome({ syncWorkspace: true });
-      } else {
-        app.commitRender();
+      if (requestSeq === recentJobsRequestSeq) {
+        if (preserveRender) {
+          app.refreshShellChrome({ syncWorkspace: true });
+        } else {
+          app.commitRender();
+        }
       }
     }
   }
@@ -244,40 +272,44 @@ export function createStudioJobMonitorController(app) {
 
     await Promise.all(activeJobs.map(async (entry) => {
       try {
-        const job = await pollStudioJob(entry.id);
+        let job = await pollStudioJob(entry.id);
         if (!job) {
           throw new Error(`Tracked job ${entry.id} did not return a status payload.`);
         }
 
+        const current = findStudioMonitoredJob(app.state.data.jobMonitor, entry.id) || entry;
+        job = latestStudioJobSnapshot(current, job);
         app.runtime.jobMonitorErrors.delete(entry.id);
         syncJobIntoState(job);
         app.state.data.jobMonitor = upsertStudioMonitoredJob(app.state.data.jobMonitor, job, {
           lastPollTime: polledAt,
-          completionAction: entry.completionAction,
+          completionAction: current.completionAction,
         });
 
-        if (entry.status !== job.status) {
-          logJobTransition(job, entry.status, job.status);
+        if (current.status !== job.status) {
+          logJobTransition(job, current.status, job.status);
         }
 
-        if (!isActiveStudioJobStatus(job.status)) {
+        if (isActiveStudioJobStatus(current.status) && !isActiveStudioJobStatus(job.status)) {
           if (
-            entry.completionAction?.stayOnCurrentRoute === true
+            current.completionAction?.stayOnCurrentRoute === true
             && app.state.data.importBootstrap?.lastJobId === job.id
           ) {
             app.state.data.importBootstrap.reviewJob = job;
           }
-          completedJobs.push({ job, completionAction: entry.completionAction });
+          completedJobs.push({ job, completionAction: current.completionAction, sequence: ++completionSequence });
           app.state.data.jobMonitor = upsertStudioMonitoredJob(app.state.data.jobMonitor, job, {
             lastPollTime: polledAt,
             completionAction: null,
           });
         }
       } catch (error) {
+        const current = findStudioMonitoredJob(app.state.data.jobMonitor, entry.id) || entry;
+        if (!isActiveStudioJobStatus(current.status)) return;
         const message = error instanceof Error ? error.message : String(error);
-        app.state.data.jobMonitor = upsertStudioMonitoredJob(app.state.data.jobMonitor, entry, {
+        app.state.data.jobMonitor = upsertStudioMonitoredJob(app.state.data.jobMonitor, current, {
           lastPollTime: polledAt,
-          completionAction: entry.completionAction,
+          completionAction: current.completionAction,
         });
         if (app.runtime.jobMonitorErrors.get(entry.id) !== message) {
           app.runtime.jobMonitorErrors.set(entry.id, message);
@@ -300,7 +332,7 @@ export function createStudioJobMonitorController(app) {
     if (completedJobs.length > 0) {
       await refreshRecentJobs({ silent: true, preserveRender: true });
       for (const entry of completedJobs) {
-        await runMonitoredJobCompletionAction(entry.job, entry.completionAction);
+        await runMonitoredJobCompletionAction(entry.job, entry.completionAction, entry.sequence);
       }
     }
 
@@ -492,6 +524,10 @@ export function createStudioJobMonitorController(app) {
   } = {}) {
     const normalizedJobId = String(jobId || '').trim();
     if (!normalizedJobId) return;
+    let openNavigation;
+    const render = () => navigate && stillOwnsNavigation(openNavigation)
+      ? app.commitRender()
+      : app.refreshShellChrome({ syncWorkspace: true });
 
     const currentJobId = app.state.data.activeJob.summary?.id || '';
     const sameJob = currentJobId === normalizedJobId;
@@ -530,6 +566,7 @@ export function createStudioJobMonitorController(app) {
       };
       if (navigate) app.navigateTo(route, { selectedJobId: normalizedJobId });
     }
+    openNavigation = navigationContext();
 
     let summary = null;
     try {
@@ -553,10 +590,11 @@ export function createStudioJobMonitorController(app) {
       errorMessage: '',
     };
 
-    if (sameJob && navigate) {
+    if (sameJob && navigate && stillOwnsNavigation(openNavigation)) {
       app.navigateTo(route, { selectedJobId: normalizedJobId });
+      openNavigation = navigationContext();
     } else {
-      app.commitRender();
+      render();
     }
 
     try {
@@ -564,6 +602,7 @@ export function createStudioJobMonitorController(app) {
         summary.links?.artifacts || `/jobs/${encodeURIComponent(normalizedJobId)}/artifacts`
       );
       if (requestSeq !== openJobRequestSeq) return;
+      summary = latestStudioJobSnapshot(summary, findKnownJob(normalizedJobId) || summary);
       app.state.data.activeJob = {
         status: 'ready',
         summary,
@@ -590,6 +629,7 @@ export function createStudioJobMonitorController(app) {
       });
     } catch {
       if (requestSeq !== openJobRequestSeq) return;
+      summary = latestStudioJobSnapshot(summary, findKnownJob(normalizedJobId) || summary);
       app.state.data.activeJob = {
         status: 'unavailable',
         summary,
@@ -605,7 +645,7 @@ export function createStudioJobMonitorController(app) {
         time: 'job',
       });
     } finally {
-      app.commitRender();
+      render();
     }
   }
 

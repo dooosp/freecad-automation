@@ -2958,6 +2958,7 @@ try {
       canvasHasSvg: Boolean(document.querySelector('[data-hook="drawing-canvas"] svg')),
       canvasRole: document.querySelector('[data-hook="drawing-canvas"]')?.getAttribute('role') || '',
       canvasLabel: document.querySelector('[data-hook="drawing-canvas"]')?.getAttribute('aria-label') || '',
+      sheetPrecedesActions: Boolean(document.querySelector('[data-hook="drawing-sheet-section"]')?.compareDocumentPosition(document.querySelector('[data-hook="drawing-action-section"]')) & Node.DOCUMENT_POSITION_FOLLOWING),
       visiblePrimaryActions: [...document.querySelectorAll('#workspace-root .action-button-primary')]
         .filter((button) => button instanceof HTMLElement && !button.closest('[hidden]') && button.getClientRects().length > 0)
         .map((button) => button.dataset.action || button.textContent?.trim() || ''),
@@ -2969,7 +2970,8 @@ try {
     assert.equal(snapshot.reportDisabled, false);
     assert.equal(snapshot.reportLabel, 'Create report');
     assert.equal(snapshot.reportStatus, 'Ready to create a report from the current loaded config.');
-    assert.equal(snapshot.focusedHook, 'drawing-report');
+    assert.equal(snapshot.focusedHook, 'drawing-canvas');
+    assert.equal(snapshot.sheetPrecedesActions, true);
     assert.equal(snapshot.canvasHasSvg, true);
     assert.equal(snapshot.canvasRole, 'region');
     assert.equal(snapshot.canvasLabel, 'Drawing preview canvas');
@@ -3528,17 +3530,17 @@ try {
         hidden: host?.hidden ?? true,
         text: host?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         tone: host?.querySelector('.completion-notice')?.dataset?.tone || '',
-        openArtifacts: actionSnapshot('Open Artifacts'),
+        openArtifacts: actionSnapshot('Open Result files'),
         dismiss: actionSnapshot('Dismiss'),
       };
     })()`);
     assert.equal(snapshot.hidden, false);
     assert.equal(snapshot.tone, 'ok');
-    assert.equal(snapshot.text.includes('Tracked report completed'), true);
+    assert.equal(snapshot.text.includes('Run completed'), true);
     assert.equal(snapshot.text.includes('Job succeeded'), true);
     assert.equal(snapshot.text.includes('Quality passed'), true);
     assert.equal(snapshot.text.includes('Ready Yes'), true);
-    assert.equal(snapshot.text.includes('Open Artifacts to inspect generated files and quality outputs.'), true);
+    assert.equal(snapshot.text.includes('Open Result files to inspect generated files and quality outputs.'), true);
     assert.equal(snapshot.openArtifacts.action, 'open-job');
     assert.equal(snapshot.openArtifacts.route, 'artifacts');
     assert.equal(snapshot.openArtifacts.jobId.length > 0, true);
@@ -3579,7 +3581,7 @@ try {
   await cdp.evaluate(`(() => {
     const host = document.getElementById('completion-notice-host');
     const button = [...(host?.querySelectorAll('button[data-action="open-job"]') || [])]
-      .find((entry) => entry.textContent.trim() === 'Open Artifacts');
+      .find((entry) => entry.textContent.trim() === 'Open Result files');
     button?.click();
   })()`);
   await waitForRoute(cdp, 'artifacts', {

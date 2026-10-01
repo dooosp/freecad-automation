@@ -98,6 +98,30 @@ test('newest drawing response wins even when old success arrives last', async (t
   assert.equal(state.data.model.configText, '[model]\nlength = 155');
 });
 
+test('successful drawing generation focuses its visible sheet instead of a report action', async (t) => {
+  const { requests, mount } = setup(t);
+  const current = mount();
+  document.append(current.root);
+  current.click('drawing-generate');
+  requests[0].resolve({ preview: preview('new') });
+  await settle();
+  assert.equal(document.activeElement, current.root.querySelector('[data-hook="drawing-canvas"]'));
+});
+
+test('a drawing response cannot focus a sheet after its workspace was destroyed', async (t) => {
+  const { requests, mount } = setup(t);
+  const current = mount();
+  document.append(current.root);
+  current.click('drawing-generate');
+  current.workspace.destroy();
+  const nextControl = new TestElement('button');
+  document.append(nextControl);
+  nextControl.focus();
+  requests[0].resolve({ preview: preview('new') });
+  await settle();
+  assert.equal(document.activeElement, nextControl);
+});
+
 test('changed sheet settings obsolete an in-flight result and do not advertise it as current', async (t) => {
   const { state, requests, mount } = setup(t);
   const { scale, root, click } = mount(); click('drawing-generate');

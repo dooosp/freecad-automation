@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import { createStudioShellRouting } from '../public/js/studio/studio-shell-routing.js';
 import { createStudioJobMonitorController } from '../public/js/studio/studio-shell-job-monitor.js';
 import { createStudioShellRuntime, createStudioShellState } from '../public/js/studio/studio-shell-store.js';
+import { createStudioWorkspaceController } from '../public/js/studio/studio-shell-workspace.js';
+import { installDrawingTestDom } from './helpers/drawing-test-dom.js';
 
 function deferred() {
   let resolve;
@@ -37,6 +39,7 @@ function navigationFixture(t, hash = '#start') {
       if (blocked) {
         blocked.entered.resolve();
         await blocked.release.promise;
+        if (blocked.error) throw blocked.error;
       }
       if (url === '/api/studio/jobs') return { job: summaries.values().next().value };
       if (url.endsWith('/retry')) return { job: retries.get(url.split('/')[2]) };
@@ -100,6 +103,69 @@ test('restoration requested after Home was chosen does not reopen the old job', 
   assert.deepEqual(fixture.requests, []);
 });
 
+for (const outcome of ['success', 'failure']) {
+  test(`a late artifact ${outcome} preserves the Model controller, operation, and focus chosen afterward`, async (t) => {
+    const fixture = navigationFixture(t);
+    const summary = fixture.job('slow-result', 'succeeded');
+    const blocked = fixture.block('/jobs/slow-result/artifacts');
+    if (outcome === 'failure') blocked.error = new Error('Artifact response disconnected');
+    const opening = fixture.app.jobs.openJob(summary.id, { summaryHint: summary });
+    await blocked.entered.promise;
+
+    t.after(installDrawingTestDom());
+    const { app } = fixture;
+    app.document = document;
+    app.window.HTMLElement = HTMLElement;
+    app.elements.workspaceRoot = document.createElement('main');
+    document.append(app.elements.workspaceRoot);
+    app.dom.applyPendingFocus = () => {};
+    const mounted = deferred();
+    const operation = { cancelled: false };
+    const controller = { syncFromShell() {}, destroy() { operation.cancelled = true; } };
+    const input = document.createElement('input');
+    input.value = 'New Model operation input';
+    app.loaders = { loadModelWorkspaceModule: async () => ({
+      mountModelWorkspace({ root }) {
+        root.append(input);
+        mounted.resolve();
+        return controller;
+      },
+    }) };
+    app.workspace = createStudioWorkspaceController(app);
+    app.commitRender = () => app.workspace.renderWorkspace();
+    app.refreshShellChrome = ({ syncWorkspace } = {}) => {
+      if (syncWorkspace) app.workspace.syncFromShell();
+    };
+    fixture.chooseRoute('#model');
+    await mounted.promise;
+    input.focus();
+    const renderEpoch = app.runtime.workspaceRenderEpoch;
+    blocked.release.resolve();
+    await opening;
+    assert.equal(fixture.state.route, 'model');
+    assert.equal(fixture.state.selectedJobId, '');
+    assert.equal(app.runtime.workspaceRenderEpoch, renderEpoch);
+    assert.equal(app.runtime.activeWorkspaceController, controller);
+    assert.equal(operation.cancelled, false);
+    assert.equal(input.isConnected, true);
+    assert.equal(input.value, 'New Model operation input');
+    assert.equal(document.activeElement, input);
+  });
+}
+
+test('the summary await when reopening the same job cannot reclaim a later Model choice', async (t) => {
+  const fixture = navigationFixture(t);
+  const summary = fixture.job('same-job', 'succeeded');
+  fixture.selectReadyJob(summary, 'review');
+  const opening = fixture.app.jobs.openJob(summary.id, { route: 'artifacts', refresh: true });
+  // Even the cached summary crosses an await boundary before same-job navigation.
+  fixture.chooseRoute('#model');
+  await opening;
+  assert.equal(fixture.state.route, 'model');
+  assert.equal(fixture.state.selectedJobId, '');
+  assert.equal(fixture.app.window.location.hash, '#model');
+});
+
 test('a resumed background job completion preserves another selected job and route', async (t) => {
   const fixture = navigationFixture(t);
   const selected = fixture.job('selected', 'succeeded');
@@ -121,6 +187,8 @@ test('a resumed selected job completion refreshes its outputs without changing i
   fixture.selectReadyJob(selected, 'review');
   fixture.state.data.recentJobs.items = [selected];
   fixture.app.jobs.resumeJobMonitoring();
+  let workspaceRebuilds = 0;
+  fixture.app.commitRender = () => { workspaceRebuilds += 1; };
   fixture.artifacts.set('selected', [{ id: 'finished-step', type: 'model.step', file_name: 'part.step', exists: true }]);
   fixture.job('selected', 'succeeded');
   await fixture.app.jobs.pollActiveJobs();
@@ -129,6 +197,7 @@ test('a resumed selected job completion refreshes its outputs without changing i
   assert.equal(fixture.state.data.activeJob.summary.status, 'succeeded');
   assert.equal(fixture.state.data.activeJob.artifacts[0]?.id, 'finished-step');
   assert.equal(fixture.state.data.completionNotice.jobId, 'selected');
+  assert.equal(workspaceRebuilds, 0, 'background output refresh must preserve the current workspace DOM');
 });
 
 test('a submitted job keeps the existing automatic handoff when the user stays on its route', async (t) => {

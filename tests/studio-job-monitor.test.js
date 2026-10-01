@@ -190,7 +190,11 @@ const passedCompletionNotice = buildStudioJobCompletionNotice(
   0
 );
 assert.equal(passedCompletionNotice.tone, 'ok');
-assert.equal(passedCompletionNotice.title, 'Tracked report completed');
+assert.equal(passedCompletionNotice.partName, 'quality_pass_bracket');
+assert.equal(passedCompletionNotice.titleKey, 'studio.completion.succeeded');
+assert.equal(passedCompletionNotice.destinationKey, 'studio.completion.destination-review');
+assert.equal(passedCompletionNotice.actions[1].labelKey, 'studio.completion.open-results');
+assert.equal(passedCompletionNotice.title, 'Run completed');
 assert.match(passedCompletionNotice.message, /Job succeeded/);
 assert.match(passedCompletionNotice.message, /Quality passed/);
 assert.match(passedCompletionNotice.message, /Ready Yes/);
@@ -198,13 +202,13 @@ assert.deepEqual(passedCompletionNotice.messageParts, [
   'Job succeeded.',
   'Quality passed.',
   'Ready Yes.',
-  'Open Review for decision context or Artifacts for generated files.',
+  'Open Review for decision context or Result files for generated files.',
 ]);
 assert.deepEqual(
   passedCompletionNotice.actions.map((action) => [action.label, action.action, action.route]),
   [
     ['Open Review', 'open-job', 'review'],
-    ['Open Artifacts', 'open-job', 'artifacts'],
+    ['Open Result files', 'open-job', 'artifacts'],
   ]
 );
 
@@ -233,7 +237,7 @@ const heldReadinessCompletionNotice = buildStudioJobCompletionNotice(
   0
 );
 assert.equal(heldReadinessCompletionNotice.tone, 'warn');
-assert.equal(heldReadinessCompletionNotice.title, 'Tracked readiness-pack completed');
+assert.equal(heldReadinessCompletionNotice.title, 'Run completed');
 assert.match(heldReadinessCompletionNotice.message, /Quality passed/);
 assert.match(heldReadinessCompletionNotice.message, /Ready held: missing inspection_evidence/);
 assert.equal(heldReadinessCompletionNotice.message.includes('Ready Yes'), false);
@@ -241,7 +245,7 @@ assert.deepEqual(heldReadinessCompletionNotice.messageParts, [
   'Job succeeded.',
   'Quality passed.',
   'Ready held: missing inspection_evidence.',
-  'Open Review for decision context or Artifacts for generated files.',
+  'Open Review for decision context or Result files for generated files.',
 ]);
 
 const failedQualityCompletionNotice = buildStudioJobCompletionNotice(
@@ -264,7 +268,7 @@ const failedQualityCompletionNotice = buildStudioJobCompletionNotice(
   1
 );
 assert.equal(failedQualityCompletionNotice.tone, 'warn');
-assert.equal(failedQualityCompletionNotice.title, 'Tracked report completed');
+assert.equal(failedQualityCompletionNotice.title, 'Run completed');
 assert.match(failedQualityCompletionNotice.message, /Quality failed/);
 assert.match(failedQualityCompletionNotice.message, /Ready No/);
 assert.match(failedQualityCompletionNotice.message, /1 other active job still running/);
@@ -291,7 +295,7 @@ const failedJobCompletionNotice = buildStudioJobCompletionNotice(
   0
 );
 assert.equal(failedJobCompletionNotice.tone, 'bad');
-assert.equal(failedJobCompletionNotice.title, 'Tracked create failed');
+assert.equal(failedJobCompletionNotice.title, 'Run failed');
 assert.match(failedJobCompletionNotice.message, /Open Jobs center/);
 assert.deepEqual(
   failedJobCompletionNotice.actions.map((action) => [action.label, action.action]),
@@ -311,7 +315,7 @@ const cancelledJobCompletionNotice = buildStudioJobCompletionNotice(
   0
 );
 assert.equal(cancelledJobCompletionNotice.tone, 'warn');
-assert.equal(cancelledJobCompletionNotice.title, 'Tracked draw cancelled');
+assert.equal(cancelledJobCompletionNotice.title, 'Run cancelled');
 assert.equal(cancelledJobCompletionNotice.actions[0].action, 'open-jobs-center');
 
 const af5PackJob = {
@@ -379,7 +383,7 @@ assert.deepEqual(
   af5CompletionNotice.actions.map((action) => [action.label, action.action, action.route]),
   [
     ['Open Review', 'open-job', 'review'],
-    ['Open Artifacts', 'open-job', 'artifacts'],
+    ['Open Result files', 'open-job', 'artifacts'],
   ]
 );
 
@@ -437,3 +441,8 @@ test('failed cancellation plus disconnected refresh never invents a terminal sta
   assert.equal(state.data.activeJob.summary.status, 'queued');
   assert.equal(listActiveStudioMonitoredJobs(state.data.jobMonitor).length, 1);
 });
+
+const unavailableQualityNotice = buildStudioJobCompletionNotice({ id: 'run-no-quality', status: 'succeeded' }, { route: 'artifacts' });
+assert.equal(unavailableQualityNotice.partName, '');
+assert.equal(unavailableQualityNotice.message.includes('Quality passed'), false);
+assert.equal(unavailableQualityNotice.message.includes('Ready Yes'), false);

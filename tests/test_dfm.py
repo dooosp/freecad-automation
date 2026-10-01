@@ -15,8 +15,12 @@ Tests:
 
 import json
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from dfm_checker import run_dfm_check, PROCESS_CONSTRAINTS
@@ -619,6 +623,107 @@ class TestD4MillingProcess(unittest.TestCase):
 
 class TestDFMReport(unittest.TestCase):
     """DFM report section rendering (Phase 24)."""
+
+    def _render_dfm_page(self, checks):
+        if not shutil.which("pdftotext"):
+            self.skipTest("Poppler text extraction is not installed")
+        try:
+            import matplotlib
+        except ImportError:
+            self.skipTest("matplotlib is not installed")
+        from engineering_report import generate_legacy_report
+
+        config = {
+            "name": "dfm_spacing", "_decision_summary": {"overall_status": "incomplete"},
+            "dfm_results": {
+                "process": "machining", "material": "AL6061", "score": 100,
+                "checks": checks,
+                "summary": {"errors": 0, "warnings": 0, "info": len(checks)},
+            },
+        }
+        with tempfile.TemporaryDirectory() as output:
+            config["export"] = {"directory": output}
+            source_json = json.dumps(config)
+            result = generate_legacy_report(config)
+            self.assertEqual(json.dumps(config), source_json, "PDF formatting must not modify source data")
+            document = ET.fromstring(subprocess.check_output([
+                "pdftotext", "-bbox", result["path"], "-",
+            ]))
+        pages = document.findall(".//{*}page")
+        self.assertEqual(len(pages), 3)
+        return pages[-1]
+
+    def test_rendered_summary_and_recommendations_have_separate_bands(self):
+        """The PDF must leave readable space below the DFM error/warning counts."""
+        checks = [{
+            "code": "DFM-04", "severity": "info",
+            "message": "Internal corner review",
+            "recommendation": "Review the internal corners before release.",
+        }]
+        for report_checks in ([], checks):
+            with self.subTest(has_recommendations=bool(report_checks)):
+                words = self._render_dfm_page(report_checks).findall(".//{*}word")
+                summary = [word for word in words if word.text in ("Errors:", "Warnings:", "Info:")]
+                self.assertEqual(len(summary), 3)
+                heading = next(word for word in words if word.text == "Recommendations")
+                summary_bottom = max(float(word.attrib["yMax"]) for word in summary)
+                heading_top = float(heading.attrib["yMin"])
+                self.assertGreaterEqual(
+                    heading_top - summary_bottom, 4.0,
+                    "Recommendations must start at least 4pt below the DFM summary",
+                )
+                body_start = "Review" if report_checks else "No"
+                body = next(word for word in words if word.text == body_start
+                            and float(word.attrib["yMin"]) > float(heading.attrib["yMax"]))
+                self.assertGreater(float(body.attrib["yMin"]), float(heading.attrib["yMax"]))
+
+    def test_no_recommendations_does_not_claim_manufacturing_readiness(self):
+        words = self._render_dfm_page([]).findall(".//{*}word")
+        text = " ".join(word.text for word in words)
+        self.assertIn("No DFM recommendations were reported", text)
+        self.assertNotIn("manufacturing-ready", text)
+
+    def test_long_recommendations_wrap_inside_page_and_preserve_complete_fixes(self):
+        fixes = [
+            f"Move hole '{hole}' at least 5.5 mm away from the nearest box edge in 'gusset', "
+            "or widen the local flange so the edge distance reaches 9.0 mm. "
+            "The measured edge distance is 3.5 mm."
+            for hole in ("hole1", "hole3")
+        ]
+        page = self._render_dfm_page([
+            {"code": "DFM-02", "severity": "error", "message": "Insufficient edge distance",
+             "recommendation": fix} for fix in fixes
+        ])
+        words = page.findall(".//{*}word")
+        heading = next(word for word in words if word.text == "Recommendations")
+        footer_top = float(next(word for word in words if word.text == "Generated").attrib["yMin"])
+        body = [word for word in words
+                if float(word.attrib["yMin"]) > float(heading.attrib["yMax"])
+                and abs(float(word.attrib["yMin"]) - footer_top) > 0.1]
+        self.assertGreaterEqual(min(float(word.attrib["xMin"]) for word in body), 24)
+        self.assertLessEqual(max(float(word.attrib["xMax"]) for word in body), float(page.attrib["width"]) - 24)
+        self.assertLess(max(float(word.attrib["yMax"]) for word in body), footer_top - 12)
+        text = " ".join(word.text for word in body)
+        for fix in fixes:
+            self.assertIn(fix, text)
+        self.assertGreater(len({round(float(word.attrib["yMin"]), 1) for word in body}), 2)
+
+    def test_excess_recommendation_text_is_bounded_and_explicitly_continued(self):
+        page = self._render_dfm_page([
+            {"code": "DFM-02", "severity": "error", "message": "Review the feature",
+             "recommendation": "Review the measured edge distance before release. " * 12}
+            for _ in range(7)
+        ])
+        words = page.findall(".//{*}word")
+        heading = next(word for word in words if word.text == "Recommendations")
+        footer_top = float(next(word for word in words if word.text == "Generated").attrib["yMin"])
+        body = [word for word in words
+                if float(word.attrib["yMin"]) > float(heading.attrib["yMax"])
+                and abs(float(word.attrib["yMin"]) - footer_top) > 0.1]
+        self.assertLessEqual(max(float(word.attrib["xMax"]) for word in body), float(page.attrib["width"]) - 24)
+        self.assertLess(max(float(word.attrib["yMax"]) for word in body), footer_top - 12)
+        self.assertIn("Additional recommendation text omitted; see the source DFM results.",
+                      " ".join(word.text for word in body))
 
     def test_dfm_section_rendered(self):
         """engineering_report should accept dfm_results without error."""

@@ -99,6 +99,7 @@ assert.deepEqual(buildReviewSummary({ activeJob: null, reviewStatus: 'idle', car
   decision: 'choose_run',
   tone: 'info',
   issues: [],
+  issueDetails: [],
   hasAdvancedIssues: false,
   nextStep: '',
   supportingFiles: [],

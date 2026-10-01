@@ -609,7 +609,7 @@ function createHomeRecentStatus(job) {
   });
 }
 
-function createHomeRecentRuns(state) {
+export function createHomeRecentRuns(state) {
   const recentJobs = state.data.recentJobs || {};
   const items = Array.isArray(recentJobs.items) ? recentJobs.items.slice(0, 3) : [];
   let body;
@@ -660,12 +660,14 @@ function createHomeRecentRuns(state) {
     });
   }
 
-  return createCard({
+  const card = createCard({
     kicker: t('studio.home.recent.kicker'),
     title: t('studio.home.recent.title'),
     copy: t('studio.home.recent.copy'),
     body: [body],
   });
+  card.dataset.hook = 'home-recent-runs';
+  return card;
 }
 
 function createHomeWorkspace(state) {
@@ -783,7 +785,7 @@ function createRunHistoryMenuItems(job = {}) {
   ];
 }
 
-function createRunHistoryWorkspace(state) {
+export function createRunHistoryWorkspace(state) {
   const recentJobs = state.data.recentJobs || {};
   const items = Array.isArray(recentJobs.items) ? recentJobs.items : [];
   let body;
@@ -2360,6 +2362,143 @@ function createDrawingWorkspace(state) {
   const drawingStatus = state.data.drawing?.status || 'idle';
   const tone = drawingStatus === 'ready' ? 'ok' : drawingStatus === 'error' ? 'bad' : drawingStatus === 'generating' ? 'warn' : 'info';
 
+  const actionSection = el('div', {
+    className: 'canvas-stack',
+    dataset: { hook: 'drawing-action-section' },
+    children: [
+      createActionSummary({
+        actionId: 'preview-drawing',
+        title: t('studio.drawing.preview.summary-title'),
+        description: t('studio.drawing.preview.summary-copy'),
+        requiredInputs: [t('studio.drawing.preview.required-input')],
+        expectedOutputs: [t('studio.drawing.preview.expected-output')],
+        launchesFreeCAD: t('studio.drawing.preview.freecad'),
+        fileEffects: t('studio.drawing.preview.files'),
+        networkAccess: t('studio.drawing.local-api'),
+        provider: t('studio.drawing.none'),
+        cost: t('studio.drawing.none'),
+        humanConfirmationRequired: true,
+        safetyNotes: t('studio.drawing.preview.safety'),
+      }),
+      el('div', {
+        className: 'model-action-row',
+        children: [
+          createButton({
+            label: 'Preview drawing',
+            action: 'drawing-generate',
+            tone: 'primary',
+            dataset: { hook: 'drawing-generate' },
+          }),
+          createButton({
+            label: 'Run Tracked Draw Job',
+            action: 'drawing-run-tracked',
+            tone: 'ghost',
+            dataset: { hook: 'drawing-tracked-run' },
+          }),
+          createButton({
+            label: 'Fit sheet',
+            action: 'drawing-fit',
+            tone: 'ghost',
+            dataset: { hook: 'drawing-fit-side' },
+          }),
+        ],
+      }),
+      el('div', {
+        className: 'guided-follow-up-card',
+        attrs: { hidden: drawingStatus === 'ready' ? undefined : '' },
+        dataset: { hook: 'drawing-report-action' },
+        children: [
+          createActionSummary({
+            actionId: 'create-drawing-report',
+            title: t('studio.drawing.report.summary-title'),
+            description: t('studio.drawing.report.summary-copy'),
+            requiredInputs: [t('studio.drawing.report.required-input')],
+            expectedOutputs: [t('studio.drawing.report.expected-output')],
+            launchesFreeCAD: t('studio.drawing.report.freecad'),
+            fileEffects: t('studio.drawing.report.files'),
+            networkAccess: t('studio.drawing.local-api'),
+            provider: t('studio.drawing.none'),
+            cost: t('studio.drawing.none'),
+            humanConfirmationRequired: true,
+            safetyNotes: t('studio.drawing.report.safety'),
+          }),
+          createPrimaryAction({
+            label: t('studio.drawing.report.action'),
+            action: 'drawing-run-report',
+            dataset: { hook: 'drawing-report' },
+          }),
+          el('p', {
+            className: 'inline-note',
+            text: t('studio.drawing.report.status.idle'),
+            attrs: { role: 'status', 'aria-live': 'polite' },
+            dataset: { hook: 'drawing-report-status', tone: 'info' },
+          }),
+        ],
+      }),
+    ],
+  });
+  const sheetSection = el('div', {
+    className: 'canvas-stack',
+    dataset: { hook: 'drawing-sheet-section' },
+    children: [
+      el('div', {
+        className: 'drawing-toolbar',
+        children: [
+          createButton({
+            label: '+',
+            action: 'drawing-zoom-in',
+            tone: 'ghost',
+            dataset: { hook: 'drawing-zoom-in' },
+          }),
+          createButton({
+            label: '-',
+            action: 'drawing-zoom-out',
+            tone: 'ghost',
+            dataset: { hook: 'drawing-zoom-out' },
+          }),
+          createButton({
+            label: 'Fit',
+            action: 'drawing-fit',
+            tone: 'ghost',
+            dataset: { hook: 'drawing-fit' },
+          }),
+          el('span', { className: 'drawing-zoom-label', dataset: { hook: 'drawing-zoom-label' }, text: '100%' }),
+        ],
+      }),
+      el('div', {
+        className: 'drawing-stage-shell',
+        dataset: { hook: 'drawing-stage' },
+        children: [
+          el('div', {
+            className: 'drawing-empty-state',
+            dataset: { hook: 'drawing-empty' },
+            children: [
+              createEmptyState({
+                icon: '2D',
+                title: 'No drawing yet',
+                copy: 'Use Preview Drawing for the fast loop or Run Tracked Draw Job to queue the current TOML and sheet settings.',
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'drawing-canvas',
+            dataset: { hook: 'drawing-canvas' },
+            attrs: {
+              tabindex: '-1',
+              role: 'region',
+              'aria-label': t('studio.drawing.canvas.label'),
+            },
+          }),
+        ],
+      }),
+      el('p', {
+        className: 'inline-note',
+        dataset: { hook: 'drawing-canvas-caption' },
+        text: t('studio.drawing.canvas.empty-guidance'),
+      }),
+    ],
+  });
+
   return el('section', {
     className: 'workspace-shell cad-workbench drawing-workbench',
     children: [
@@ -2542,130 +2681,7 @@ function createDrawingWorkspace(state) {
                     dataset: { hook: 'drawing-summary' },
                     text: 'Preview Drawing runs locally and quickly. Run Tracked Draw Job publishes the current sheet settings as a tracked job and artifact set.',
                   }),
-                  createActionSummary({
-                    actionId: 'preview-drawing',
-                    title: t('studio.drawing.preview.summary-title'),
-                    description: t('studio.drawing.preview.summary-copy'),
-                    requiredInputs: [t('studio.drawing.preview.required-input')],
-                    expectedOutputs: [t('studio.drawing.preview.expected-output')],
-                    launchesFreeCAD: t('studio.drawing.preview.freecad'),
-                    fileEffects: t('studio.drawing.preview.files'),
-                    networkAccess: t('studio.drawing.local-api'),
-                    provider: t('studio.drawing.none'),
-                    cost: t('studio.drawing.none'),
-                    humanConfirmationRequired: true,
-                    safetyNotes: t('studio.drawing.preview.safety'),
-                  }),
-                  el('div', {
-                    className: 'model-action-row',
-                    children: [
-                      createButton({
-                        label: 'Preview drawing',
-                        action: 'drawing-generate',
-                        tone: 'primary',
-                        dataset: { hook: 'drawing-generate' },
-                      }),
-                      createButton({
-                        label: 'Run Tracked Draw Job',
-                        action: 'drawing-run-tracked',
-                        tone: 'ghost',
-                        dataset: { hook: 'drawing-tracked-run' },
-                      }),
-                      createButton({
-                        label: 'Fit sheet',
-                        action: 'drawing-fit',
-                        tone: 'ghost',
-                        dataset: { hook: 'drawing-fit-side' },
-                      }),
-                    ],
-                  }),
-                  el('div', {
-                    className: 'guided-follow-up-card',
-                    attrs: { hidden: drawingStatus === 'ready' ? undefined : '' },
-                    dataset: { hook: 'drawing-report-action' },
-                    children: [
-                      createActionSummary({
-                        actionId: 'create-drawing-report',
-                        title: t('studio.drawing.report.summary-title'),
-                        description: t('studio.drawing.report.summary-copy'),
-                        requiredInputs: [t('studio.drawing.report.required-input')],
-                        expectedOutputs: [t('studio.drawing.report.expected-output')],
-                        launchesFreeCAD: t('studio.drawing.report.freecad'),
-                        fileEffects: t('studio.drawing.report.files'),
-                        networkAccess: t('studio.drawing.local-api'),
-                        provider: t('studio.drawing.none'),
-                        cost: t('studio.drawing.none'),
-                        humanConfirmationRequired: true,
-                        safetyNotes: t('studio.drawing.report.safety'),
-                      }),
-                      createPrimaryAction({
-                        label: t('studio.drawing.report.action'),
-                        action: 'drawing-run-report',
-                        dataset: { hook: 'drawing-report' },
-                      }),
-                      el('p', {
-                        className: 'inline-note',
-                        text: t('studio.drawing.report.status.idle'),
-                        attrs: { role: 'status', 'aria-live': 'polite' },
-                        dataset: { hook: 'drawing-report-status', tone: 'info' },
-                      }),
-                    ],
-                  }),
-                  el('div', {
-                    className: 'drawing-toolbar',
-                    children: [
-                      createButton({
-                        label: '+',
-                        action: 'drawing-zoom-in',
-                        tone: 'ghost',
-                        dataset: { hook: 'drawing-zoom-in' },
-                      }),
-                      createButton({
-                        label: '-',
-                        action: 'drawing-zoom-out',
-                        tone: 'ghost',
-                        dataset: { hook: 'drawing-zoom-out' },
-                      }),
-                      createButton({
-                        label: 'Fit',
-                        action: 'drawing-fit',
-                        tone: 'ghost',
-                        dataset: { hook: 'drawing-fit' },
-                      }),
-                      el('span', { className: 'drawing-zoom-label', dataset: { hook: 'drawing-zoom-label' }, text: '100%' }),
-                    ],
-                  }),
-                  el('div', {
-                    className: 'drawing-stage-shell',
-                    dataset: { hook: 'drawing-stage' },
-                    children: [
-                      el('div', {
-                        className: 'drawing-empty-state',
-                        dataset: { hook: 'drawing-empty' },
-                        children: [
-                          createEmptyState({
-                            icon: '2D',
-                            title: 'No drawing yet',
-                            copy: 'Use Preview Drawing for the fast loop or Run Tracked Draw Job to queue the current TOML and sheet settings.',
-                          }),
-                        ],
-                      }),
-                      el('div', {
-                        className: 'drawing-canvas',
-                        dataset: { hook: 'drawing-canvas' },
-                        attrs: {
-                          tabindex: '-1',
-                          role: 'region',
-                          'aria-label': t('studio.drawing.canvas.label'),
-                        },
-                      }),
-                    ],
-                  }),
-                  el('p', {
-                    className: 'inline-note',
-                    dataset: { hook: 'drawing-canvas-caption' },
-                    text: t('studio.drawing.canvas.empty-guidance'),
-                  }),
+                  ...(state.data.drawing?.preview?.svg ? [sheetSection, actionSection] : [actionSection, sheetSection]),
                 ],
               }),
             ],

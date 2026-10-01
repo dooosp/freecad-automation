@@ -176,7 +176,7 @@ function createCompletionActionButton(documentRef, action = {}) {
   button.dataset.action = action.action || 'open-job';
   if (action.jobId) button.dataset.jobId = action.jobId;
   if (action.route) button.dataset.route = action.route;
-  button.textContent = action.label || 'Open Jobs center';
+  button.textContent = action.labelKey ? t(action.labelKey) : action.label || 'Open Jobs center';
   return button;
 }
 
@@ -189,6 +189,7 @@ function completionNoticeKey(notice, locale = '') {
   const actions = Array.isArray(notice.actions)
     ? notice.actions.map((action = {}) => ([
       action.label || '',
+      action.labelKey || '',
       action.action || '',
       action.tone || '',
       action.jobId || '',
@@ -201,6 +202,10 @@ function completionNoticeKey(notice, locale = '') {
     notice.jobId || '',
     notice.tone || '',
     notice.title || '',
+    notice.titleKey || '',
+    notice.partName || '',
+    notice.destinationKey || '',
+    notice.destinationCopy || '',
     messageParts.filter(Boolean),
     notice.primaryRoute || '',
     notice.primaryLabel || '',
@@ -298,8 +303,19 @@ export function createStudioShellDomController(app) {
 
     const title = app.document.createElement('p');
     title.className = 'completion-notice-title';
-    title.textContent = notice.title;
+    title.textContent = notice.titleKey ? t(notice.titleKey) : notice.title;
     copy.append(title);
+
+    if (notice.jobId) {
+      const context = app.document.createElement('p');
+      context.className = 'completion-notice-message completion-notice-context';
+      context.dataset.i18nPreserve = 'true';
+      context.textContent = t('studio.completion.context', {
+        part: notice.partName || t('studio.completion.unknown-part'),
+        id: notice.jobId.slice(0, 8),
+      });
+      copy.append(context);
+    }
 
     const messageParts = Array.isArray(notice.messageParts) && notice.messageParts.length > 0
       ? notice.messageParts
@@ -307,7 +323,9 @@ export function createStudioShellDomController(app) {
     messageParts.filter(Boolean).forEach((part) => {
       const message = app.document.createElement('p');
       message.className = 'completion-notice-message';
-      message.textContent = part;
+      message.textContent = notice.destinationKey && part === notice.destinationCopy
+        ? t(notice.destinationKey)
+        : part;
       copy.append(message);
     });
 

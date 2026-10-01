@@ -192,7 +192,7 @@ export function bootStudioShell({
     app.dom.renderCompletionNotice();
     app.dom.renderJobsDrawer();
     if (syncWorkspace) {
-      app.runtime.activeWorkspaceController?.syncFromShell?.();
+      app.workspace.syncFromShell();
     }
     bindLocaleControls(documentRef.body);
     applyTranslations(documentRef.body);
