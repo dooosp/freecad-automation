@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import WebSocket from 'ws';
+import { parse as parseToml } from 'smol-toml';
+import { evaluateModelParameters } from '../src/server/studio-model-parameters.js';
 
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
@@ -18,7 +20,7 @@ assert.ok(Number.isInteger(SOAK_CYCLES) && SOAK_CYCLES >= 0 && SOAK_CYCLES <= 50
 const SOAK_INTERVAL_MS = Number(process.env.STUDIO_BROWSER_SOAK_INTERVAL_MS ?? 50);
 assert.ok(Number.isInteger(SOAK_INTERVAL_MS) && SOAK_INTERVAL_MS >= 0 && SOAK_INTERVAL_MS <= 10000,
   'STUDIO_BROWSER_SOAK_INTERVAL_MS must be an integer between 0 and 10000');
-const TMP_ROOT = mkdtempSync(join(tmpdir(), 'fcad-studio-browser-smoke-'));
+const TMP_ROOT = realpathSync(mkdtempSync(join(tmpdir(), 'fcad-studio-browser-smoke-')));
 const JOBS_DIR = join(TMP_ROOT, 'jobs');
 const CHROME_PROFILE_DIR = join(TMP_ROOT, 'chrome-profile');
 
@@ -349,7 +351,7 @@ function editedDrawingSnapshotExpression() {
   }))()`;
 }
 
-async function assertStoredEditedDrawing(cdp, jobId) {
+async function assertStoredEditedDrawing(cdp, jobId, expectedValue = '47') {
   const snapshot = await cdp.evaluate(`(async () => {
     const payload = await (await fetch('/jobs/${jobId}/artifacts')).json();
     const artifact = payload.artifacts.find((entry) => entry.type === 'drawing.svg');
@@ -370,7 +372,7 @@ async function assertStoredEditedDrawing(cdp, jobId) {
   assert.equal(snapshot.status, 200, JSON.stringify(snapshot));
   assert.equal(snapshot.canOpen, false);
   assert.equal(snapshot.canDownload, true);
-  assert.equal(snapshot.value, '47', 'Saved output must use the accepted edited annotation');
+  assert.equal(snapshot.value, expectedValue, 'Saved output must use the accepted edited annotation');
   assert.equal(snapshot.scale, '1:2');
   assert.equal(snapshot.views, 'front,top,right');
   return snapshot;
@@ -1286,6 +1288,26 @@ async function completeQualityDecisionJob(jobStore, {
     `artifacts/${configName}_drawing.svg`,
     drawingSvg
   );
+  const savedDrawingArtifacts = [];
+  if (editedDimension) {
+    const effectiveConfigPath = await jobStore.writeJobFile(
+      job.id, `artifacts/${configName}_effective_config.json`,
+      `${JSON.stringify(job.request.config, null, 2)}\n`,
+    );
+    const planJsonPath = await jobStore.writeJobFile(
+      job.id, `artifacts/${configName}_plan.json`,
+      `${JSON.stringify({ drawing_plan: job.request.config.drawing_plan }, null, 2)}\n`,
+    );
+    const printPdfPath = await jobStore.writeJobFile(
+      job.id, `artifacts/${configName}_drawing.pdf`,
+      `%PDF-1.4\n% ${configName} browser print-PDF fixture; rendering is verified separately\n`,
+    );
+    savedDrawingArtifacts.push(
+      { type: 'drawing.pdf', path: printPdfPath, scope: 'user-facing', stability: 'stable' },
+      { type: 'config.effective', path: effectiveConfigPath, scope: 'internal', stability: 'stable' },
+      { type: 'draw.plan.json', path: planJsonPath, scope: 'user-facing', stability: 'stable' },
+    );
+  }
   const manifest = await buildArtifactManifest({
     projectRoot,
     interface: 'api',
@@ -1364,6 +1386,7 @@ async function completeQualityDecisionJob(jobStore, {
         scope: 'user-facing',
         stability: 'stable',
       },
+      ...savedDrawingArtifacts,
     ],
     timestamps: {
       created_at: job.created_at,
@@ -1864,6 +1887,7 @@ function browserSmokeStudioModelServiceFactory() {
   };
 
   return {
+    modelParameters: evaluateModelParameters,
     async validateConfigToml() {
       return { config: {}, summary: validation, overview };
     },
@@ -1979,6 +2003,14 @@ function browserSmokeDrawingServiceFactory() {
           value: 40, settings: normalizeSettings(drawingSettings),
         };
       }
+      return render();
+    },
+    async resumePreview({ configToml, drawingPlan, drawingSettings }) {
+      current = {
+        id: `browser-smoke-drawing-${++previewSequence}`, configToml: String(configToml || '').trim(),
+        value: drawingPlan.dim_intents.find((dimension) => dimension.id === 'WIDTH').value_mm,
+        settings: normalizeSettings(drawingSettings),
+      };
       return render();
     },
     async updateDimension({ previewId, previewRevision, dimId, valueMm, historyOp = 'edit' }) {
@@ -2923,6 +2955,67 @@ try {
   ]);
   assertExcludesAll(guidedPreflight.text, ['tracked', 'artifact', 'manifest', 'Stage 5B']);
 
+  const parameterSourceBefore = await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`);
+  await keyboardActivate(cdp, '[data-action="model-parameters-inspect"]');
+  await waitFor(async () => {
+    const fields = await cdp.evaluate(`[...document.querySelectorAll('[data-model-parameter]')].map(input => input.dataset.modelParameter)`);
+    assert.deepEqual(fields, ['plate_length_mm', 'plate_width_mm', 'plate_thickness_mm', 'left_hole_diameter_mm', 'right_hole_diameter_mm']);
+  });
+  const requestedDimensions = { plate_length_mm: 180, plate_width_mm: 110, plate_thickness_mm: 10, left_hole_diameter_mm: 8, right_hole_diameter_mm: 12 };
+  async function fillModelDimensions() {
+    await cdp.evaluate(`(() => {
+      for (const [key, value] of Object.entries(${JSON.stringify(requestedDimensions)})) {
+        const input = document.querySelector('[data-model-parameter="' + key + '"]');
+        input.value = String(value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    })()`);
+  }
+  await fillModelDimensions();
+  await cdp.evaluate(`(() => {
+    const locale = document.getElementById('studio-locale-select');
+    locale.value = 'ko'; locale.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await waitFor(async () => {
+    const field = await cdp.evaluate(`(() => {
+      const input = document.querySelector('[data-model-parameter="plate_length_mm"]');
+      return { label: input?.closest('label')?.textContent || '', value: input?.value };
+    })()`);
+    assert.ok(field.label.includes('판 길이 (mm)'));
+    assert.equal(field.value, '180', 'Locale remount preserves pending numeric input');
+  });
+  await cdp.evaluate(`(() => {
+    const locale = document.getElementById('studio-locale-select');
+    locale.value = 'en'; locale.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await keyboardActivate(cdp, '[data-action="model-parameters-apply"]');
+  const editedModelSource = await waitFor(async () => {
+    const text = await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`);
+    assert.notEqual(text, parameterSourceBefore);
+    const config = parseToml(text);
+    assert.equal(config.shapes.find(shape => shape.id === 'plate').length, 180);
+    assert.equal(config.shapes.find(shape => shape.id === 'plate').width, 110);
+    assert.equal(config.shapes.find(shape => shape.id === 'plate').height, 10);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_left').radius, 4);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_right').radius, 6);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_left').height, 14);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_right').height, 14);
+    assert.equal(config.drawing_intent.required_dimensions.find(dimension => dimension.id === 'HOLE_LEFT_DIA').value_mm, 8);
+    assert.equal(config.drawing_plan.dim_intents.find(dimension => dimension.id === 'HOLE_RIGHT_DIA').value_mm, 12);
+    return text;
+  });
+  const parameterPost = cdp.posts.findLast(request => request.path === '/api/studio/model-parameters' && request.body.mode === 'apply');
+  assert.deepEqual(parameterPost.body.changes, requestedDimensions);
+  assert.equal(parameterPost.body.config_toml, parameterSourceBefore);
+  assert.match(parameterPost.body.source_sha256, /^[a-f0-9]{64}$/);
+  await keyboardActivate(cdp, '[data-action="model-parameters-undo"]');
+  await waitFor(async () => assert.equal(await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`), parameterSourceBefore));
+  await keyboardActivate(cdp, '[data-action="model-parameters-inspect"]');
+  await waitFor(async () => assert.equal(await cdp.evaluate(`document.querySelectorAll('[data-model-parameter]').length`), 5));
+  await fillModelDimensions();
+  await keyboardActivate(cdp, '[data-action="model-parameters-apply"]');
+  await waitFor(async () => assert.equal(await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`), editedModelSource));
+
   await keyboardActivate(cdp, '[data-hook="guided-generate"]');
   guidedModelPrimaryActions += 1;
   const guidedResult = await waitFor(async () => {
@@ -3090,8 +3183,8 @@ try {
     assert.equal(snapshot.reportHidden, false, JSON.stringify(snapshot));
     assert.equal(snapshot.reportSummaryRows, 8);
     assert.equal(snapshot.reportDisabled, false);
-    assert.equal(snapshot.reportLabel, 'Create report');
-    assert.equal(snapshot.reportStatus, 'Ready to create a report from the current loaded config.');
+    assert.equal(snapshot.reportLabel, 'Run all checks & create report');
+    assert.equal(snapshot.reportStatus, 'Ready to run model, drawing, and DFM checks and create the report.');
     assert.equal(snapshot.focusedHook, 'drawing-canvas');
     assert.equal(snapshot.sheetPrecedesActions, true);
     assert.equal(snapshot.canvasHasSvg, true);
@@ -3281,17 +3374,17 @@ try {
     assert.equal(snapshot.lang, 'ko');
     assertIncludesAll(snapshot.previewText, ['필요한 입력', '예상 결과', 'FreeCAD 실행', '파일 변경']);
     assertIncludesAll(snapshot.reportText, [
-      '추적 보고서 생성',
+      '전체 품질 검사 후 보고서 생성',
       '현재 불러온 설정',
       '도면 주석',
       '시트 설정',
-      '추적 보고서 PDF와 관련 산출물',
+      '모델·도면 품질 결과',
     ]);
     assert.match(snapshot.reportText, /치수.*포함/);
     assert.match(snapshot.reportText, /3D 형상.*변경하지 않/);
     assert.equal(snapshot.reportText.includes('보고서에 포함되지 않습니다'), false);
-    assert.equal(snapshot.reportLabel, '보고서 생성');
-    assert.equal(snapshot.reportStatus, '현재 불러온 설정으로 보고서를 생성할 준비가 되었습니다.');
+    assert.equal(snapshot.reportLabel, '전체 검사 후 보고서 생성');
+    assert.equal(snapshot.reportStatus, '모델·도면·DFM 검사를 실행하고 보고서를 생성할 준비가 되었습니다.');
     assert.equal(snapshot.canvasLabel, '도면 미리보기 캔버스');
     assert.equal(snapshot.dimensionLabel, '치수 WIDTH 편집: 47 mm');
     return snapshot;
@@ -3304,7 +3397,7 @@ try {
   })()`);
   await waitFor(async () => {
     const label = await cdp.evaluate(`document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || ''`);
-    assert.equal(label, 'Create report');
+    assert.equal(label, 'Run all checks & create report');
     return label;
   });
 
@@ -3383,6 +3476,8 @@ try {
   assert.deepEqual(reportPost.body.drawing_settings.views, ['front', 'top', 'right']);
   assert.equal(reportPost.body.report_options.include_drawing, true);
   assert.equal(reportPost.body.options.include_drawing, true);
+  assert.equal(reportPost.body.options.full_quality, true);
+  assert.equal(reportPost.body.options.include_dfm, true);
   assert.equal(drawingReportJob.request.config.drawing_plan.dim_intents.find((dimension) => dimension.id === 'WIDTH').value_mm, 47);
   assert.equal(drawingReportJob.request.config.shapes[0].width, 18, 'Report input keeps the unchanged model geometry');
   assert.equal(drawingReportJob.request.config.drawing.scale, '1:2');
@@ -3391,6 +3486,21 @@ try {
   assert.equal(drawingReportJob.request.options.studio.preview_plan.revision, acceptedDrawingSnapshot.revision);
   assert.equal(drawingReportJob.request.options.studio.preview_plan.annotation_only, true);
   const reportDrawingBeforeReload = await assertStoredEditedDrawing(cdp, drawingReportJob.id);
+  const printArtifact = (await jobStore.listArtifacts(drawingReportJob.id)).find((artifact) => artifact.type === 'drawing.pdf');
+  assert.ok(printArtifact, 'Saved drawing has a separate print PDF artifact');
+  const printCard = `.result-card[data-result-artifact-id="${printArtifact.id}"]`;
+  const printPresentation = await cdp.evaluate(`(() => ({
+    print: document.querySelector(${JSON.stringify(printCard)})?.textContent || '',
+    primary: document.querySelector('[data-primary-result="true"]')?.textContent || '',
+    openHref: document.querySelector(${JSON.stringify(printCard + ' a')})?.getAttribute('href') || '',
+  }))()`);
+  assertIncludesAll(printPresentation.print, ['Print drawing PDF', 'Actual size / 100%', 'Fit to page']);
+  assert.ok(printPresentation.primary.includes('Report'), 'Report PDF remains the primary report output');
+  assert.ok(!printPresentation.primary.includes('Print drawing PDF'));
+  const printResponse = await fetch(`${baseUrl}${printPresentation.openHref}`);
+  assert.equal(printResponse.status, 200);
+  assert.match(printResponse.headers.get('content-type'), /application\/pdf/);
+  assert.ok((await printResponse.text()).startsWith('%PDF-'));
   const reportJobsAfter = (await jobStore.listJobs({ limit: 100 }))
     .filter((job) => job.type === 'report').length;
   assert.equal(reportJobsAfter, reportJobsBefore + 1);
@@ -3406,6 +3516,52 @@ try {
   await cdp.evaluate(`window.location.hash = '#artifacts?job=${trackedDrawingJob.id}'`);
   await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${trackedDrawingJob.id}` });
   await assertStoredEditedDrawing(cdp, trackedDrawingJob.id);
+
+  const sourceDrawingArtifact = (await jobStore.listArtifacts(trackedDrawingJob.id))
+    .find((artifact) => artifact.type === 'drawing.svg');
+  const sourceDrawingDigest = sourceDrawingArtifact.registered_sha256;
+  const savedCard = `.result-card[data-result-artifact-id="${sourceDrawingArtifact.id}"]`;
+  await keyboardActivate(cdp, `${savedCard} .overflow-menu-trigger`);
+  await keyboardActivate(cdp, `${savedCard} [data-action="resume-drawing-artifact"]`);
+  await waitForRoute(cdp, 'drawing');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(editedDrawingSnapshotExpression());
+    assert.equal(snapshot.svgValue, '47');
+    assert.equal(snapshot.panelValue, '47');
+    assert.deepEqual(snapshot.history, [], 'A resumed sheet starts a new undo history');
+    assert.equal(snapshot.scale, '1:2');
+    assert.deepEqual(snapshot.views, ['front', 'top', 'right']);
+    assert.equal(snapshot.reportEnabled, true);
+  });
+  const resumePost = cdp.posts.findLast((request) => request.path === '/api/studio/drawing-preview/from-artifact');
+  assert.deepEqual(resumePost.body, {
+    artifact_ref: { job_id: trackedDrawingJob.id, artifact_id: sourceDrawingArtifact.id },
+  });
+  const resumedSnapshot = browserSmokeDrawingSnapshots.at(-1);
+  assert.notEqual(resumedSnapshot.id, acceptedDrawingSnapshot.id);
+  assert.notEqual(resumedSnapshot.revision, acceptedDrawingSnapshot.revision);
+  await cdp.evaluate(`(() => {
+    const input = document.querySelector('[data-hook="drawing-dimensions"] input[data-dim-id="WIDTH"]');
+    input.value = '49';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await keyboardActivate(cdp, '[data-action="drawing-apply-dimension"][data-dim-id="WIDTH"]');
+  await waitFor(async () => {
+    assert.equal((await cdp.evaluate(editedDrawingSnapshotExpression())).svgValue, '49');
+  });
+  await keyboardActivate(cdp, '[data-hook="drawing-tracked-run"]');
+  const resumedSavedJob = await waitFor(async () => {
+    const jobs = (await jobStore.listJobs({ limit: 100 })).filter((job) => job.type === 'draw');
+    const next = jobs.find((job) => job.request?.config?.drawing_plan?.dim_intents?.some((dimension) => dimension.id === 'WIDTH' && dimension.value_mm === 49));
+    assert.equal(next?.status, 'succeeded');
+    return next;
+  });
+  await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${resumedSavedJob.id}` });
+  assert.equal(resumedSavedJob.request.config.shapes[0].width, 18);
+  await assertStoredEditedDrawing(cdp, resumedSavedJob.id, '49');
+  await assertStoredEditedDrawing(cdp, trackedDrawingJob.id);
+  assert.equal((await jobStore.getArtifact(trackedDrawingJob.id, sourceDrawingArtifact.id)).registered_sha256, sourceDrawingDigest);
+  await jobStore.readVerifiedArtifactSnapshot(trackedDrawingJob.id, sourceDrawingArtifact.id);
 
   await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
   await waitForRoute(cdp, 'start', {

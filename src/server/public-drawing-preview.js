@@ -155,6 +155,8 @@ export function toPublicDrawingPreviewPayload(payload = {}) {
   if (source.preview !== undefined) {
     next.preview = toPublicDrawingPreview(source.preview);
   }
+  if (typeof source.editable_config_toml === 'string') next.editable_config_toml = source.editable_config_toml;
+  if (isPlainObject(source.source)) next.source = sanitizePublicValue(structuredClone(source.source));
 
   return next;
 }

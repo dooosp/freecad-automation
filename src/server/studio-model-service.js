@@ -8,6 +8,7 @@ import { validateConfigDocument } from '../../lib/config-schema.js';
 import { runScript } from '../../lib/runner.js';
 import { createDesignService } from '../api/design.js';
 import { createModel } from '../api/model.js';
+import { evaluateModelParameters } from './studio-model-parameters.js';
 
 function countNested(items = [], key) {
   return items.reduce((total, item) => total + (Array.isArray(item?.[key]) ? item[key].length : 0), 0);
@@ -96,6 +97,7 @@ export function createStudioModelService({ projectRoot }) {
   }
 
   return {
+    modelParameters: evaluateModelParameters,
     async dispose() {
       await Promise.allSettled([...previews.keys()].map((id) => cleanupPreview(id)));
     },

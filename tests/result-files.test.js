@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 import {
   classifyResultFilePurpose,
@@ -186,4 +187,45 @@ const missingReport = artifact({
 });
 assert.equal(selectPrimaryResultArtifact([missingReport, step])?.id, 'step');
 
-console.log('result-files.test.js: ok');
+const drawingPdf = artifact({
+  id: 'drawing-pdf', type: 'drawing.pdf', fileName: 'bracket_drawing.pdf', extension: '.pdf',
+});
+
+test('only the declared drawing PDF type receives the print drawing label', () => {
+  assert.equal(resultFileLabelKey(drawingPdf), 'studio.artifacts.file.drawing-pdf');
+  assert.equal(classifyResultFilePurpose(drawingPdf), 'immediate');
+  assert.equal(resultFileLabelKey({ ...drawingPdf, file_name: 'quality_inspection_report.pdf' }), 'studio.artifacts.file.drawing-pdf');
+  for (const type of ['', 'artifact', 'report.pdf', 'drawing.pdf.backup']) {
+    assert.equal(resultFileLabelKey({ ...drawingPdf, type, file_name: 'print_drawing.pdf' }), 'studio.artifacts.file.report',
+      'A PDF filename must not claim a verified print drawing contract');
+  }
+  assert.deepEqual(collectResultFileGroups([drawingPdf, quality]).find((group) => group.id === 'immediate').artifacts, [drawingPdf]);
+});
+
+test('drawing PDF actions honor public open and download capabilities', () => {
+  assert.deepEqual(deriveResultFileAction(drawingPdf), {
+    kind: 'open', href: drawingPdf.links.open, openHref: drawingPdf.links.open, downloadHref: drawingPdf.links.download,
+  });
+  const downloadable = { ...drawingPdf, capabilities: { can_open: false, can_download: true } };
+  assert.deepEqual(deriveResultFileAction(downloadable), {
+    kind: 'download', href: drawingPdf.links.download, openHref: '', downloadHref: drawingPdf.links.download,
+  });
+  for (const unavailable of [
+    { ...drawingPdf, exists: false },
+    { ...drawingPdf, capabilities: { can_open: false, can_download: false } },
+  ]) {
+    assert.deepEqual(deriveResultFileAction(unavailable), {
+      kind: 'details', href: '', openHref: '', downloadHref: '',
+    });
+  }
+});
+
+test('report jobs keep their report PDF primary when a drawing PDF is also present', () => {
+  for (const artifacts of [[drawingPdf, report], [report, drawingPdf]]) {
+    assert.equal(selectPrimaryResultArtifact(artifacts, { jobType: 'report' })?.id, 'report-pdf');
+  }
+  const downloadOnlyReport = { ...report, capabilities: { can_open: false, can_download: true } };
+  assert.equal(selectPrimaryResultArtifact([drawingPdf, downloadOnlyReport], { jobType: 'report' })?.id, 'report-pdf');
+  assert.equal(selectPrimaryResultArtifact([missingReport, drawingPdf], { jobType: 'report' })?.id, 'drawing-pdf');
+  assert.equal(selectPrimaryResultArtifact([quality, drawingPdf], { jobType: 'draw' })?.id, 'drawing-pdf');
+});

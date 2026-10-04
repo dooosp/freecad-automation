@@ -847,6 +847,8 @@ test('accepted dimension edits survive a sheet-settings preview and reach both s
     assert.deepEqual(entry.drawingSettings, { views: ['front', 'top', 'right', 'iso'], scale: '1:2', section_assist: false, detail_assist: false });
   }
   assert.equal(submissions[1].options.include_drawing, true);
+  assert.equal(submissions[1].options.full_quality, true, 'Drawing report explicitly requests all current-input quality checks');
+  assert.equal(submissions[1].options.include_dfm, true, 'the full-quality action must not inherit a disabled DFM option');
   assert.equal(submissions[1].reportOptions?.include_drawing, true);
   assert.equal(state.data.model.configText, configBefore, 'annotation edits do not mutate model geometry input');
 });

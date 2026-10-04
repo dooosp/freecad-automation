@@ -1,5 +1,6 @@
 const CONFIG_EXTENSIONS = new Set(['.json', '.toml']);
 const INSPECT_MODEL_EXTENSIONS = new Set(['.step', '.stp', '.stl', '.fcstd', '.brep', '.brp']);
+const EDITABLE_DRAWING_ARTIFACT_TYPES = new Set(['drawing.svg', 'draw.plan.toml', 'draw.plan.json']);
 const INSPECTION_INTAKE_MATCHERS = [
   'inspection-evidence.intake-report',
   'inspection-evidence-intake-report',
@@ -309,6 +310,14 @@ export function canReenterModelWorkspace(artifact = {}) {
   return artifact.scope !== 'internal' && artifact.exists !== false && isConfigLikeArtifact(artifact);
 }
 
+export function canContinueDrawing(artifact = {}) {
+  return typeof artifact?.id === 'string'
+    && artifact.id.trim().length > 0
+    && artifact.scope === 'user-facing'
+    && artifact.exists === true
+    && EDITABLE_DRAWING_ARTIFACT_TYPES.has(artifact.type);
+}
+
 export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
   if (artifact.scope === 'internal') return false;
   if (artifact.exists === false) return false;
@@ -332,6 +341,7 @@ export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
 
 export function deriveArtifactReentryCapabilities(artifact = {}) {
   return {
+    canContinueDrawing: canContinueDrawing(artifact),
     canOpenInModel: canReenterModelWorkspace(artifact),
     canRunTrackedReviewContext: canStartTrackedArtifactRun(artifact, 'review-context'),
     canRunTrackedReport: canStartTrackedArtifactRun(artifact, 'report'),

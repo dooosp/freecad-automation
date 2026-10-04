@@ -1,11 +1,16 @@
 import { fetchArtifactText } from './artifact-insights.js';
+import { buildStudioArtifactRef, canContinueDrawing } from './artifact-actions.js';
 import { mountArtifactsWorkspace } from './artifacts-workspace.js';
 import { getSelectedStudioExample } from './examples.js';
 import { mountReviewWorkspace } from './review-workspace.js';
 import { createHomeRecentRuns, createRunHistoryWorkspace, workspaceDefinitions } from './workspaces.js';
-import { applyTranslations } from '../i18n/index.js';
+import { applyTranslations, t } from '../i18n/index.js';
+import { createStudioShellState } from './studio-shell-store.js';
+import { drawingInputSnapshot } from './workbench-presentation.js';
+import { previewReference } from './drawing-preview-copy.js';
 
 export function createStudioWorkspaceController(app) {
+  let pendingDrawingReentry = null;
   const actionKey = (element) => JSON.stringify([
     element?.dataset?.action, element?.dataset?.jobId, element?.dataset?.route,
   ]);
@@ -163,6 +168,7 @@ export function createStudioWorkspaceController(app) {
           addLog: app.addLog,
           onDraftChange: app.persistDraft,
           submitTrackedJob: app.submitTrackedStudioRun,
+          getNavigationRevision: () => app.routing?.getNavigationRevision?.() || 0,
         })
       );
     } else if (app.state.route === 'drawing') {
@@ -347,6 +353,119 @@ export function createStudioWorkspaceController(app) {
     app.navigateTo('model', { pendingFocus: 'config' });
   }
 
+  function drawingReentryContext() {
+    const { model, drawing, artifactsWorkspace, activeJob } = app.state.data;
+    return {
+      navigation: app.routing?.getNavigationRevision?.() || 0,
+      route: app.state.route,
+      hash: app.window.location?.hash || '',
+      selectedJobId: app.state.selectedJobId,
+      activeJobId: activeJob.summary?.id || '',
+      artifactId: artifactsWorkspace.selectedArtifactId,
+      model,
+      drawing,
+      modelRequest: model.activePreviewRequest,
+      modelSubmission: model.activeTrackedSubmission,
+      drawingRequest: drawing.activeRequest,
+      modelPreview: model.preview,
+      drawingPreview: drawing.preview,
+      draft: JSON.stringify([
+        model.configText, model.promptText, model.sourceType, model.sourceName, model.sourcePath,
+        model.buildSettings, model.reportOptions, model.controls, model.guidedFlow,
+        drawing.settings, drawing.dimensionDrafts, drawing.history, drawing.historyIndex,
+        drawing.status, drawing.errorMessage,
+      ]),
+    };
+  }
+
+  function sameDrawingReentryContext(context) {
+    const current = drawingReentryContext();
+    return Object.keys(context).every((key) => context[key] === current[key]);
+  }
+
+  function authoringOperationPending() {
+    const { model, drawing } = app.state.data;
+    return Boolean(drawing.activeRequest || drawing.trackedRun?.submitting || model.trackedRun?.submitting
+      || drawing.status === 'generating' || ['building', 'validating'].includes(model.buildState)
+      || model.assistant?.busy || model.assistant?.phase === 'validating');
+  }
+
+  async function resumeDrawingArtifact(job, artifact) {
+    if (!job?.id || !canContinueDrawing(artifact)) throw new Error(t('studio.drawing.resume.invalid-response'));
+    if (authoringOperationPending()) throw new Error(t('studio.drawing.resume.busy'));
+    if (pendingDrawingReentry?.jobId === job.id && pendingDrawingReentry.artifactId === artifact.id
+      && sameDrawingReentryContext(pendingDrawingReentry.context)) return false;
+    const request = { jobId: job.id, artifactId: artifact.id, context: drawingReentryContext() };
+    pendingDrawingReentry = request;
+    const ownsRequest = () => pendingDrawingReentry === request
+      && sameDrawingReentryContext(request.context) && !authoringOperationPending();
+    try {
+      let payload;
+      try {
+        payload = await app.fetchJson('/api/studio/drawing-preview/from-artifact', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ artifact_ref: buildStudioArtifactRef(job.id, artifact.id) }),
+        });
+      } catch (error) {
+        if (!ownsRequest()) return false;
+        throw error;
+      }
+      if (!ownsRequest()) return false;
+      const nonempty = (value) => typeof value === 'string' && value.trim().length > 0;
+      const { preview, source, editable_config_toml: configText } = payload || {};
+      const settings = preview?.settings;
+      if (payload?.ok !== true || !nonempty(configText) || !nonempty(preview?.id)
+        || !nonempty(preview?.revision) || !nonempty(preview?.svg)
+        || !Array.isArray(settings?.views) || settings.views.length === 0 || !settings.views.every(nonempty)
+        || !nonempty(settings.scale) || typeof settings.section_assist !== 'boolean' || typeof settings.detail_assist !== 'boolean'
+        || source?.job_id !== job.id || source?.artifact_id !== artifact.id
+        || !['drawing_artifact_id', 'config_artifact_id', 'plan_artifact_id'].every((key) => nonempty(source?.[key]))) {
+        throw new Error(t('studio.drawing.resume.invalid-response'));
+      }
+
+      // Build both replacements before publishing either. Source files and old
+      // request owners remain untouched; prior undo history is not reconstructed.
+      const defaults = createStudioShellState().data;
+      const previous = app.state.data.model;
+      const model = {
+        ...defaults.model,
+        buildSettings: structuredClone(previous.buildSettings),
+        reportOptions: structuredClone(previous.reportOptions),
+        controls: structuredClone(previous.controls),
+        sourceType: 'artifact',
+        sourceName: artifact.file_name || t('studio.drawing.resume.source'),
+        sourcePath: `${job.id}/${artifact.id}`,
+        configText,
+        editingEnabled: true,
+        overview: structuredClone(preview.overview || null),
+        activePreviewRequest: null,
+        activeTrackedSubmission: null,
+      };
+      const drawing = {
+        ...defaults.drawing,
+        status: 'ready',
+        summary: t('studio.drawing.resume.ready'),
+        preview: structuredClone(preview),
+        settings: structuredClone(settings),
+        previewInputSnapshot: drawingInputSnapshot(model, settings),
+        activeRequest: null,
+        dimensionDrafts: {},
+        dimensionDraftOwner: '',
+        dimensionFocus: '',
+        historyPlanReference: previewReference(preview),
+        sourceArtifactRef: buildStudioArtifactRef(source.job_id, source.artifact_id),
+      };
+      Object.assign(app.state.data, { model, drawing });
+      app.persistDraft?.();
+      app.addLog({ status: t('studio.drawing.resume.source'), message: drawing.summary, tone: 'ok', time: 'drawing' });
+      app.navigateTo('drawing');
+      return true;
+    } finally {
+      if (pendingDrawingReentry === request) pendingDrawingReentry = null;
+    }
+  }
+
   async function openConfigFile(file) {
     if (!file) return;
     await loadConfigFileIntoSharedModel(file);
@@ -359,6 +478,7 @@ export function createStudioWorkspaceController(app) {
     loadSelectedExampleIntoSharedModel,
     loadConfigFileIntoSharedModel,
     openConfigArtifactInModel,
+    resumeDrawingArtifact,
     openConfigFile,
     openExample,
     openPromptFlow,

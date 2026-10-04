@@ -98,13 +98,33 @@ If you have genuine inspection evidence later, follow the inspection evidence co
 
 ## Save an edited Drawing and report
 
-In Drawing, generate a preview, apply dimension annotation edits, and preview any changed views or scale. The current successful preview is the input for both **Save Drawing** and **Save Report**. Changing sheet settings preserves accepted annotations when the source model input is unchanged. These edits change drawing annotations; they do not change the 3D geometry.
+In Drawing, generate a preview, apply dimension annotation edits, and preview any changed views or scale. The current successful preview is the input for both **Save Drawing** and **Run all checks & create report**. Changing sheet settings preserves accepted annotations when the source model input is unchanged. These edits change drawing annotations; they do not change the 3D geometry.
 
 Saved jobs capture the preview revision and plan, so later edits do not alter an already queued result. If the preview expired or changed, Studio asks you to generate a new preview instead of silently saving different annotations. After a server restart or browser reload, temporary editing history is not restored; saved SVG, PDF, plans, and quality results remain available through History and the selected job's artifacts.
 
-A report saved from Drawing generates its sheet and drawing QA in the report job's own output directory. Its PDF includes that actual sheet as a bounded high-resolution image; the original SVG remains a separate artifact. The report reproduction is reduced to fit and is not to scale; use the original SVG for scaled printing. The renderer uses the FreeCAD Python environment's Qt SVG support and reports an error if it cannot include the sheet. It does not substitute a placeholder or reuse same-name outputs from an older run.
+A report saved from Drawing generates its sheet and drawing QA in the report job's own output directory. Its PDF includes that actual sheet as a bounded high-resolution image; the original SVG remains a separate artifact. The report reproduction is reduced to fit and is not to scale; use the separate Print drawing PDF at actual size for scaled printing. The renderer uses the FreeCAD Python environment's Qt SVG support and reports an error if it cannot include the sheet. It does not substitute a placeholder or reuse same-name outputs from an older run.
 
-Check the saved job's quality evidence separately from file-generation success. Required failed checks block the quality decision; missing or unrun required checks remain incomplete. A drawing report does not rerun model export round-trip quality, so missing model-quality evidence stays explicit. Generic CLI reports retain their existing artifact discovery behavior.
+Check the saved job's quality evidence separately from file-generation success. Required failed checks block the quality decision; missing or unrun required checks remain incomplete. The Drawing action “Run all checks & create report” runs model creation with STEP/STL round-trip quality, drawing QA, and fresh DFM from one captured input in the same saved job. It preserves accepted drawing annotations and settings; annotations do not change the model geometry. Caller-provided DFM results cannot replace this fresh check. Ordinary reports without `options.full_quality: true` retain their existing behavior and expose missing model-quality evidence explicitly. Generic CLI reports retain their existing artifact discovery behavior.
+
+## Continue editing a saved drawing
+
+Open a saved run from History. On its drawing SVG card, use **More actions → Continue editing drawing**; the same action is available in file details for saved drawing plans. Studio verifies the selected file and its registered same-run drawing, final effective config, and plan before creating a fresh editing session. Missing, changed, or ambiguous source files cannot be resumed. This public browser handoff requires self-contained geometry and refuses configs with external file references or private filesystem paths.
+
+The new session restores the saved annotations, views, and scale, including after a browser or server restart. Earlier undo history is not restored. Apply a new annotation and use **Save Drawing** to create another run; the original saved files stay unchanged. A failed request or a late response after changing tasks does not replace the current draft.
+
+## Print a drawing at its saved scale
+
+Saved Drawing runs and Drawing reports also export `<name>_drawing.pdf`, shown as **Print drawing PDF**. Open that file and print at **Actual size / 100%**, with **Fit to page** disabled. It preserves the source SVG’s sheet dimensions and existing drawing scale; a 1:2 drawing remains 1:2. The report PDF is a separate reduced review document.
+
+The drawing PDF paints validated A0–A4 SVG sheets directly as vectors with zero page margins. Qt rounds the nominal page box to whole PDF points (tested A3: 420.158 × 297.039 mm, within 0.2 mm of 420 × 297 mm); the artwork is independently painted in physical millimetres to preserve its scale. Text may be vector outlines rather than searchable PDF text. Unsupported physical dimensions, raster elements, or external SVG resources are rejected. If the optional print export fails, Studio shows a warning and keeps the available SVG; it does not publish a substitute raster PDF or register a failed file.
+
+## Edit actual model dimensions
+
+Load the bracket or hinge starter in Model, then select **Check editable dimensions** in the Model dimensions card. The bracket exposes plate length, width, thickness, and the two hole diameters. The hinge exposes the paired hinge-pin and mounting-hole diameters. **Apply dimensions** validates a candidate and changes the actual shape parameters plus their mapped drawing intent and quality targets.
+
+After applying, regenerate the 3D preview, Drawing, and quality report. Old previews and transient quality associations are cleared because they describe the earlier input; saved jobs remain available in History. Unlike Drawing annotation edits, these parameter edits change geometry. The numeric limits guard the supported topology, not manufacturing approval.
+
+**Cancel changes** discards pending numeric entries. **Undo dimension change** restores the exact preceding TOML text, including comments and formatting, and also clears stale previews. It cannot overwrite intervening source edits. Applying unchanged numbers keeps existing previews. Unknown or structurally modified configurations, inconsistent or unmapped dimension declarations, and unsupported TOML source forms remain editable through the TOML editor without speculative rewriting.
 
 ## Validation And Tests
 

@@ -30,6 +30,7 @@ import {
 import { applyTranslations, t } from '../i18n/index.js';
 import { syncSectionBadges } from './renderers.js';
 import { isModelPreviewStale, modelWorkspaceBadges, workingConfigRows } from './workbench-presentation.js';
+import { mountModelParameterEditor } from './model-parameters.js';
 
 function ensureModelState(model = {}) {
   model.validation = model.validation || {
@@ -231,7 +232,7 @@ function renderAssistantReport(container, assistantState) {
   renderList(container, entries, 'The assistant returned TOML, but no review summary was attached.');
 }
 
-export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onDraftChange = () => {} }) {
+export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onDraftChange = () => {}, getNavigationRevision = () => 0 }) {
   const model = ensureModelState(state.data.model);
   const viewerStore = createViewerStore();
   const guidedStepElements = [...root.querySelectorAll('[data-model-guided-step]')];
@@ -332,6 +333,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
 
   let loadToken = 0;
   let destroyed = false;
+  let parameterEditor = null;
   let guidedStepFocusRequestEpoch = 0;
   let profileCatalogRequest = null;
   let animationController = null;
@@ -858,6 +860,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     syncButtons();
     syncControls();
     syncGuidedWorkflow();
+    parameterEditor?.syncFromShell();
     applyTranslations(root);
   }
 
@@ -1318,6 +1321,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     }
     if (model.assistant.busy) return;
 
+    parameterEditor?.invalidateSource();
     model.assistant.busy = true;
     model.assistant.error = '';
     model.assistant.phase = 'requesting';
@@ -1366,6 +1370,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     const example = getSelectedStudioExample(state.data.examples);
     if (!example) return;
 
+    parameterEditor?.invalidateSource();
     model.activePreviewRequest = null;
     model.activeTrackedSubmission = null;
     model.recoveredDraft = false;
@@ -1397,13 +1402,16 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
 
   async function openConfigFile(file) {
     if (!file) return;
+    parameterEditor?.invalidateSource();
     model.activePreviewRequest = null;
     model.activeTrackedSubmission = null;
     model.recoveredDraft = false;
     model.sourceType = 'local file';
     model.sourceName = file.name;
     model.sourcePath = file.name;
-    model.configText = await file.text();
+    const configText = await file.text();
+    parameterEditor?.invalidateSource();
+    model.configText = configText;
     model.assistant.phase = 'prompt';
     model.assistant.validatedConfigText = '';
     model.assistant.report = null;
@@ -1548,6 +1556,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   });
 
   configTextarea?.addEventListener('input', () => {
+    parameterEditor?.invalidateSource();
     model.configText = configTextarea.value;
     model.editingEnabled = true;
     model.overview = null;
@@ -1563,6 +1572,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
   });
 
   aiDraftTextarea?.addEventListener('input', () => {
+    parameterEditor?.invalidateSource();
     model.configText = aiDraftTextarea.value;
     model.editingEnabled = true;
     invalidateAiDraftValidation(model);
@@ -1657,6 +1667,16 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     model.reportOptions.profileName = reportProfileInput.value.trim();
   });
 
+  parameterEditor = mountModelParameterEditor({
+    root, state, postJson, getNavigationRevision,
+    onConfigInstalled() {
+      loadToken += 1;
+      resultInspectionPreview = null;
+      sceneController?.clearScene();
+      animationController?.clearMotion();
+      syncUi();
+    },
+  });
   syncUi();
   if (model.preview && ensureModelGuidedFlowState(model).resultExpanded) {
     queueGuidedResultInspectionInitialization();
@@ -1672,6 +1692,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
     },
     destroy() {
       destroyed = true;
+      parameterEditor?.destroy();
       guidedStepFocusRequestEpoch += 1;
       delete root.dataset.modelWorkspaceMounted;
       loadToken += 1;
