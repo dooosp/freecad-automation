@@ -104,7 +104,7 @@ Saved jobs capture the preview revision and plan, so later edits do not alter an
 
 A report saved from Drawing generates its sheet and drawing QA in the report job's own output directory. Its PDF includes that actual sheet as a bounded high-resolution image; the original SVG remains a separate artifact. The report reproduction is reduced to fit and is not to scale; use the original SVG for scaled printing. The renderer uses the FreeCAD Python environment's Qt SVG support and reports an error if it cannot include the sheet. It does not substitute a placeholder or reuse same-name outputs from an older run.
 
-Check the saved job's quality evidence separately from file-generation success. Required failed checks block the quality decision; missing or unrun required checks remain incomplete. A drawing report does not rerun model export round-trip quality, so missing model-quality evidence stays explicit. Generic CLI reports retain their existing artifact discovery behavior.
+Check the saved job's quality evidence separately from file-generation success. Required failed checks block the quality decision; missing or unrun required checks remain incomplete. The Drawing action “Run all checks & create report” runs model creation with STEP/STL round-trip quality, drawing QA, and fresh DFM from one captured input in the same saved job. It preserves accepted drawing annotations and settings; annotations do not change the model geometry. Caller-provided DFM results cannot replace this fresh check. Ordinary reports without `options.full_quality: true` retain their existing behavior and expose missing model-quality evidence explicitly. Generic CLI reports retain their existing artifact discovery behavior.
 
 ## Validation And Tests
 

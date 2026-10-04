@@ -3090,8 +3090,8 @@ try {
     assert.equal(snapshot.reportHidden, false, JSON.stringify(snapshot));
     assert.equal(snapshot.reportSummaryRows, 8);
     assert.equal(snapshot.reportDisabled, false);
-    assert.equal(snapshot.reportLabel, 'Create report');
-    assert.equal(snapshot.reportStatus, 'Ready to create a report from the current loaded config.');
+    assert.equal(snapshot.reportLabel, 'Run all checks & create report');
+    assert.equal(snapshot.reportStatus, 'Ready to run model, drawing, and DFM checks and create the report.');
     assert.equal(snapshot.focusedHook, 'drawing-canvas');
     assert.equal(snapshot.sheetPrecedesActions, true);
     assert.equal(snapshot.canvasHasSvg, true);
@@ -3281,17 +3281,17 @@ try {
     assert.equal(snapshot.lang, 'ko');
     assertIncludesAll(snapshot.previewText, ['필요한 입력', '예상 결과', 'FreeCAD 실행', '파일 변경']);
     assertIncludesAll(snapshot.reportText, [
-      '추적 보고서 생성',
+      '전체 품질 검사 후 보고서 생성',
       '현재 불러온 설정',
       '도면 주석',
       '시트 설정',
-      '추적 보고서 PDF와 관련 산출물',
+      '모델·도면 품질 결과',
     ]);
     assert.match(snapshot.reportText, /치수.*포함/);
     assert.match(snapshot.reportText, /3D 형상.*변경하지 않/);
     assert.equal(snapshot.reportText.includes('보고서에 포함되지 않습니다'), false);
-    assert.equal(snapshot.reportLabel, '보고서 생성');
-    assert.equal(snapshot.reportStatus, '현재 불러온 설정으로 보고서를 생성할 준비가 되었습니다.');
+    assert.equal(snapshot.reportLabel, '전체 검사 후 보고서 생성');
+    assert.equal(snapshot.reportStatus, '모델·도면·DFM 검사를 실행하고 보고서를 생성할 준비가 되었습니다.');
     assert.equal(snapshot.canvasLabel, '도면 미리보기 캔버스');
     assert.equal(snapshot.dimensionLabel, '치수 WIDTH 편집: 47 mm');
     return snapshot;
@@ -3304,7 +3304,7 @@ try {
   })()`);
   await waitFor(async () => {
     const label = await cdp.evaluate(`document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || ''`);
-    assert.equal(label, 'Create report');
+    assert.equal(label, 'Run all checks & create report');
     return label;
   });
 
@@ -3383,6 +3383,8 @@ try {
   assert.deepEqual(reportPost.body.drawing_settings.views, ['front', 'top', 'right']);
   assert.equal(reportPost.body.report_options.include_drawing, true);
   assert.equal(reportPost.body.options.include_drawing, true);
+  assert.equal(reportPost.body.options.full_quality, true);
+  assert.equal(reportPost.body.options.include_dfm, true);
   assert.equal(drawingReportJob.request.config.drawing_plan.dim_intents.find((dimension) => dimension.id === 'WIDTH').value_mm, 47);
   assert.equal(drawingReportJob.request.config.shapes[0].width, 18, 'Report input keeps the unchanged model geometry');
   assert.equal(drawingReportJob.request.config.drawing.scale, '1:2');

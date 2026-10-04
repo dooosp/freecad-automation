@@ -244,8 +244,11 @@ export function collectReportManifestArtifacts(result, { surface = 'tracked-job'
 
   if (surface !== 'tracked-job') return artifacts;
 
-  if (result?.drawing_result) {
-    for (const artifact of collectDrawManifestArtifacts(result.drawing_result)) {
+  for (const generatedArtifacts of [
+    result?.create_result ? collectCreateManifestArtifacts(result.create_result) : [],
+    result?.drawing_result ? collectDrawManifestArtifacts(result.drawing_result) : [],
+  ]) {
+    for (const artifact of generatedArtifacts) {
       if (!artifacts.some((entry) => entry.type === artifact.type && entry.path === artifact.path)) {
         artifacts.push(artifact);
       }

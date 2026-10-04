@@ -931,10 +931,14 @@ export function mountDrawingWorkspace({
         drawingPreviewId: drawing.preview.id,
         drawingPreviewRevision: drawing.preview.revision,
         reportOptions: { include_drawing: true },
-        options: buildTrackedReportJobOptions({
-          ...model.reportOptions,
-          includeDrawing: true,
-        }),
+        options: {
+          ...buildTrackedReportJobOptions({
+            ...model.reportOptions,
+            includeDrawing: true,
+            includeDfm: true,
+          }),
+          full_quality: true,
+        },
       });
       if (!ownsSubmission()) return;
       model.trackedRun = {

@@ -216,11 +216,12 @@ export async function prepareTrackedReportAnalysisResults({
   createDfmServiceFn = createDfmService,
 } = {}) {
   const explicitAnalysisResults = requestOptions?.analysis_results || null;
-  if (explicitAnalysisResults?.dfm) {
+  const fullQuality = requestOptions?.full_quality === true;
+  if (explicitAnalysisResults?.dfm && !fullQuality) {
     return explicitAnalysisResults;
   }
 
-  if (requestOptions?.include_dfm !== true) {
+  if (requestOptions?.include_dfm !== true && !fullQuality) {
     return explicitAnalysisResults;
   }
 
@@ -229,6 +230,7 @@ export async function prepareTrackedReportAnalysisResults({
     freecadRoot: projectRoot,
     configPath: resolvedConfig?.configPath || null,
     config: resolvedConfig?.config || null,
+    ...(fullQuality ? { process: resolvedConfig?.config?.manufacturing?.process || 'machining' } : {}),
   });
 
   return {
@@ -753,6 +755,10 @@ export function validateJobRequest(body, { trustedPathRoots = [] } = {}) {
 
   if (typeof request.type === 'string' && JOB_TYPES.has(request.type)) {
     validateOptionsObject(request.options, 'options', errors);
+    if (isPlainObject(request.options) && Object.hasOwn(request.options, 'full_quality')) {
+      if (request.type !== 'report') errors.push('options.full_quality is only supported for report jobs.');
+      if (typeof request.options.full_quality !== 'boolean') errors.push('options.full_quality must be a boolean when provided.');
+    }
     if (Object.hasOwn(request, 'config') && request.config !== undefined) {
       validateOptionsObject(request.config, 'config', errors);
     }
@@ -780,13 +786,15 @@ export function createJobExecutor({
   jobStore,
   generateDrawing = createDrawingService(),
   generateReport = createReportService(),
+  generateCreateQuality = generateCreateQualityArtifact,
+  runScriptFn = runScript,
 }) {
   function appendLog(jobId, message) {
     return jobStore.appendLog(jobId, message).catch(() => {});
   }
 
   function createLoggedRunner(jobId) {
-    return (script, input, options = {}) => runScript(script, input, {
+    return (script, input, options = {}) => runScriptFn(script, input, {
       ...options,
       onStderr: (text) => {
         appendLog(jobId, `[${script}] ${text.trimEnd()}`);
@@ -1043,7 +1051,7 @@ export function createJobExecutor({
     });
     if (!result.success) return result;
 
-    const quality = await generateCreateQualityArtifact({
+    const quality = await generateCreateQuality({
       createResult: result,
       configPath: resolvedConfig.configPath,
       config,
@@ -1089,15 +1097,20 @@ export function createJobExecutor({
 
   async function executeReport(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
+    const fullQuality = job.request.options?.full_quality === true;
+    const createResult = fullQuality ? await executeCreate(job, resolvedConfig) : null;
+    if (createResult && createResult.success !== true) {
+      throw new Error(createResult.error || 'Model generation failed before report creation.');
+    }
     const preservedDrawing = job.request.options?.studio?.preview_plan?.preserved === true;
-    const drawingResult = preservedDrawing
+    const drawingResult = fullQuality || preservedDrawing
       ? await executeDraw({ ...job, request: { ...job.request, options: {} } }, resolvedConfig)
       : null;
     if (drawingResult && drawingResult.success !== true) {
       throw new Error(drawingResult.error || 'Drawing generation failed before report creation.');
     }
-    // A preserved Drawing report is backed only by this run's generated evidence.
-    const seededArtifacts = preservedDrawing ? {} : await seedTrackedReportArtifacts({
+    // Full quality and preserved Drawing reports use only this run's generated evidence.
+    const seededArtifacts = fullQuality || preservedDrawing ? {} : await seedTrackedReportArtifacts({
       projectRoot,
       resolvedConfig,
       outputDir,
@@ -1116,6 +1129,9 @@ export function createJobExecutor({
         qa,
       };
     }
+    if (createResult) {
+      analysisResults = { ...(analysisResults || {}), model: createResult.model || {} };
+    }
     const result = await generateReport({
       freecadRoot: projectRoot,
       runScript: createLoggedRunner(job.id),
@@ -1124,8 +1140,8 @@ export function createJobExecutor({
       config: resolvedConfig.config,
       outputDir,
       drawingResult,
-      includeDrawing: preservedDrawing || job.request.options?.include_drawing === true,
-      includeDfm: job.request.options?.include_dfm === true,
+      includeDrawing: fullQuality || preservedDrawing || job.request.options?.include_drawing === true,
+      includeDfm: fullQuality || job.request.options?.include_dfm === true,
       includeTolerance: job.request.options?.include_tolerance !== false,
       includeCost: job.request.options?.include_cost === true,
       analysisResults,
@@ -1137,6 +1153,7 @@ export function createJobExecutor({
     });
     return {
       ...result,
+      ...(createResult ? { create_result: sanitizeResult(createResult) } : {}),
       ...(drawingResult ? { drawing_result: sanitizeResult(drawingResult) } : {}),
       seeded_artifacts: seededArtifacts,
     };
@@ -2023,6 +2040,16 @@ export function createJobExecutor({
           || job.type === 'report'
           || (job.type === 'generate-standard-docs' && job.request.options?.proof_lineage !== true)) {
           resolvedConfig = await resolveConfigInput(job);
+          if (job.type === 'report' && job.request.options?.full_quality === true) {
+            const outputDir = await ensureJobArtifactDir(jobStore, job.id);
+            const config = withTrackedExportDirectory(resolvedConfig.config, outputDir, { ensureExport: true });
+            config.export.formats = [...new Set([...(config.export.formats || []), 'step', 'stl'])];
+            resolvedConfig = await persistValidatedConfig(job, {
+              config,
+              summary: resolvedConfig.summary,
+              rawRelativePath: 'inputs/full-quality-config.json',
+            });
+          }
           handlerContext.resolvedConfig = resolvedConfig;
           diagnostics = resolvedConfig.diagnostics || {};
           const configSummary = resolvedConfig.summary || null;
