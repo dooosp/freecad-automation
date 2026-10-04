@@ -1,3 +1,4 @@
+import { renderModelParameterEditor } from './model-parameters.js';
 import {
   createArtifactList,
   createButton,
@@ -1976,6 +1977,7 @@ function createModelWorkspace(state) {
           ]),
         ],
       }),
+      renderModelParameterEditor(),
       el('details', {
         className: 'guided-model-advanced-disclosure',
         dataset: { hook: 'model-advanced-tools' },

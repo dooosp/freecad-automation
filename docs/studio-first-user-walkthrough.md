@@ -108,7 +108,7 @@ Check the saved job's quality evidence separately from file-generation success. 
 
 ## Continue editing a saved drawing
 
-Open a saved run from History. On its drawing SVG card, use **More actions → Continue editing drawing**; the same action is available in file details for saved drawing plans. Studio verifies the selected file and its registered same-run drawing, final effective config, and plan before creating a fresh editing session. Missing, changed, or ambiguous source files cannot be resumed.
+Open a saved run from History. On its drawing SVG card, use **More actions → Continue editing drawing**; the same action is available in file details for saved drawing plans. Studio verifies the selected file and its registered same-run drawing, final effective config, and plan before creating a fresh editing session. Missing, changed, or ambiguous source files cannot be resumed. This public browser handoff requires self-contained geometry and refuses configs with external file references or private filesystem paths.
 
 The new session restores the saved annotations, views, and scale, including after a browser or server restart. Earlier undo history is not restored. Apply a new annotation and use **Save Drawing** to create another run; the original saved files stay unchanged. A failed request or a late response after changing tasks does not replace the current draft.
 
@@ -117,6 +117,14 @@ The new session restores the saved annotations, views, and scale, including afte
 Saved Drawing runs and Drawing reports also export `<name>_drawing.pdf`, shown as **Print drawing PDF**. Open that file and print at **Actual size / 100%**, with **Fit to page** disabled. It preserves the source SVG’s sheet dimensions and existing drawing scale; a 1:2 drawing remains 1:2. The report PDF is a separate reduced review document.
 
 The drawing PDF paints validated A0–A4 SVG sheets directly as vectors with zero page margins. Qt rounds the nominal page box to whole PDF points (tested A3: 420.158 × 297.039 mm, within 0.2 mm of 420 × 297 mm); the artwork is independently painted in physical millimetres to preserve its scale. Text may be vector outlines rather than searchable PDF text. Unsupported physical dimensions, raster elements, or external SVG resources are rejected. If the optional print export fails, Studio shows a warning and keeps the available SVG; it does not publish a substitute raster PDF or register a failed file.
+
+## Edit actual model dimensions
+
+Load the bracket or hinge starter in Model, then select **Check editable dimensions** in the Model dimensions card. The bracket exposes plate length, width, thickness, and the two hole diameters. The hinge exposes the paired hinge-pin and mounting-hole diameters. **Apply dimensions** validates a candidate and changes the actual shape parameters plus their mapped drawing intent and quality targets.
+
+After applying, regenerate the 3D preview, Drawing, and quality report. Old previews and transient quality associations are cleared because they describe the earlier input; saved jobs remain available in History. Unlike Drawing annotation edits, these parameter edits change geometry. The numeric limits guard the supported topology, not manufacturing approval.
+
+**Cancel changes** discards pending numeric entries. **Undo dimension change** restores the exact preceding TOML text, including comments and formatting, and also clears stale previews. It cannot overwrite intervening source edits. Applying unchanged numbers keeps existing previews. Unknown or structurally modified configurations, inconsistent or unmapped dimension declarations, and unsupported TOML source forms remain editable through the TOML editor without speculative rewriting.
 
 ## Validation And Tests
 

@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import WebSocket from 'ws';
+import { parse as parseToml } from 'smol-toml';
+import { evaluateModelParameters } from '../src/server/studio-model-parameters.js';
 
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
@@ -1885,6 +1887,7 @@ function browserSmokeStudioModelServiceFactory() {
   };
 
   return {
+    modelParameters: evaluateModelParameters,
     async validateConfigToml() {
       return { config: {}, summary: validation, overview };
     },
@@ -2951,6 +2954,67 @@ try {
     'Confirmation required',
   ]);
   assertExcludesAll(guidedPreflight.text, ['tracked', 'artifact', 'manifest', 'Stage 5B']);
+
+  const parameterSourceBefore = await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`);
+  await keyboardActivate(cdp, '[data-action="model-parameters-inspect"]');
+  await waitFor(async () => {
+    const fields = await cdp.evaluate(`[...document.querySelectorAll('[data-model-parameter]')].map(input => input.dataset.modelParameter)`);
+    assert.deepEqual(fields, ['plate_length_mm', 'plate_width_mm', 'plate_thickness_mm', 'left_hole_diameter_mm', 'right_hole_diameter_mm']);
+  });
+  const requestedDimensions = { plate_length_mm: 180, plate_width_mm: 110, plate_thickness_mm: 10, left_hole_diameter_mm: 8, right_hole_diameter_mm: 12 };
+  async function fillModelDimensions() {
+    await cdp.evaluate(`(() => {
+      for (const [key, value] of Object.entries(${JSON.stringify(requestedDimensions)})) {
+        const input = document.querySelector('[data-model-parameter="' + key + '"]');
+        input.value = String(value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    })()`);
+  }
+  await fillModelDimensions();
+  await cdp.evaluate(`(() => {
+    const locale = document.getElementById('studio-locale-select');
+    locale.value = 'ko'; locale.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await waitFor(async () => {
+    const field = await cdp.evaluate(`(() => {
+      const input = document.querySelector('[data-model-parameter="plate_length_mm"]');
+      return { label: input?.closest('label')?.textContent || '', value: input?.value };
+    })()`);
+    assert.ok(field.label.includes('판 길이 (mm)'));
+    assert.equal(field.value, '180', 'Locale remount preserves pending numeric input');
+  });
+  await cdp.evaluate(`(() => {
+    const locale = document.getElementById('studio-locale-select');
+    locale.value = 'en'; locale.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await keyboardActivate(cdp, '[data-action="model-parameters-apply"]');
+  const editedModelSource = await waitFor(async () => {
+    const text = await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`);
+    assert.notEqual(text, parameterSourceBefore);
+    const config = parseToml(text);
+    assert.equal(config.shapes.find(shape => shape.id === 'plate').length, 180);
+    assert.equal(config.shapes.find(shape => shape.id === 'plate').width, 110);
+    assert.equal(config.shapes.find(shape => shape.id === 'plate').height, 10);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_left').radius, 4);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_right').radius, 6);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_left').height, 14);
+    assert.equal(config.shapes.find(shape => shape.id === 'hole_right').height, 14);
+    assert.equal(config.drawing_intent.required_dimensions.find(dimension => dimension.id === 'HOLE_LEFT_DIA').value_mm, 8);
+    assert.equal(config.drawing_plan.dim_intents.find(dimension => dimension.id === 'HOLE_RIGHT_DIA').value_mm, 12);
+    return text;
+  });
+  const parameterPost = cdp.posts.findLast(request => request.path === '/api/studio/model-parameters' && request.body.mode === 'apply');
+  assert.deepEqual(parameterPost.body.changes, requestedDimensions);
+  assert.equal(parameterPost.body.config_toml, parameterSourceBefore);
+  assert.match(parameterPost.body.source_sha256, /^[a-f0-9]{64}$/);
+  await keyboardActivate(cdp, '[data-action="model-parameters-undo"]');
+  await waitFor(async () => assert.equal(await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`), parameterSourceBefore));
+  await keyboardActivate(cdp, '[data-action="model-parameters-inspect"]');
+  await waitFor(async () => assert.equal(await cdp.evaluate(`document.querySelectorAll('[data-model-parameter]').length`), 5));
+  await fillModelDimensions();
+  await keyboardActivate(cdp, '[data-action="model-parameters-apply"]');
+  await waitFor(async () => assert.equal(await cdp.evaluate(`document.querySelector('[data-hook="config-textarea"]').value`), editedModelSource));
 
   await keyboardActivate(cdp, '[data-hook="guided-generate"]');
   guidedModelPrimaryActions += 1;

@@ -168,6 +168,7 @@ export function createStudioWorkspaceController(app) {
           addLog: app.addLog,
           onDraftChange: app.persistDraft,
           submitTrackedJob: app.submitTrackedStudioRun,
+          getNavigationRevision: () => app.routing?.getNavigationRevision?.() || 0,
         })
       );
     } else if (app.state.route === 'drawing') {

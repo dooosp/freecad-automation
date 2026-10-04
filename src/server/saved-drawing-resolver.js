@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { parse as parseTOML } from 'smol-toml';
 import { serializeConfig, validateConfigDocument } from '../../lib/config-schema.js';
 import { normalizeStudioDrawingSettings } from './studio-drawing-config.js';
+import { redactPublicPathValues } from './local-api-artifacts.js';
 import { isPlainObject, trimArtifactRef, validateArtifactRef } from './studio-job-request-helpers.js';
 
 const DRAWING_SOURCE_SUFFIXES = new Map([
@@ -10,6 +11,22 @@ const DRAWING_SOURCE_SUFFIXES = new Map([
   ['draw.plan.toml', '_plan.toml'],
   ['draw.plan.json', '_plan.json'],
 ]);
+
+function assertSelfContainedAuthoringConfig(config) {
+  // Reject rather than redact: preview capture and returned TOML must be identical.
+  if (!isDeepStrictEqual(config, redactPublicPathValues(config))) {
+    throw new Error('Saved Drawing authoring config contains non-public source values.');
+  }
+  function hasExternalGeometry(value) {
+    if (Array.isArray(value)) return value.some(hasExternalGeometry);
+    if (!isPlainObject(value)) return false;
+    if (value.import?.source_step || value.type === 'import') return true;
+    return Object.values(value).some(hasExternalGeometry);
+  }
+  if (hasExternalGeometry(config)) {
+    throw new Error('Saved Drawing resume requires self-contained geometry without external file references.');
+  }
+}
 
 export function validateSavedDrawingRequest(body) {
   const errors = [];
@@ -80,8 +97,10 @@ export async function resolveSavedDrawing({ jobStore, artifactRef }) {
   }
   const authoringConfig = structuredClone(config);
   if (isPlainObject(authoringConfig.export)) delete authoringConfig.export.directory;
+  assertSelfContainedAuthoringConfig(authoringConfig);
   const validation = validateConfigDocument(authoringConfig, { filepath: 'studio:saved-drawing' });
   if (!validation.valid) throw new Error('Saved Drawing authoring config is invalid.');
+  assertSelfContainedAuthoringConfig(validation.config);
   const drawingSettings = normalizeStudioDrawingSettings({
     section_assist: isPlainObject(validation.config.drawing?.section),
     detail_assist: isPlainObject(validation.config.drawing?.detail),

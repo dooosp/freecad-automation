@@ -54,7 +54,7 @@ async function environment(t) {
     const text = await response.text();
     return { status: response.status, payload: text.startsWith('{') ? JSON.parse(text) : text };
   }
-  async function fixture({ omit = '', duplicate = '', conflictingPlan = false, scope = 'user-facing' } = {}) {
+  async function fixture({ omit = '', duplicate = '', conflictingPlan = false, scope = 'user-facing', mutateConfig = null } = {}) {
     const job = await jobStore.createJob({ type: 'draw', config: blueprint });
     const config = structuredClone(blueprint);
     config.drawing.scale = '1:2';
@@ -64,6 +64,7 @@ async function environment(t) {
     config.drawing_plan.views.enabled = ['front', 'top', 'right'];
     config.drawing_plan.dim_intents.find((entry) => entry.id === 'HOLE_LEFT_DIA').value_mm = 8;
     config.export.directory = join(jobStore.getJobDir(job.id), 'artifacts');
+    if (mutateConfig) mutateConfig(config);
     const plan = { drawing_plan: structuredClone(config.drawing_plan) };
     if (conflictingPlan) plan.drawing_plan.dim_intents.find((entry) => entry.id === 'HOLE_LEFT_DIA').value_mm = 9;
     const definitions = [
@@ -135,6 +136,30 @@ test('resume rejects arbitrary path/config/settings inputs and malformed referen
     { artifact_ref: saved.refs.svg, config_path: saved.paths.config },
   ]) assert.equal((await env.post(body)).status, 400, JSON.stringify(body));
   assert.equal(env.rendererCalls(), 0);
+});
+
+test('resume refuses private paths and external geometry references before rendering or exposing authoring TOML', async (t) => {
+  const env = await environment(t);
+  const inputs = [
+    ['/Users/private/customer/model.step', (config, value) => { config.import = { source_step: value }; }],
+    ['C:\\Users\\private\\model.step', (config, value) => { config.product = { reference: { path: value } }; }],
+    ['/tmp/private/customer model.step', (config, value) => { config.drawing_plan.notes = { general: [`Original file ${value}`] }; }],
+    ['C:/Users/private/model.step', (config, value) => { config.manufacturing = { ...config.manufacturing, notes: [value] }; }],
+    ['output/external.step', (config, value) => { config.import = { source_step: value }; }],
+    ['../../private/model.step', (config, value) => { config.shapes.push({ id: 'external', type: 'import', file: value }); }],
+    ['parts/external.step', (config, value) => { config.parts = [{ id: 'external-part', shapes: [{ id: 'external', type: 'import', file: value }] }]; }],
+  ];
+  for (const [value, mutate] of inputs) {
+    const saved = await env.fixture({ mutateConfig: (config) => mutate(config, value) });
+    const before = await Promise.all(Object.values(saved.paths).map(async (path) => hash(await readFile(path))));
+    const response = await env.post({ artifact_ref: saved.refs.svg });
+    assert.equal(response.status, 400, value);
+    assert.equal(response.payload.editable_config_toml, undefined);
+    assert.ok(!JSON.stringify(response.payload).includes(value));
+    assert.doesNotMatch(JSON.stringify(response.payload), /private|customer/);
+    assert.deepEqual(await Promise.all(Object.values(saved.paths).map(async (path) => hash(await readFile(path)))), before);
+  }
+  assert.equal(env.rendererCalls(), 0, 'unsafe config must fail before preview creation');
 });
 
 test('resume rejects missing, ambiguous, mismatched and internal artifact groups', async (t) => {

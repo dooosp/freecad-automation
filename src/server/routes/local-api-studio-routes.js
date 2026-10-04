@@ -119,6 +119,16 @@ export function registerStudioRoutes(app, {
   studioBootstrapImportService,
   jobCoordinator,
 }) {
+  app.post('/api/studio/model-parameters', async (req, res) => {
+    try {
+      const payload = await studioModelService.modelParameters(req.body);
+      res.json(assertResponse('studio_model_parameters', { api_version: LOCAL_API_VERSION, ok: true, ...payload }));
+    } catch (error) {
+      const response = createErrorResponse('model_parameters_failed', [publicErrorMessage(error)], 400);
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
   app.post('/api/studio/validate-config', async (req, res) => {
     try {
       const payload = await studioModelService.validateConfigToml(req.body?.config_toml);

@@ -580,6 +580,34 @@ const studioValidateConfigResponseSchema = {
   },
 };
 
+const studioModelParametersResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'supported', 'profile_id', 'source_sha256', 'fields'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    supported: { type: 'boolean' },
+    profile_id: { enum: ['bracket', 'hinge_block', null] },
+    source_sha256: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    reason: { enum: ['unsupported_configuration', 'unsupported_source', 'invalid_config'] },
+    fields: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['id', 'value_mm', 'unit', 'min_exclusive', 'max_exclusive'],
+        properties: {
+          id: { type: 'string', minLength: 1 }, value_mm: { type: 'number' }, unit: { const: 'mm' },
+          min_exclusive: { type: 'number', minimum: 0 }, max_exclusive: { type: ['number', 'null'] },
+        },
+      },
+    },
+    config_toml: { type: 'string', minLength: 1 },
+    candidate_sha256: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    changed: { type: 'boolean' },
+  },
+};
+
 const studioDesignResponseSchema = {
   $id: 'fcad.studioDesignResponse',
   type: 'object',
@@ -1213,6 +1241,7 @@ const responseValidators = {
   examples: ajv.compile(examplesResponseSchema),
   config_profiles: ajv.compile(configProfilesResponseSchema),
   studio_validate_config: ajv.compile(studioValidateConfigResponseSchema),
+  studio_model_parameters: ajv.compile(studioModelParametersResponseSchema),
   studio_design: ajv.compile(studioDesignResponseSchema),
   studio_model_preview: ajv.compile(studioModelPreviewResponseSchema),
   studio_import_bootstrap: ajv.compile(studioImportBootstrapResponseSchema),

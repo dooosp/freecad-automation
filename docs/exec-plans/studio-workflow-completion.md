@@ -58,10 +58,10 @@ No arbitrary filesystem paths in browser reentry. Keep registered SHA/size check
 
 **Interface:** recognized bracket parameters: length, width, thickness, left/right hole diameter; hinge parameters: paired pin and mounting-hole diameter. Recognition checks topology, stable feature IDs/types/operations and consistent declarations, not filenames alone. Update dependent tool heights/intents/known quality targets on a cloned config. Validate the complete candidate before replacing the draft. Numeric errors and unsupported configurations are non-mutating.
 
-- [ ] Add failing structural-recognition, bounds, geometry/intent synchronization and stale-state tests.
-- [ ] Implement parameter edits and guarded numeric form using existing config serialization/validation.
-- [ ] Invalidate old transient model/Drawing requests, previews and quality association; keep saved jobs.
-- [ ] Verify actual changed FreeCAD dimensions/export geometry, regenerated Drawing/report, and unsupported-config fallback.
+- [x] Add failing structural-recognition, bounds, geometry/intent synchronization and stale-state tests.
+- [x] Implement parameter edits and guarded numeric form using existing config serialization/validation.
+- [x] Invalidate old transient model/Drawing requests, previews and quality association; keep saved jobs.
+- [x] Verify actual changed FreeCAD dimensions/export geometry, regenerated Drawing/report, and unsupported-config fallback.
 
 ## Review focus and final verification
 
