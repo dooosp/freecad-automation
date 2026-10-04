@@ -1296,7 +1296,12 @@ async function completeQualityDecisionJob(jobStore, {
       job.id, `artifacts/${configName}_plan.json`,
       `${JSON.stringify({ drawing_plan: job.request.config.drawing_plan }, null, 2)}\n`,
     );
+    const printPdfPath = await jobStore.writeJobFile(
+      job.id, `artifacts/${configName}_drawing.pdf`,
+      `%PDF-1.4\n% ${configName} browser print-PDF fixture; rendering is verified separately\n`,
+    );
     savedDrawingArtifacts.push(
+      { type: 'drawing.pdf', path: printPdfPath, scope: 'user-facing', stability: 'stable' },
       { type: 'config.effective', path: effectiveConfigPath, scope: 'internal', stability: 'stable' },
       { type: 'draw.plan.json', path: planJsonPath, scope: 'user-facing', stability: 'stable' },
     );
@@ -3417,6 +3422,21 @@ try {
   assert.equal(drawingReportJob.request.options.studio.preview_plan.revision, acceptedDrawingSnapshot.revision);
   assert.equal(drawingReportJob.request.options.studio.preview_plan.annotation_only, true);
   const reportDrawingBeforeReload = await assertStoredEditedDrawing(cdp, drawingReportJob.id);
+  const printArtifact = (await jobStore.listArtifacts(drawingReportJob.id)).find((artifact) => artifact.type === 'drawing.pdf');
+  assert.ok(printArtifact, 'Saved drawing has a separate print PDF artifact');
+  const printCard = `.result-card[data-result-artifact-id="${printArtifact.id}"]`;
+  const printPresentation = await cdp.evaluate(`(() => ({
+    print: document.querySelector(${JSON.stringify(printCard)})?.textContent || '',
+    primary: document.querySelector('[data-primary-result="true"]')?.textContent || '',
+    openHref: document.querySelector(${JSON.stringify(printCard + ' a')})?.getAttribute('href') || '',
+  }))()`);
+  assertIncludesAll(printPresentation.print, ['Print drawing PDF', 'Actual size / 100%', 'Fit to page']);
+  assert.ok(printPresentation.primary.includes('Report'), 'Report PDF remains the primary report output');
+  assert.ok(!printPresentation.primary.includes('Print drawing PDF'));
+  const printResponse = await fetch(`${baseUrl}${printPresentation.openHref}`);
+  assert.equal(printResponse.status, 200);
+  assert.match(printResponse.headers.get('content-type'), /application\/pdf/);
+  assert.ok((await printResponse.text()).startsWith('%PDF-'));
   const reportJobsAfter = (await jobStore.listJobs({ limit: 100 }))
     .filter((job) => job.type === 'report').length;
   assert.equal(reportJobsAfter, reportJobsBefore + 1);

@@ -25,6 +25,7 @@ try {
   let reportInput;
   const executor = createJobExecutor({
     projectRoot: ROOT, jobStore: store,
+    exportDrawingPdf: async () => { throw new Error('Qt PDF is outside this renderer fixture'); },
     generateDrawing: async ({ config: drawn }) => {
       drawCalls += 1;
       assert.equal(drawn.drawing_plan.dim_intents.find((dim) => dim.id === 'HOLE_LEFT_DIA').value_mm, 8);

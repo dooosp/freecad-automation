@@ -115,6 +115,8 @@ function jobTypePreferenceScore(artifact = {}, jobType = '') {
     || includesAny(search, ['3d model', 'model preview'])
   )) return -250;
   if (normalizedType === 'draw' && ['.svg', '.dxf', '.pdf'].includes(extension)) return -250;
+  // A print drawing accompanies the report; its PDF must not displace the report PDF.
+  if (normalizedType === 'report' && String(artifact.type || '').toLowerCase() === 'drawing.pdf') return -200;
   if (normalizedType === 'report' && (extension === '.pdf' || search.includes('report'))) return -250;
   if (includesAny(normalizedType, ['review', 'inspect', 'readiness', 'compare', 'stabilization'])
     && classifyResultFilePurpose(artifact) === 'quality') return -200;
@@ -185,6 +187,7 @@ export function resultFileLabelKey(artifact = {}) {
   const search = type || artifactSearchText(artifact);
   const extension = artifactExtension(artifact);
 
+  if (type === 'drawing.pdf') return 'studio.artifacts.file.drawing-pdf';
   if (type.startsWith('config.') || extension === '.toml') return '';
   if (extension === '.pdf') return 'studio.artifacts.file.report';
   if (extension === '.fcstd' || extension === '.brep' || extension === '.brp') return 'studio.artifacts.file.model';

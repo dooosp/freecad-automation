@@ -47,10 +47,10 @@ No arbitrary filesystem paths in browser reentry. Keep registered SHA/size check
 
 **Interface:** additive `<name>_drawing.pdf` registered as `drawing.pdf`, derived from the final generated SVG. Use SVG physical millimetres and bounded supported page sizes with Qt PDF vector painting (nominal page box tolerance ≤0.2 mm for Qt integer-point rounding; verify physical line scale independently); reject unresolvable physical dimensions or external SVG resources. Keep report PDF reproduction behavior and filename intact.
 
-- [ ] Add failing exact-page-size/vector-content/source-containment tests.
-- [ ] Implement isolated export with explicit failure reporting and artifact registration.
-- [ ] Expose separate print-PDF action with EN/KO labels.
-- [ ] Verify real PDF page dimensions, vector output, visible dimensions and source scale on actual FreeCAD output.
+- [x] Add failing exact-page-size/vector-content/source-containment tests.
+- [x] Implement isolated export with explicit failure reporting and artifact registration.
+- [x] Expose separate print-PDF action with EN/KO labels.
+- [x] Verify real PDF page dimensions, vector output, visible dimensions and source scale on actual FreeCAD output.
 
 ## Stage 4 — Actual model parameter editing
 

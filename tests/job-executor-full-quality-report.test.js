@@ -94,6 +94,12 @@ async function runReport(t, { invalidShape = false, createFailure = false, runti
   const realReport = createReportService();
   const executor = createJobExecutor({
     projectRoot: ROOT, jobStore: store, runScriptFn: runtime,
+    exportDrawingPdf: async ({ outputDir }) => {
+      calls.push('drawing_pdf');
+      const path = join(outputDir, `${NAME}_drawing.pdf`);
+      await writeFile(path, '%PDF-1.4\nfixture print renderer boundary\n%%EOF\n');
+      return { path, physical_width_mm: 297, physical_height_mm: 210, page_box_tolerance_mm: 0.2 };
+    },
     generateCreateQuality: (input) => generateCreateQualityArtifact({ ...input, runtimeAvailable }),
     generateDrawing: async ({ config: drawn }) => {
       calls.push('drawing');
@@ -134,7 +140,9 @@ test('full report creates and reimports exports, ignores ambient evidence and su
   assert.ok(!JSON.stringify(result.job.result).includes('STALE AMBIENT'));
   assert.ok(result.calls.indexOf('create_model.py') < result.calls.indexOf('drawing'));
   assert.ok(result.calls.indexOf('drawing') < result.calls.indexOf('engineering_report.py'));
-  for (const type of ['model.step', 'model.stl', 'model.brep', 'model.create-quality', 'drawing.svg', 'drawing.quality-summary', 'report.pdf', 'report.summary-json']) {
+  assert.ok(result.calls.indexOf('drawing') < result.calls.indexOf('drawing_pdf'));
+  assert.ok(result.calls.indexOf('drawing_pdf') < result.calls.indexOf('engineering_report.py'));
+  for (const type of ['model.step', 'model.stl', 'model.brep', 'model.create-quality', 'drawing.svg', 'drawing.pdf', 'drawing.quality-summary', 'report.pdf', 'report.summary-json']) {
     const matches = result.artifacts.filter((artifact) => artifact.type === type);
     assert.equal(matches.length, 1, `one ${type} entry`);
     assert.equal(matches[0].exists, true);

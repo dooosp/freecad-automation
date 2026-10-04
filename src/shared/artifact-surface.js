@@ -2,6 +2,7 @@ import { dirname, isAbsolute, join, parse, relative, resolve } from 'node:path';
 
 const DRAW_CLI_ENTRIES = Object.freeze([
   Object.freeze({ key: 'drawing', type: 'drawing.svg', label: 'SVG drawing', scope: 'user-facing', stability: 'stable' }),
+  Object.freeze({ key: 'drawing_pdf', type: 'drawing.pdf', label: 'Print-scale drawing PDF', scope: 'user-facing', stability: 'stable' }),
   Object.freeze({ key: 'qa', type: 'drawing.qa-report', label: 'Drawing QA', scope: 'user-facing', stability: 'best-effort' }),
   Object.freeze({ key: 'qa_issues', type: 'drawing.qa-issues', label: 'Drawing QA issues', scope: 'user-facing', stability: 'best-effort' }),
   Object.freeze({ key: 'drawing_quality', type: 'drawing.quality-summary', label: 'Drawing quality summary', scope: 'user-facing', stability: 'stable' }),
@@ -20,6 +21,7 @@ const DRAW_CLI_ENTRIES = Object.freeze([
 
 const DRAW_TRACKED_JOB_ENTRIES = Object.freeze([
   Object.freeze({ key: 'drawing', type: 'drawing.svg', stability: 'stable', scope: 'user-facing' }),
+  Object.freeze({ key: 'drawing_pdf', type: 'drawing.pdf', label: 'Print-scale drawing PDF', stability: 'stable', scope: 'user-facing' }),
   Object.freeze({ key: 'qa', type: 'drawing.qa-report', stability: 'best-effort', scope: 'user-facing' }),
   Object.freeze({ key: 'qa_issues', type: 'drawing.qa-issues', stability: 'best-effort', scope: 'user-facing' }),
   Object.freeze({ key: 'drawing_quality', type: 'drawing.quality-summary', stability: 'stable', scope: 'user-facing' }),
@@ -153,6 +155,8 @@ export function inferDrawArtifactPaths(result) {
   const dir = dirname(normalizedPath);
   return {
     drawing: normalizedPath,
+    ...(result?.drawing_pdf_export?.status === 'succeeded' && result?.drawing_pdf_path
+      ? { drawing_pdf: result.drawing_pdf_path } : {}),
     qa: normalizedPath.replace(/\.svg$/i, '_qa.json'),
     qa_issues: normalizedPath.replace(/\.svg$/i, '_qa_issues.json'),
     drawing_quality: normalizedPath.replace(/\.svg$/i, '_quality.json'),

@@ -366,8 +366,13 @@ function isStlArtifact(artifact = {}) {
 function isPdfReportArtifact(artifact = {}) {
   const extension = String(artifact.extension || '').toLowerCase();
   return isAvailableArtifact(artifact)
+    && !isPrintDrawingPdfArtifact(artifact)
     && extension === '.pdf'
     && artifactHasAny(artifact, ['report', 'pdf']);
+}
+
+function isPrintDrawingPdfArtifact(artifact = {}) {
+  return String(artifact.type || '').trim().toLowerCase() === 'drawing.pdf';
 }
 
 function isReportSummaryArtifactForDownloads(artifact = {}) {
@@ -1534,7 +1539,7 @@ function createResultArtifactCard(artifact, { primarySummary = false, jobId = ''
     },
   ];
 
-  return createResultCard({
+  const card = createResultCard({
     title,
     meta: resultArtifactMeta(artifact),
     copy: artifact.file_name || artifact.key || '',
@@ -1545,6 +1550,29 @@ function createResultArtifactCard(artifact, { primarySummary = false, jobId = ''
       resultArtifactId: artifact.id,
       ...(primarySummary ? { primaryResult: 'true' } : {}),
     },
+  });
+  if (isPrintDrawingPdfArtifact(artifact)) {
+    card.querySelector('.result-card-copy').append(el('p', {
+      className: 'support-note',
+      dataset: { hook: 'drawing-pdf-print-note' },
+      text: t('studio.artifacts.drawing-pdf.print-note'),
+    }));
+  }
+  return card;
+}
+
+function renderDrawingPdfExportWarning(job = {}) {
+  const exportResult = job.type === 'draw'
+    ? job.result?.drawing_pdf_export
+    : job.type === 'report'
+      ? job.result?.drawing_result?.drawing_pdf_export
+      : null;
+  if (exportResult?.status !== 'failed') return null;
+  return el('p', {
+    className: 'support-note',
+    attrs: { role: 'status' },
+    dataset: { hook: 'drawing-pdf-export-warning' },
+    text: t('studio.artifacts.drawing-pdf.failed'),
   });
 }
 
@@ -1591,6 +1619,7 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
         { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },
         { label: t('studio.artifacts.summary.other'), value: String(Math.max(0, artifacts.length - 1)) },
       ]),
+      renderDrawingPdfExportWarning(activeJob.summary),
       createResultArtifactCard(primaryArtifact, { primarySummary: true, jobId: activeJob.summary.id }),
     ],
   });

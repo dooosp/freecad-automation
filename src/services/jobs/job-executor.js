@@ -31,6 +31,7 @@ import { createDfmService } from '../../api/analysis.js';
 import { createDrawingService, runDrawPipeline } from '../../api/drawing.js';
 import { analyzeStep, createModel, generateCreateQualityArtifact, inspectModel } from '../../api/model.js';
 import { createReportService } from '../../api/report.js';
+import { createDrawingPdfService } from '../drawing/drawing-pdf-service.js';
 import { runReviewContextPipeline } from '../../orchestration/review-context-pipeline.js';
 import { runReleaseBundleWorkflow } from '../../workflows/release-bundle-workflow.js';
 import { runStandardDocsWorkflow } from '../../workflows/standard-docs-workflow.js';
@@ -787,6 +788,7 @@ export function createJobExecutor({
   generateDrawing = createDrawingService(),
   generateReport = createReportService(),
   generateCreateQuality = generateCreateQualityArtifact,
+  exportDrawingPdf = createDrawingPdfService(),
   runScriptFn = runScript,
 }) {
   function appendLog(jobId, message) {
@@ -1063,7 +1065,7 @@ export function createJobExecutor({
   async function executeDraw(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
     const resolvedConfigPath = resolveMaybe(projectRoot, resolvedConfig.configPath);
-    return runDrawPipeline({
+    const result = await runDrawPipeline({
       projectRoot,
       configPath: resolvedConfig.configPath,
       flags: [
@@ -1086,6 +1088,18 @@ export function createJobExecutor({
       onInfo: (message) => appendLog(job.id, message),
       onError: (message) => appendLog(job.id, message),
     });
+    if (result.success !== true) return result;
+    try {
+      const { path, ...details } = await exportDrawingPdf({ projectRoot, outputDir, drawingResult: result });
+      await appendLog(job.id, 'Print-scale drawing PDF exported. Print at Actual size / 100%.');
+      return { ...result, drawing_pdf_path: path, drawing_pdf_export: { status: 'succeeded', ...details } };
+    } catch {
+      // PDF is an optional downstream view. Preserve the successful SVG and its quality evidence.
+      // Do not expose native stderr or filesystem paths in the public job result or warning log.
+      const message = 'Print-scale drawing PDF could not be exported. The SVG drawing remains available.';
+      await appendLog(job.id, message);
+      return { ...result, drawing_pdf_export: { status: 'failed', code: 'drawing_pdf_export_failed', message } };
+    }
   }
 
   async function executeInspect(job, resolvedConfig) {
