@@ -394,6 +394,9 @@ export function createStudioDrawingService({
         drawingSettings,
       });
     },
+    async resumePreview({ configToml, drawingPlan, drawingSettings }) {
+      return renderPreview({ configToml, drawingPlan, drawingSettings });
+    },
     async updateDimension({
       previewId,
       previewRevision,

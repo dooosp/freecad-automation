@@ -815,6 +815,19 @@ const studioDrawingPreviewResponseSchema = {
   properties: {
     api_version: { const: LOCAL_API_VERSION },
     ok: { const: true },
+    editable_config_toml: { type: 'string', minLength: 1 },
+    source: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['job_id', 'artifact_id', 'drawing_artifact_id', 'config_artifact_id', 'plan_artifact_id'],
+      properties: {
+        job_id: { type: 'string', minLength: 1 },
+        artifact_id: { type: 'string', minLength: 1 },
+        drawing_artifact_id: { type: 'string', minLength: 1 },
+        config_artifact_id: { type: 'string', minLength: 1 },
+        plan_artifact_id: { type: 'string', minLength: 1 },
+      },
+    },
     update: {
       type: 'object',
       additionalProperties: true,

@@ -959,6 +959,18 @@ export function bootStudioShell({
       return;
     }
 
+    if (action === 'resume-drawing-artifact' && jobId) {
+      const job = app.state.data.activeJob.summary;
+      const artifact = app.state.data.activeJob.artifacts.find((entry) => entry.id === actionTarget.dataset.artifactId);
+      if (job?.id !== jobId || !artifact) return;
+      try {
+        await app.workspace.resumeDrawingArtifact(job, artifact);
+      } catch (error) {
+        logActionFailure('Drawing', error, 'artifact');
+      }
+      return;
+    }
+
     if (action === 'open-config-artifact-in-model' && jobId) {
       const job = app.jobs.findKnownJob(jobId);
       const artifact = app.state.data.activeJob.artifacts.find(

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -18,7 +18,7 @@ assert.ok(Number.isInteger(SOAK_CYCLES) && SOAK_CYCLES >= 0 && SOAK_CYCLES <= 50
 const SOAK_INTERVAL_MS = Number(process.env.STUDIO_BROWSER_SOAK_INTERVAL_MS ?? 50);
 assert.ok(Number.isInteger(SOAK_INTERVAL_MS) && SOAK_INTERVAL_MS >= 0 && SOAK_INTERVAL_MS <= 10000,
   'STUDIO_BROWSER_SOAK_INTERVAL_MS must be an integer between 0 and 10000');
-const TMP_ROOT = mkdtempSync(join(tmpdir(), 'fcad-studio-browser-smoke-'));
+const TMP_ROOT = realpathSync(mkdtempSync(join(tmpdir(), 'fcad-studio-browser-smoke-')));
 const JOBS_DIR = join(TMP_ROOT, 'jobs');
 const CHROME_PROFILE_DIR = join(TMP_ROOT, 'chrome-profile');
 
@@ -349,7 +349,7 @@ function editedDrawingSnapshotExpression() {
   }))()`;
 }
 
-async function assertStoredEditedDrawing(cdp, jobId) {
+async function assertStoredEditedDrawing(cdp, jobId, expectedValue = '47') {
   const snapshot = await cdp.evaluate(`(async () => {
     const payload = await (await fetch('/jobs/${jobId}/artifacts')).json();
     const artifact = payload.artifacts.find((entry) => entry.type === 'drawing.svg');
@@ -370,7 +370,7 @@ async function assertStoredEditedDrawing(cdp, jobId) {
   assert.equal(snapshot.status, 200, JSON.stringify(snapshot));
   assert.equal(snapshot.canOpen, false);
   assert.equal(snapshot.canDownload, true);
-  assert.equal(snapshot.value, '47', 'Saved output must use the accepted edited annotation');
+  assert.equal(snapshot.value, expectedValue, 'Saved output must use the accepted edited annotation');
   assert.equal(snapshot.scale, '1:2');
   assert.equal(snapshot.views, 'front,top,right');
   return snapshot;
@@ -1286,6 +1286,21 @@ async function completeQualityDecisionJob(jobStore, {
     `artifacts/${configName}_drawing.svg`,
     drawingSvg
   );
+  const savedDrawingArtifacts = [];
+  if (editedDimension) {
+    const effectiveConfigPath = await jobStore.writeJobFile(
+      job.id, `artifacts/${configName}_effective_config.json`,
+      `${JSON.stringify(job.request.config, null, 2)}\n`,
+    );
+    const planJsonPath = await jobStore.writeJobFile(
+      job.id, `artifacts/${configName}_plan.json`,
+      `${JSON.stringify({ drawing_plan: job.request.config.drawing_plan }, null, 2)}\n`,
+    );
+    savedDrawingArtifacts.push(
+      { type: 'config.effective', path: effectiveConfigPath, scope: 'internal', stability: 'stable' },
+      { type: 'draw.plan.json', path: planJsonPath, scope: 'user-facing', stability: 'stable' },
+    );
+  }
   const manifest = await buildArtifactManifest({
     projectRoot,
     interface: 'api',
@@ -1364,6 +1379,7 @@ async function completeQualityDecisionJob(jobStore, {
         scope: 'user-facing',
         stability: 'stable',
       },
+      ...savedDrawingArtifacts,
     ],
     timestamps: {
       created_at: job.created_at,
@@ -1979,6 +1995,14 @@ function browserSmokeDrawingServiceFactory() {
           value: 40, settings: normalizeSettings(drawingSettings),
         };
       }
+      return render();
+    },
+    async resumePreview({ configToml, drawingPlan, drawingSettings }) {
+      current = {
+        id: `browser-smoke-drawing-${++previewSequence}`, configToml: String(configToml || '').trim(),
+        value: drawingPlan.dim_intents.find((dimension) => dimension.id === 'WIDTH').value_mm,
+        settings: normalizeSettings(drawingSettings),
+      };
       return render();
     },
     async updateDimension({ previewId, previewRevision, dimId, valueMm, historyOp = 'edit' }) {
@@ -3408,6 +3432,52 @@ try {
   await cdp.evaluate(`window.location.hash = '#artifacts?job=${trackedDrawingJob.id}'`);
   await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${trackedDrawingJob.id}` });
   await assertStoredEditedDrawing(cdp, trackedDrawingJob.id);
+
+  const sourceDrawingArtifact = (await jobStore.listArtifacts(trackedDrawingJob.id))
+    .find((artifact) => artifact.type === 'drawing.svg');
+  const sourceDrawingDigest = sourceDrawingArtifact.registered_sha256;
+  const savedCard = `.result-card[data-result-artifact-id="${sourceDrawingArtifact.id}"]`;
+  await keyboardActivate(cdp, `${savedCard} .overflow-menu-trigger`);
+  await keyboardActivate(cdp, `${savedCard} [data-action="resume-drawing-artifact"]`);
+  await waitForRoute(cdp, 'drawing');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(editedDrawingSnapshotExpression());
+    assert.equal(snapshot.svgValue, '47');
+    assert.equal(snapshot.panelValue, '47');
+    assert.deepEqual(snapshot.history, [], 'A resumed sheet starts a new undo history');
+    assert.equal(snapshot.scale, '1:2');
+    assert.deepEqual(snapshot.views, ['front', 'top', 'right']);
+    assert.equal(snapshot.reportEnabled, true);
+  });
+  const resumePost = cdp.posts.findLast((request) => request.path === '/api/studio/drawing-preview/from-artifact');
+  assert.deepEqual(resumePost.body, {
+    artifact_ref: { job_id: trackedDrawingJob.id, artifact_id: sourceDrawingArtifact.id },
+  });
+  const resumedSnapshot = browserSmokeDrawingSnapshots.at(-1);
+  assert.notEqual(resumedSnapshot.id, acceptedDrawingSnapshot.id);
+  assert.notEqual(resumedSnapshot.revision, acceptedDrawingSnapshot.revision);
+  await cdp.evaluate(`(() => {
+    const input = document.querySelector('[data-hook="drawing-dimensions"] input[data-dim-id="WIDTH"]');
+    input.value = '49';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await keyboardActivate(cdp, '[data-action="drawing-apply-dimension"][data-dim-id="WIDTH"]');
+  await waitFor(async () => {
+    assert.equal((await cdp.evaluate(editedDrawingSnapshotExpression())).svgValue, '49');
+  });
+  await keyboardActivate(cdp, '[data-hook="drawing-tracked-run"]');
+  const resumedSavedJob = await waitFor(async () => {
+    const jobs = (await jobStore.listJobs({ limit: 100 })).filter((job) => job.type === 'draw');
+    const next = jobs.find((job) => job.request?.config?.drawing_plan?.dim_intents?.some((dimension) => dimension.id === 'WIDTH' && dimension.value_mm === 49));
+    assert.equal(next?.status, 'succeeded');
+    return next;
+  });
+  await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${resumedSavedJob.id}` });
+  assert.equal(resumedSavedJob.request.config.shapes[0].width, 18);
+  await assertStoredEditedDrawing(cdp, resumedSavedJob.id, '49');
+  await assertStoredEditedDrawing(cdp, trackedDrawingJob.id);
+  assert.equal((await jobStore.getArtifact(trackedDrawingJob.id, sourceDrawingArtifact.id)).registered_sha256, sourceDrawingDigest);
+  await jobStore.readVerifiedArtifactSnapshot(trackedDrawingJob.id, sourceDrawingArtifact.id);
 
   await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
   await waitForRoute(cdp, 'start', {

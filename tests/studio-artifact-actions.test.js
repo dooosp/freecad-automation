@@ -33,6 +33,30 @@ assert.deepEqual(buildStudioArtifactRef('job-1', 'artifact-2'), {
   artifact_id: 'artifact-2',
 });
 
+const savedDrawingArtifact = {
+  id: 'saved-sheet', type: 'drawing.svg', file_name: 'saved_drawing.svg', extension: '.svg',
+  scope: 'user-facing', exists: true,
+  capabilities: { can_open: false, can_download: true },
+};
+for (const [type, extension] of [['drawing.svg', '.svg'], ['draw.plan.toml', '.toml'], ['draw.plan.json', '.json']]) {
+  assert.equal(deriveArtifactReentryCapabilities({ ...savedDrawingArtifact, type, extension, file_name: `saved_plan${extension}` }).canContinueDrawing, true,
+    `registered public ${type} must allow drawing continuation even without inline opening`);
+}
+for (const [label, overrides] of [
+  ['missing file', { exists: false }],
+  ['unknown file existence', { exists: undefined }],
+  ['internal artifact', { scope: 'internal' }],
+  ['unspecified scope', { scope: undefined }],
+  ['unregistered artifact', { id: '' }],
+  ['whitespace artifact id', { id: '  ' }],
+  ['SVG filename without supported type', { type: 'artifact' }],
+  ['similar unsupported type', { type: 'drawing.svg.backup' }],
+  ['quality JSON', { type: 'drawing.quality-summary', extension: '.json' }],
+  ['model', { type: 'model.step', extension: '.step' }],
+]) {
+  assert.equal(deriveArtifactReentryCapabilities({ ...savedDrawingArtifact, ...overrides }).canContinueDrawing, false, label);
+}
+
 assert.equal(isConfigLikeArtifact({
   type: 'config.effective',
   file_name: 'effective-config.json',
@@ -367,6 +391,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   extension: '.json',
   exists: true,
 }), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
@@ -385,6 +410,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   exists: true,
   scope: 'internal',
 }), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
@@ -415,6 +441,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
     reentry_target: 'release_bundle',
   },
 }), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
@@ -521,6 +548,7 @@ for (const artifact of af5CanonicalArtifacts) {
 }
 
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[0]), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
@@ -532,6 +560,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[0]), {
   canSeedReview: true,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[1]), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
@@ -543,6 +572,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[1]), {
   canSeedReview: true,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[2]), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
@@ -554,6 +584,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[2]), {
   canSeedReview: true,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[3]), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
@@ -565,6 +596,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[3]), {
   canSeedReview: false,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[4]), {
+  canContinueDrawing: false,
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,

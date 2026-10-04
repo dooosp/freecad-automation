@@ -98,13 +98,19 @@ If you have genuine inspection evidence later, follow the inspection evidence co
 
 ## Save an edited Drawing and report
 
-In Drawing, generate a preview, apply dimension annotation edits, and preview any changed views or scale. The current successful preview is the input for both **Save Drawing** and **Save Report**. Changing sheet settings preserves accepted annotations when the source model input is unchanged. These edits change drawing annotations; they do not change the 3D geometry.
+In Drawing, generate a preview, apply dimension annotation edits, and preview any changed views or scale. The current successful preview is the input for both **Save Drawing** and **Run all checks & create report**. Changing sheet settings preserves accepted annotations when the source model input is unchanged. These edits change drawing annotations; they do not change the 3D geometry.
 
 Saved jobs capture the preview revision and plan, so later edits do not alter an already queued result. If the preview expired or changed, Studio asks you to generate a new preview instead of silently saving different annotations. After a server restart or browser reload, temporary editing history is not restored; saved SVG, PDF, plans, and quality results remain available through History and the selected job's artifacts.
 
 A report saved from Drawing generates its sheet and drawing QA in the report job's own output directory. Its PDF includes that actual sheet as a bounded high-resolution image; the original SVG remains a separate artifact. The report reproduction is reduced to fit and is not to scale; use the original SVG for scaled printing. The renderer uses the FreeCAD Python environment's Qt SVG support and reports an error if it cannot include the sheet. It does not substitute a placeholder or reuse same-name outputs from an older run.
 
 Check the saved job's quality evidence separately from file-generation success. Required failed checks block the quality decision; missing or unrun required checks remain incomplete. The Drawing action “Run all checks & create report” runs model creation with STEP/STL round-trip quality, drawing QA, and fresh DFM from one captured input in the same saved job. It preserves accepted drawing annotations and settings; annotations do not change the model geometry. Caller-provided DFM results cannot replace this fresh check. Ordinary reports without `options.full_quality: true` retain their existing behavior and expose missing model-quality evidence explicitly. Generic CLI reports retain their existing artifact discovery behavior.
+
+## Continue editing a saved drawing
+
+Open a saved run from History. On its drawing SVG card, use **More actions → Continue editing drawing**; the same action is available in file details for saved drawing plans. Studio verifies the selected file and its registered same-run drawing, final effective config, and plan before creating a fresh editing session. Missing, changed, or ambiguous source files cannot be resumed.
+
+The new session restores the saved annotations, views, and scale, including after a browser or server restart. Earlier undo history is not restored. Apply a new annotation and use **Save Drawing** to create another run; the original saved files stay unchanged. A failed request or a late response after changing tasks does not replace the current draft.
 
 ## Validation And Tests
 

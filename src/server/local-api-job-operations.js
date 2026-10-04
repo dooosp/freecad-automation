@@ -3,6 +3,7 @@ import { LOCAL_API_VERSION } from './local-api-contract.js';
 import { toJobResponse } from './local-api-job-response.js';
 import { assertResponse, createErrorResponse } from './local-api-response-helpers.js';
 import { RESOLVED_STUDIO_DRAWING } from './studio-job-bridge.js';
+import { resolveSavedDrawing } from './saved-drawing-resolver.js';
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -165,6 +166,11 @@ export function createLocalApiJobCoordinator({
   }
 
   return {
+    async resumeSavedDrawing(artifactRef) {
+      const saved = await resolveSavedDrawing({ jobStore, artifactRef });
+      const payload = await studioDrawingService.resumePreview(saved);
+      return { ...payload, editable_config_toml: saved.configToml, source: saved.source };
+    },
     prepareStudioJobBody,
     enqueueJob,
     enqueueStudioResolvedJob,

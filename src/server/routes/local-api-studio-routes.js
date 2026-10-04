@@ -6,6 +6,7 @@ import { toPublicDrawingPreviewPayload } from '../public-drawing-preview.js';
 import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import { assertResponse, createErrorResponse } from '../local-api-response-helpers.js';
 import { redactPublicPathValues } from '../local-api-artifacts.js';
+import { validateSavedDrawingRequest } from '../saved-drawing-resolver.js';
 
 function isAbsoluteFilesystemPath(value) {
   return typeof value === 'string'
@@ -211,6 +212,22 @@ export function registerStudioRoutes(app, {
         [publicErrorMessage(error)],
         status
       );
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.post('/api/studio/drawing-preview/from-artifact', async (req, res) => {
+    const errors = validateSavedDrawingRequest(req.body);
+    if (errors.length) return invalidRequest(res, errors);
+    try {
+      const payload = await jobCoordinator.resumeSavedDrawing(req.body.artifact_ref);
+      res.json(assertResponse('studio_drawing_preview', {
+        api_version: LOCAL_API_VERSION,
+        ok: true,
+        ...toPublicDrawingPreviewPayload(payload),
+      }));
+    } catch (error) {
+      const response = createErrorResponse('drawing_resume_failed', [publicErrorMessage(error)], 400);
       res.status(response.status).json(assertResponse('error', response.body));
     }
   });

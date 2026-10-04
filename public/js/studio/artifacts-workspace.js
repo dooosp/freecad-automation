@@ -25,6 +25,7 @@ import {
   shortJobId,
 } from './artifact-insights.js';
 import {
+  canContinueDrawing,
   deriveArtifactContentActions,
   deriveArtifactReentryCapabilities,
   findDefaultArtifactForJob,
@@ -1474,7 +1475,16 @@ function resultArtifactMeta(artifact = {}) {
   return `${availability} · ${formatBytes(artifact.size_bytes)}`;
 }
 
-function createResultArtifactCard(artifact, { primarySummary = false } = {}) {
+function drawingContinuationAction(artifact, jobId) {
+  if (!jobId || !canContinueDrawing(artifact)) return null;
+  return {
+    label: t('studio.drawing.resume.action'),
+    action: 'resume-drawing-artifact',
+    dataset: { jobId, artifactId: artifact.id },
+  };
+}
+
+function createResultArtifactCard(artifact, { primarySummary = false, jobId = '' } = {}) {
   const action = deriveResultFileAction(artifact);
   const title = resultFileTitle(artifact);
   const primaryAction = action.kind === 'open'
@@ -1500,7 +1510,9 @@ function createResultArtifactCard(artifact, { primarySummary = false } = {}) {
           action: 'artifacts-select-artifact',
           dataset: { artifactId: artifact.id },
         };
+  const resumeDrawing = drawingContinuationAction(artifact, jobId);
   const menuItems = [
+    ...(resumeDrawing ? [resumeDrawing] : []),
     ...(action.openHref
       ? [{
           label: t('studio.artifacts.action.open-new'),
@@ -1579,7 +1591,7 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
         { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },
         { label: t('studio.artifacts.summary.other'), value: String(Math.max(0, artifacts.length - 1)) },
       ]),
-      createResultArtifactCard(primaryArtifact, { primarySummary: true }),
+      createResultArtifactCard(primaryArtifact, { primarySummary: true, jobId: activeJob.summary.id }),
     ],
   });
 }
@@ -1653,11 +1665,11 @@ function renderQualityAttentionCard(dashboardModel = {}, jobSummary = {}) {
   });
 }
 
-function renderResultGroup(group) {
+function renderResultGroup(group, jobId) {
   const title = t(`studio.artifacts.group.${group.id}`);
   const cards = el('div', {
     className: 'result-file-list',
-    children: group.artifacts.map((artifact) => createResultArtifactCard(artifact)),
+    children: group.artifacts.map((artifact) => createResultArtifactCard(artifact, { jobId })),
   });
   if (group.id === 'system') {
     return el('details', {
@@ -1697,7 +1709,7 @@ function renderResultGroups(activeJob, { hydrating = false } = {}) {
     title: t('studio.artifacts.groups.title'),
     copy: t('studio.artifacts.groups.copy'),
     body: groups.length > 0
-      ? groups.map(renderResultGroup)
+      ? groups.map((group) => renderResultGroup(group, activeJob.summary.id))
       : [el('p', { className: 'support-note', text: t('studio.artifacts.groups.none') })],
   });
 }
@@ -2462,6 +2474,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     const preferredReleaseBundleArtifact = findPreferredReleaseBundleArtifact(activeArtifacts);
     const selectedOpenLabel = buildArtifactOpenLabel(artifact);
     const reentry = deriveArtifactReentryCapabilities(artifact);
+    const resumeDrawing = drawingContinuationAction(artifact, state.data.activeJob.summary?.id);
     const supportsTrackedStandardDocs = reentry.canRunTrackedStandardDocs
       && (Boolean(sourceConfigArtifact) || isReleaseBundleArtifact(artifact));
     const baselineReviewPack = findPreferredReviewPackArtifact(artifactsState.compare.artifacts || []);
@@ -2517,6 +2530,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             }),
           ]
         : []),
+      ...(resumeDrawing ? [createButton({ ...resumeDrawing, tone: 'ghost' })] : []),
       ...(state.data.activeJob.summary
         ? [
             createButton({

@@ -36,16 +36,16 @@ No arbitrary filesystem paths in browser reentry. Keep registered SHA/size check
 
 **Interface:** `POST /api/studio/drawing-preview/from-artifact` with only `{artifact_ref:{job_id,artifact_id}}`. Public drawing SVG/plan selects a same-job artifact group. Resolve the final drawn effective config and plan using registered IDs and `readVerifiedArtifactSnapshot().readDetachedBytes()`. Return public preview plus safe canonical authoring config and selected settings/source IDs. Create a fresh preview ID/revision; never mutate the source job.
 
-- [ ] Reproduce absence of saved-plan resume and add tamper/missing/ambiguous-sibling tests.
-- [ ] Implement verified snapshot adapter and fresh preview restoration.
-- [ ] Add localized saved-result action and guarded shared-state handoff.
-- [ ] Verify save → browser/server restart → resume → edit → save, and unchanged original artifact digests.
+- [x] Reproduce absence of saved-plan resume and add tamper/missing/ambiguous-sibling tests.
+- [x] Implement verified snapshot adapter and fresh preview restoration.
+- [x] Add localized saved-result action and guarded shared-state handoff.
+- [x] Verify save → browser/server restart → resume → edit → save, and unchanged original artifact digests.
 
 ## Stage 3 — Print-scale drawing PDF
 
 **Files:** narrow Python SVG-to-PDF helper/script, tracked Drawing orchestration, artifact descriptors/collectors and result labels, Python/Node/UI tests.
 
-**Interface:** additive `<name>_drawing.pdf` registered as `drawing.pdf`, derived from the final generated SVG. Use SVG physical millimetres and bounded supported page sizes with Qt PDF vector painting; reject unresolvable physical dimensions or external SVG resources. Keep report PDF reproduction behavior and filename intact.
+**Interface:** additive `<name>_drawing.pdf` registered as `drawing.pdf`, derived from the final generated SVG. Use SVG physical millimetres and bounded supported page sizes with Qt PDF vector painting (nominal page box tolerance ≤0.2 mm for Qt integer-point rounding; verify physical line scale independently); reject unresolvable physical dimensions or external SVG resources. Keep report PDF reproduction behavior and filename intact.
 
 - [ ] Add failing exact-page-size/vector-content/source-containment tests.
 - [ ] Implement isolated export with explicit failure reporting and artifact registration.
