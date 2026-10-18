@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { workspaceDefinitions } from '../public/js/studio/workspaces.js';
 import { createStudioShellState } from '../public/js/studio/studio-shell-store.js';
 import { setLocale } from '../public/js/i18n/index.js';
@@ -124,6 +125,106 @@ assert.equal(deriveRecentJobQualityStatus({
     create_quality: { status: 'pass' },
   },
 }).qualityStatus, 'Quality warning', 'the aggregate report decision keeps precedence over component checks');
+
+for (const type of ['create', 'draw']) {
+  test(`${type} canonical quality outranks generic summaries`, () => {
+    const key = type === 'draw' ? 'drawing_quality' : 'create_quality';
+    for (const summaryKey of ['summary', 'report_summary', 'decision_summary', '_decision_summary']) {
+      for (const [status, label, needsAttention] of [
+        ['fail', 'Quality failed', true],
+        ['warning', 'Quality warning', true],
+        ['incomplete', 'Quality incomplete', true],
+        ['not_run', 'Quality not run', true],
+        ['pass', 'Quality passed', false],
+      ]) {
+        const job = { type, status: 'succeeded', result: {
+          [summaryKey]: { overall_status: status === 'pass' ? 'fail' : 'pass' },
+          [key]: { status },
+        } };
+        assert.equal(deriveRecentJobQualityStatus(job).qualityStatus, label, `${summaryKey} must not replace ${key}.${status}`);
+        assert.equal(deriveRecentJobDecisionState(job).needsAttention, needsAttention);
+      }
+      for (const canonical of [null, {}, { status: 'unknown' }]) {
+        const job = { type, status: 'succeeded', result: {
+          [summaryKey]: { overall_status: 'pass' }, [key]: canonical,
+        } };
+        assert.equal(deriveRecentJobQualityStatus(job).qualityStatus, 'Quality Unknown', 'unavailable canonical quality must not inherit a generic pass');
+        assert.equal(deriveRecentJobDecisionState(job).needsAttention, true);
+      }
+    }
+    assert.equal(deriveRecentJobQualityStatus({
+      type, status: 'succeeded', result: { report_summary: { overall_status: 'warning' } },
+    }).qualityStatus, 'Quality warning', 'legacy jobs without a canonical quality field retain their recorded summary');
+  });
+}
+
+test('an incomplete report remains incomplete when both component quality checks pass', () => {
+  const job = { type: 'report', status: 'succeeded', result: {
+    report_summary: { overall_status: 'incomplete' },
+    create_quality: { status: 'pass' }, drawing_quality: { status: 'pass' },
+  } };
+  assert.equal(deriveRecentJobQualityStatus(job).qualityStatus, 'Quality incomplete');
+  assert.equal(deriveRecentJobDecisionState(job).needsAttention, true);
+});
+
+for (const type of ['create', 'draw']) {
+  test(`${type} failed or unavailable canonical quality cannot inherit affirmative readiness`, () => {
+    const key = type === 'draw' ? 'drawing_quality' : 'create_quality';
+    for (const summaryKey of ['summary', 'report_summary', 'decision_summary', '_decision_summary']) {
+      for (const canonical of [
+        { status: 'fail' }, { status: 'failed' }, { status: 'warning' },
+        { status: 'not_run' }, { status: 'skipped' }, { status: 'incomplete' },
+        { status: 'missing' }, { status: 'not_available' }, { status: 'unknown' }, {}, null,
+      ]) {
+        const job = { id: 'conflicting-readiness', type, status: 'succeeded', result: {
+          [summaryKey]: { overall_status: 'pass', ready_for_manufacturing_review: true },
+          [key]: canonical,
+        } };
+        assert.equal(deriveRecentJobQualityStatus(job).readyForManufacturingReview, 'Ready Unknown', `${type} ${summaryKey} ${JSON.stringify(canonical)}`);
+        assert.equal(deriveRecentJobDecisionState(job).needsAttention, true);
+        assert.doesNotMatch(formatRecentJobQualityLine(job), /Ready Yes/);
+
+        job.result[summaryKey].ready_for_manufacturing_review = false;
+        assert.equal(deriveRecentJobQualityStatus(job).readyForManufacturingReview, 'Ready No', 'negative readiness evidence is preserved');
+        job.result[summaryKey].ready_for_manufacturing_review = true;
+        job.result.readiness_summary = { inspection_evidence_missing: true };
+        assert.equal(deriveRecentJobQualityStatus(job).readyForManufacturingReview, 'Ready held: missing inspection_evidence');
+      }
+    }
+  });
+
+  test(`${type} summary-only legacy readiness and passing canonical results retain their recorded decision`, () => {
+    const key = type === 'draw' ? 'drawing_quality' : 'create_quality';
+    const job = { type, status: 'succeeded', result: {
+      report_summary: { overall_status: 'pass', ready_for_manufacturing_review: true },
+    } };
+    for (const canonical of [undefined, { status: 'pass' }]) {
+      if (canonical) job.result[key] = canonical;
+      const status = deriveRecentJobQualityStatus(job);
+      assert.equal(status.qualityStatus, 'Quality passed');
+      assert.equal(status.readyForManufacturingReview, 'Ready Yes');
+      assert.equal(deriveRecentJobDecisionState(job).needsAttention, false);
+    }
+  });
+}
+
+test('passing report components cannot substitute for an absent aggregate quality decision', () => {
+  for (const components of [
+    { drawing_quality: { status: 'pass' } },
+    { create_quality: { status: 'pass' } },
+    { create_quality: { status: 'pass' }, drawing_quality: { status: 'pass' } },
+  ]) {
+    for (const aggregate of [{}, { report_summary: null }, { report_summary: {} }]) {
+      const job = { id: 'missing-aggregate', type: 'report', status: 'succeeded', result: { ...components, ...aggregate } };
+      const status = deriveRecentJobQualityStatus(job);
+      assert.equal(status.qualityStatus, 'Quality Unknown');
+      assert.equal(status.readyForManufacturingReview, 'Ready Unknown');
+      assert.equal(deriveRecentJobDecisionState(job).needsAttention, true);
+      assert.equal(deriveRecentJobDecisionState(job).reason, 'unknown_decision');
+      assert.doesNotMatch(formatRecentJobQualityLine(job), /Quality passed|Ready Yes/);
+    }
+  }
+});
 
 assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-older']);
 

@@ -26,6 +26,28 @@ async function listen(server) {
   return typeof address === 'object' && address ? address.port : 0;
 }
 
+async function verifyMalformedJsonDrawingStatus() {
+  const { server: validationServer, studioDrawingService } = createLocalApiServer({
+    projectRoot: ROOT,
+    jobsDir: join(tmpRoot, 'validation-jobs'),
+  });
+  try {
+    const port = await listen(validationServer);
+    const response = await fetch(`http://127.0.0.1:${port}/api/studio/drawing-preview`, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ config_toml: '{"name":"broken",}' }),
+    });
+    assert.equal(response.status, 400, 'malformed JSON drawing config is an input error');
+    const payload = await response.json();
+    assert.equal(payload.error.code, 'drawing_preview_failed');
+    assert.match(payload.error.messages.join('\n'), /JSON parse error:.*(?:position|line|property name)/i);
+  } finally {
+    await new Promise((resolveClose) => validationServer.close(resolveClose));
+    await studioDrawingService.dispose();
+  }
+}
+
 const configToml = 'name = "demo"\n[[shapes]]\nid = "body"\ntype = "box"\nlength = 10\nwidth = 10\nheight = 10\n';
 
 const fakeDrawingService = {
@@ -138,6 +160,8 @@ const fakeDrawingService = {
 const { server } = createLocalApiServer({
   projectRoot: ROOT,
   jobsDir,
+  // This suite verifies submission and persistence; rendering is covered with controlled generators.
+  executorFactory: () => ({ async execute() {} }),
   studioDrawingServiceFactory() {
     return fakeDrawingService;
   },
@@ -294,6 +318,8 @@ try {
   });
   assert.equal(staleResponse.status, 400);
   assert.match(JSON.stringify(await staleResponse.json()), /revision_changed/);
+
+  await verifyMalformedJsonDrawingStatus();
 
   console.log('local-api-studio-drawing.test.js: ok');
 } finally {

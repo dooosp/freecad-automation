@@ -114,6 +114,39 @@ assert.equal(publicRedactionPayload.artifact_path, 'validation_diagnostics.json'
 assert.equal(publicRedactionPayload.diagnostics[0].safe_source_ref, '[redacted-url]');
 assert.equal(publicRedactionPayload.diagnostics[0].public_source_ref, 'https://github.com/dooosp/freecad-automation/issues/128');
 
+const containerPathPayload = redactPublicPathValues({
+  artifact_path: '/workspace/project/output/validation_diagnostics.json',
+  message: 'Runtime failed at /workspace/My Files/customer secret/part one.step before retry.',
+  home_path: '/root/projects/part.toml',
+  links: { self: '/jobs/job-123', artifact: '/artifacts/job-123/quality' },
+});
+assertNoLeakedPathStrings(containerPathPayload, [
+  '/workspace',
+  'My Files',
+  'customer secret',
+  '/root/projects',
+]);
+assert.equal(containerPathPayload.artifact_path, 'validation_diagnostics.json');
+assert.equal(containerPathPayload.home_path, 'part.toml');
+assert.equal(containerPathPayload.message, 'Runtime failed at part one.step before retry.');
+assert.deepEqual(containerPathPayload.links, {
+  self: '/jobs/job-123',
+  artifact: '/artifacts/job-123/quality',
+});
+
+const containerContextPayload = sanitizePublicPayload({
+  project: '/workspace/project',
+  message: 'Probe wrote /workspace/project/My Files/part one.step',
+  jobs: '/root/fcad/jobs',
+  route: '/jobs/job-123',
+}, createPublicPathContext({ projectRoot: '/workspace/project', jobsDir: '/root/fcad/jobs' }));
+assert.deepEqual(containerContextPayload, {
+  project: '<project-root>',
+  message: 'Probe wrote <project-root>/My Files/part one.step',
+  jobs: '<jobs-dir>',
+  route: '/jobs/job-123',
+});
+
 const spacedPathPayload = redactPublicPathValues({
   message: 'Runtime failed at /Users/alice/My Files/customer secret/part one.step before retry.',
   urls: [

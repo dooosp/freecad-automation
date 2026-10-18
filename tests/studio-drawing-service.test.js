@@ -176,6 +176,43 @@ function fullConfigToml() {
   return stringifyTOML(config);
 }
 
+test('JSON and TOML drawing previews share normalization and editable plan persistence', async (t) => {
+  const service = parityService(t);
+  const configToml = partialConfigToml();
+  const configJson = JSON.stringify(parseTOML(configToml));
+  const tomlResult = await service.buildPreview({ configToml });
+  const tomlConfig = generatedConfigs.at(-1);
+  const jsonResult = await service.buildPreview({ configToml: ` \n${configJson}\n ` });
+  const jsonConfig = generatedConfigs.at(-1);
+  assert.deepEqual({ ...jsonConfig, export: { ...jsonConfig.export, directory: tomlConfig.export.directory } }, tomlConfig,
+    'renderer receives the same normalized config apart from its isolated export directory');
+  assert.notEqual(jsonConfig.export.directory, tomlConfig.export.directory);
+  assert.deepEqual(jsonResult.preview.validation, tomlResult.preview.validation);
+  assert.deepEqual(jsonResult.preview.overview, tomlResult.preview.overview);
+  assert.deepEqual(jsonResult.preview.dimensions, tomlResult.preview.dimensions);
+  assert.equal(jsonResult.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 120);
+  assert.deepEqual(
+    parseTOML(readFileSync(jsonResult.preview.plan_path, 'utf8')),
+    parseTOML(readFileSync(tomlResult.preview.plan_path, 'utf8')),
+    'JSON input must still persist a valid editable TOML plan'
+  );
+});
+
+test('malformed, schema-invalid and unsafe JSON drawing inputs reject before preview allocation', async (t) => {
+  const service = parityService(t, {
+    mkdtempFn() { throw new Error('Invalid config reached preview allocation'); },
+  });
+  for (const [configToml, expectedError] of [
+    ['{"name":"broken",}', /JSON parse error:.*(?:position|line|property name)/i],
+    ['{"shapes":"not-an-array"}', /root\.shapes must be array/],
+    ...['__proto__', 'constructor', 'prototype'].map((key) => [
+      `{"metadata":{"${key}":"unsafe"}}`, /Unsafe config key/,
+    ]),
+  ]) {
+    await assert.rejects(service.buildPreview({ configToml }), expectedError);
+  }
+});
+
 test('partial plans receive compiled editable dimensions without losing explicit notes', async (t) => {
   const service = parityService(t);
   const { preview } = await service.buildPreview({ configToml: partialConfigToml() });
@@ -185,9 +222,9 @@ test('partial plans receive compiled editable dimensions without losing explicit
   assert.equal(toPublicDrawingPreviewPayload({ preview }).preview.editable_plan_available, true);
 });
 
-test('successful preview snapshots preserve edits across settings and report submission', async (t) => {
+for (const format of ['TOML', 'JSON']) test(`${format} preview snapshots preserve edits across settings and report submission`, async (t) => {
   const service = parityService(t);
-  const configToml = fullConfigToml();
+  const configToml = format === 'JSON' ? JSON.stringify(parseTOML(fullConfigToml())) : fullConfigToml();
   const first = await service.buildPreview({ configToml });
   assert.equal(typeof first.preview.revision, 'string');
   const edited = await service.updateDimension({ previewId: first.preview.id, previewRevision: first.preview.revision, dimId: 'WIDTH', valueMm: 150 });
@@ -203,7 +240,10 @@ test('successful preview snapshots preserve edits across settings and report sub
   assert.equal(translated.ok, true, translated.errors?.join('\n'));
   assert.equal(translated.request.config.drawing_plan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm, 150);
   assert.equal(translated.request.config.drawing.scale, '1:2');
-  assert.deepEqual(translated.request.config.parts, parseTOML(configToml).parts, 'annotation edits do not change geometry');
+  const sourceConfig = format === 'JSON' ? JSON.parse(configToml) : parseTOML(configToml);
+  for (const key of ['shapes', 'operations', 'parts']) {
+    assert.deepEqual(translated.request.config[key], sourceConfig[key], `annotation edits do not change ${key}`);
+  }
   await service.updateDimension({ previewId: refreshed.preview.id, dimId: 'WIDTH', valueMm: 160 });
   assert.equal(translated.request.config.drawing_plan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm, 150, 'queued input is immutable');
 });
@@ -234,9 +274,9 @@ test('failed and concurrent renders cannot leak a mutable plan into the saved sn
   assert.match(readFileSync(preview.artifacts.drawing, 'utf8'), /data-value-mm="120"/);
 });
 
-test('strict saved submissions reject stale, missing and mismatched previews', async (t) => {
+for (const format of ['TOML', 'JSON']) test(`strict saved ${format} submissions reject stale, missing and mismatched previews`, async (t) => {
   const service = parityService(t);
-  const configToml = fullConfigToml();
+  const configToml = format === 'JSON' ? JSON.stringify(parseTOML(fullConfigToml())) : fullConfigToml();
   const { preview } = await service.buildPreview({ configToml, drawingSettings: { scale: '1:2' } });
   const coordinator = createLocalApiJobCoordinator({ studioDrawingService: service });
   const request = { type: 'report', config_toml: configToml, drawing_preview_id: preview.id, drawing_preview_revision: preview.revision, drawing_settings: preview.settings, report_options: { include_drawing: true } };
@@ -264,9 +304,9 @@ test('strict saved submissions reject stale, missing and mismatched previews', a
   assert.equal((await translateStudioJobSubmission(malformed)).ok, false, 'snapshot resolution must not hide invalid request field types');
 });
 
-test('edited full plans survive actual TOML loading and the tracked job coordinator', async (t) => {
+for (const format of ['TOML', 'JSON']) test(`edited full plans survive ${format} source reloading and the tracked job coordinator`, async (t) => {
   const service = parityService(t);
-  const configToml = fullConfigToml();
+  const configToml = format === 'JSON' ? JSON.stringify(parseTOML(fullConfigToml())) : fullConfigToml();
   const first = await service.buildPreview({ configToml });
   const edited = await service.updateDimension({ previewId: first.preview.id, dimId: 'WIDTH', valueMm: 150 });
   assert.equal(edited.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 150);

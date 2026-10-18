@@ -16,6 +16,7 @@ import { convertPathFromRuntime, getFreeCADRuntime } from '../../../lib/paths.js
 import { buildRuntimeDiagnostics } from '../../../lib/runtime-diagnostics.js';
 import { collectRepoContext } from '../../../lib/output-manifest.js';
 import { loadShopProfile } from '../config/profile-service.js';
+import { captureReportInput, readReportQualityEvidence, verifyReportAnalysis } from './report-provenance.js';
 import {
   loadRuleProfile,
   resolveMaterialProfile,
@@ -135,6 +136,7 @@ export function createReportService({
     loadConfig,
     configPath,
     config,
+    inputRecord = null,
     outputDir = null,
     drawingResult = null,
     includeDrawing = true,
@@ -149,6 +151,7 @@ export function createReportService({
     profileName = null,
   }) {
     const loadedConfig = config ?? await loadConfig(resolve(freecadRoot, configPath));
+    const consumedInput = inputRecord || await captureReportInput(configPath ? resolve(freecadRoot, configPath) : null, loadedConfig);
     const resolvedOutputDir = outputDir
       ? resolve(freecadRoot, outputDir)
       : resolve(freecadRoot, 'output');
@@ -184,6 +187,8 @@ export function createReportService({
       loadedConfig.manufacturing?.material || loadedConfig.material || ''
     );
     const resolvedStandard = options?.standard || loadedConfig.standard || ruleProfile?.standards?.default_standard || 'KS';
+    const reportStandard = analysisResults?.standard || resolvedStandard;
+    const dfmProvenance = verifyReportAnalysis(analysisResults?.dfm, loadedConfig, { standard: reportStandard });
 
     let reportTemplate = null;
     if (templateName) {
@@ -225,11 +230,8 @@ export function createReportService({
       primaryOutputPath: expectedPdfPath,
       configName: loadedConfig.name,
     });
-    const [createQuality, drawingQuality, createManifest, drawingManifest, extractedDrawingSemantics] = await Promise.all([
-      readJsonIfExists(reportArtifacts.create_quality),
-      readJsonIfExists(reportArtifacts.drawing_quality),
-      readJsonIfExists(reportArtifacts.create_manifest),
-      readJsonIfExists(reportArtifacts.drawing_manifest),
+    const [qualityEvidence, extractedDrawingSemantics] = await Promise.all([
+      readReportQualityEvidence(reportArtifacts, consumedInput),
       readJsonIfExists(reportArtifacts.extracted_drawing_semantics),
     ]);
     const repoContext = collectRepoContext(freecadRoot);
@@ -243,10 +245,8 @@ export function createReportService({
       repoContext,
       runtimeInfo,
       artifactPaths: reportArtifacts,
-      createQuality,
-      drawingQuality,
-      createManifest,
-      drawingManifest,
+      ...qualityEvidence,
+      qualityProvenance: { ...qualityEvidence.qualityProvenance, dfm: dfmProvenance },
       extractedDrawingSemantics,
       dfm: normalizedResults.dfm || null,
       fem: normalizedResults.fem ? femInput : null,
@@ -255,7 +255,7 @@ export function createReportService({
 
     const reportInput = {
       ...loadedConfig,
-      standard: (analysisResults && analysisResults.standard) || resolvedStandard,
+      standard: reportStandard,
       ...(shopProfile ? { shop_profile: shopProfile } : {}),
       ...(ruleProfile ? { rule_profile: ruleProfile } : {}),
       export: { ...loadedConfig.export, directory: resolvedOutputDir },
@@ -318,11 +318,8 @@ export function createReportService({
       primaryOutputPath: resolvedPdfPath,
       configName: loadedConfig.name,
     });
-    const [finalCreateQuality, finalDrawingQuality, finalCreateManifest, finalDrawingManifest, finalExtractedDrawingSemantics] = await Promise.all([
-      readJsonIfExists(finalArtifactPaths.create_quality),
-      readJsonIfExists(finalArtifactPaths.drawing_quality),
-      readJsonIfExists(finalArtifactPaths.create_manifest),
-      readJsonIfExists(finalArtifactPaths.drawing_manifest),
+    const [finalQualityEvidence, finalExtractedDrawingSemantics] = await Promise.all([
+      readReportQualityEvidence(finalArtifactPaths, consumedInput),
       readJsonIfExists(finalArtifactPaths.extracted_drawing_semantics),
     ]);
     let featureCatalog = null;
@@ -352,10 +349,8 @@ export function createReportService({
       repoContext,
       runtimeInfo,
       artifactPaths: finalArtifactPaths,
-      createQuality: finalCreateQuality || createQuality,
-      drawingQuality: finalDrawingQuality || drawingQuality,
-      createManifest: finalCreateManifest || createManifest,
-      drawingManifest: finalDrawingManifest || drawingManifest,
+      ...finalQualityEvidence,
+      qualityProvenance: { ...finalQualityEvidence.qualityProvenance, dfm: dfmProvenance },
       extractedDrawingSemantics: finalExtractedDrawingSemantics || extractedDrawingSemantics,
       featureCatalog,
       dfm: normalizedResults.dfm || null,

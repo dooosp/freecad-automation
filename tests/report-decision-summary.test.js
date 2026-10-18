@@ -277,6 +277,21 @@ function makeBaseInput(overrides = {}) {
   };
 }
 
+test('explicitly unverified quality is excluded from readiness and scores', () => {
+  const summary = buildDecisionReportSummary(makeBaseInput({
+    fem: null, tolerance: null,
+    qualityProvenance: {
+      create_quality: { status: 'unverified', reason: 'input_sha256_mismatch' },
+      drawing_quality: { status: 'unverified', reason: 'quality_sha256_mismatch' },
+    },
+  }));
+  assert.equal(summary.overall_status, 'incomplete');
+  assert.notEqual(summary.ready_for_manufacturing_review, true);
+  assert.equal(summary.surfaces.create_quality.available, false);
+  assert.equal(summary.surfaces.drawing_quality.score, null);
+  assert.equal(summary.overall_score, null);
+});
+
 {
   const summary = buildDecisionReportSummary(makeBaseInput());
   const validation = validateDecisionReportSummary(summary);

@@ -22,6 +22,9 @@
     "automation"
   ],
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "bin": {
     "fcad": "./bin/fcad.js",
     "mfg-agent": "./bin/fcad.js"

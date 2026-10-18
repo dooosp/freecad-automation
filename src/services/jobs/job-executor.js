@@ -1,4 +1,5 @@
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import {
   AfExecutionContractError,
@@ -7,6 +8,7 @@ import {
   validateDocsManifestAgainstReadiness,
 } from '../../../lib/af-execution-contract.js';
 import { buildArtifactManifest } from '../../../lib/artifact-manifest.js';
+import { buildOutputManifest, writeOutputManifest } from '../../../lib/output-manifest.js';
 import { deepMerge } from '../../../lib/config-loader.js';
 import { loadConfigWithDiagnostics, serializeConfig, validateConfigDocument } from '../../../lib/config-schema.js';
 import { assertValidCArtifact } from '../../../lib/c-artifact-schema.js';
@@ -31,6 +33,8 @@ import { createDfmService } from '../../api/analysis.js';
 import { createDrawingService, runDrawPipeline } from '../../api/drawing.js';
 import { analyzeStep, createModel, generateCreateQualityArtifact, inspectModel } from '../../api/model.js';
 import { createReportService } from '../../api/report.js';
+import { captureReportInput } from '../report/report-provenance.js';
+import { deriveReportArtifactPaths } from '../report/decision-report-summary.js';
 import { createDrawingPdfService } from '../drawing/drawing-pdf-service.js';
 import { runReviewContextPipeline } from '../../orchestration/review-context-pipeline.js';
 import { runReleaseBundleWorkflow } from '../../workflows/release-bundle-workflow.js';
@@ -231,7 +235,7 @@ export async function prepareTrackedReportAnalysisResults({
     freecadRoot: projectRoot,
     configPath: resolvedConfig?.configPath || null,
     config: resolvedConfig?.config || null,
-    ...(fullQuality ? { process: resolvedConfig?.config?.manufacturing?.process || 'machining' } : {}),
+    process: resolvedConfig?.config?.manufacturing?.process || resolvedConfig?.config?.process || 'machining',
   });
 
   return {
@@ -1062,7 +1066,7 @@ export function createJobExecutor({
     return { ...result, create_quality: quality.report, create_quality_path: quality.path };
   }
 
-  async function executeDraw(job, resolvedConfig) {
+  async function executeDraw(job, resolvedConfig, { capturedConfig = false } = {}) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
     const resolvedConfigPath = resolveMaybe(projectRoot, resolvedConfig.configPath);
     const result = await runDrawPipeline({
@@ -1076,6 +1080,9 @@ export function createJobExecutor({
       failUnderValue: job.request.options?.fail_under ?? null,
       weightsPresetValue: job.request.options?.weights_preset ?? null,
       loadConfig: async (filepath) => {
+        if (capturedConfig && resolveMaybe(projectRoot, filepath) === resolvedConfigPath) {
+          return withTrackedExportDirectory(structuredClone(resolvedConfig.config), outputDir, { ensureExport: true });
+        }
         const loaded = (await loadConfigWithDiagnostics(filepath)).config;
         if (resolveMaybe(projectRoot, filepath) !== resolvedConfigPath) {
           return loaded;
@@ -1112,17 +1119,36 @@ export function createJobExecutor({
   async function executeReport(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
     const fullQuality = job.request.options?.full_quality === true;
+    const preservedDrawing = job.request.options?.studio?.preview_plan?.preserved === true;
+    const inputRecord = await captureReportInput(resolvedConfig.configPath, resolvedConfig.config);
+    const reportPaths = deriveReportArtifactPaths({ outputDir, configName: resolvedConfig.config.name });
+    const recordQuality = async (command, path, manifestPath, quality) => {
+      if (!path || !quality || !inputRecord.sha256) return;
+      // Both quality writers serialize this exact JSON payload. Bind the result
+      // they produced, even if a downstream PDF exporter replaces its file.
+      const bytes = Buffer.from(`${JSON.stringify(quality, null, 2)}\n`);
+      const manifest = await buildOutputManifest({
+        projectRoot, command, inputRecord,
+        outputRecords: [{
+          path, kind: command === 'create' ? 'model.create-quality' : 'drawing.quality-json',
+          exists: true, size_bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'),
+        }],
+        linkedArtifacts: { quality_json: path }, status: 'unknown',
+      });
+      await writeOutputManifest(manifestPath, manifest);
+    };
     const createResult = fullQuality ? await executeCreate(job, resolvedConfig) : null;
     if (createResult && createResult.success !== true) {
       throw new Error(createResult.error || 'Model generation failed before report creation.');
     }
-    const preservedDrawing = job.request.options?.studio?.preview_plan?.preserved === true;
+    if (createResult) await recordQuality('create', createResult.create_quality_path, reportPaths.create_manifest, createResult.create_quality);
     const drawingResult = fullQuality || preservedDrawing
-      ? await executeDraw({ ...job, request: { ...job.request, options: {} } }, resolvedConfig)
+      ? await executeDraw({ ...job, request: { ...job.request, options: {} } }, resolvedConfig, { capturedConfig: true })
       : null;
     if (drawingResult && drawingResult.success !== true) {
       throw new Error(drawingResult.error || 'Drawing generation failed before report creation.');
     }
+    if (drawingResult) await recordQuality('draw', drawingResult.drawing_quality_path, reportPaths.drawing_manifest, drawingResult.drawing_quality);
     // Full quality and preserved Drawing reports use only this run's generated evidence.
     const seededArtifacts = fullQuality || preservedDrawing ? {} : await seedTrackedReportArtifacts({
       projectRoot,
@@ -1152,6 +1178,7 @@ export function createJobExecutor({
       loadConfig: async (filepath) => (await loadConfigWithDiagnostics(filepath)).config,
       configPath: resolvedConfig.configPath,
       config: resolvedConfig.config,
+      inputRecord,
       outputDir,
       drawingResult,
       includeDrawing: fullQuality || preservedDrawing || job.request.options?.include_drawing === true,

@@ -11,14 +11,16 @@ const POSIX_FILESYSTEM_ROOTS = new Set([
   'mnt',
   'opt',
   'private',
+  'root',
   'srv',
   'tmp',
   'usr',
   'var',
+  'workspace',
 ]);
 
 const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
-const POSIX_EXT_PATH_PATTERN = /(?:\/(?:Applications|Users|Volumes|etc|home|mnt|opt|private|srv|tmp|usr|var)(?:\/[^\/\r\n"'`<>]+)+?\.[A-Za-z0-9]{1,12})\b/g;
+const POSIX_EXT_PATH_PATTERN = /(?:\/(?:Applications|Users|Volumes|etc|home|mnt|opt|private|root|srv|tmp|usr|var|workspace)(?:\/[^\/\r\n"'`<>]+)+?\.[A-Za-z0-9]{1,12})\b/g;
 const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
 
 function clone(value) {

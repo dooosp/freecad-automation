@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
+import test from 'node:test';
 
 import { prepareTrackedReportAnalysisResults } from '../src/services/jobs/job-executor.js';
 
@@ -110,3 +111,23 @@ import { prepareTrackedReportAnalysisResults } from '../src/services/jobs/job-ex
 }
 
 console.log('job-executor-report-analysis.test.js: ok');
+
+test('ordinary report DFM applies the configured casting process', async () => {
+  const result = await prepareTrackedReportAnalysisResults({
+    projectRoot: resolve(import.meta.dirname, '..'),
+    resolvedConfig: { config: {
+      name: 'ordinary_casting_probe',
+      manufacturing: { process: 'casting', material: 'AL6061' },
+      shapes: [
+        { id: 'body', type: 'cylinder', radius: 10, height: 10 },
+        { id: 'bore', type: 'cylinder', radius: 7.6, height: 12, position: [0, 0, -1] },
+      ],
+      operations: [{ op: 'cut', base: 'body', tool: 'bore', result: 'body' }],
+    } },
+    requestOptions: { include_dfm: true, full_quality: false },
+  });
+  assert.equal(result.dfm.resolved_process, 'casting');
+  const wall = result.dfm.checks.find((check) => check.rule_id === 'DFM-01');
+  assert.equal(wall.required_value, 3);
+  assert.equal(wall.status, 'fail', '2.4 mm wall must be judged against the 3 mm casting limit');
+});

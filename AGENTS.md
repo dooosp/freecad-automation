@@ -5,6 +5,11 @@
 - Source of truth is always the repository state: `git status`, diffs, tests, artifacts, and PR state.
 - When a task has a matching plan under `docs/exec-plans/`, treat that plan as the task-specific source of truth.
 
+## Current Guidance And Historical Scope
+- Start with `docs/current-state.md` for the baseline, current workflow references, and verification boundaries. Recheck HEAD and test results in each session; this document is not a permanent latest-version certificate.
+- The task addenda below preserve historical constraints for their named tasks only. They are not global restrictions on later approved maintenance, and their past observations are not current failures.
+- The 2026-10-18 audit remediation uses `docs/exec-plans/audit-remediation-2026-10-18.md`.
+
 ## Repo Preflight
 - Before implementation or review work, record:
   - `pwd`
@@ -156,10 +161,10 @@ Treat that execution plan as the task-specific source of truth for this worktree
   - default draw behavior must remain warning-friendly; strict failure should only happen through explicit strict-quality behavior
   - do not claim runtime-backed drawing validation unless a real draw command ran on this machine
   - keep control files inside this repo root only
-- Known upstream issue:
-  - `configs/examples/ks_bracket.toml` currently yields a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; treat that as upstream unless this task needs a tiny compatibility hook
-- Known pre-existing failure:
-  - `tests/output-contract-cli.test.js` currently expects `readiness-report.json` while the code emits `input.readiness-report`; do not fix it here unless this task directly requires that contract
+- Historical upstream observation (recheck before reuse):
+  - `configs/examples/ks_bracket.toml` was observed to yield a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; treat that as upstream unless this task needs a tiny compatibility hook
+- Historical failure (resolved by `75ebd37`, 2026-07-12):
+  - `tests/output-contract-cli.test.js` once expected `readiness-report.json` while the code emitted `input.readiness-report`. Use the current code and test result, not this old observation, for present status.
 - Progress tracking files for this task:
   - `tmp/codex/drawing-qa-gates-status.md`
   - `tmp/codex/drawing-qa-gates-tool-evidence.md`
@@ -188,12 +193,12 @@ Treat that execution plan as the task-specific source of truth for this worktree
   - keep default DFM exit-code behavior unchanged unless an existing strict path is explicitly used
   - reuse the shipped output-manifest conventions; do not create a second manifest or quality-report system
   - keep control files inside this repo root only
-- Known upstream issue:
-  - `configs/examples/ks_bracket.toml` currently yields a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; do not fix geometry generation or create-quality internals in this task
-- Known upstream issue:
-  - `configs/examples/ks_bracket.toml` currently yields a drawing-quality failure because of missing required intent `HOLE_DIA`, dimension conflicts, and low traceability coverage; do not fix drawing QA internals in this task
-- Known pre-existing failure:
-  - `tests/output-contract-cli.test.js` has a readiness provenance mismatch; do not fix it here unless this task directly requires that contract
+- Historical upstream observation (recheck before reuse):
+  - `configs/examples/ks_bracket.toml` was observed to yield a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; do not fix geometry generation or create-quality internals in this task
+- Historical upstream observation (recheck before reuse):
+  - `configs/examples/ks_bracket.toml` was observed to yield a drawing-quality failure because of missing required intent `HOLE_DIA`, dimension conflicts, and low traceability coverage; do not fix drawing QA internals in this task
+- Historical failure (resolved by `75ebd37`, 2026-07-12):
+  - `tests/output-contract-cli.test.js` previously had a readiness provenance mismatch. This is not an assertion that the current test fails.
 - Progress tracking files for this task:
   - `tmp/codex/dfm-actionable-suggestions-status.md`
   - `tmp/codex/dfm-actionable-suggestions-tool-evidence.md`
