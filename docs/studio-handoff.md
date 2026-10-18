@@ -1,5 +1,7 @@
 # Studio UI Handoff
 
+Maintenance note (2026-10-18): use this with [current state](./current-state.md) and the current implementation. Original phase-3 descriptions are historical where later revision-bound save/report behavior differs.
+
 `FreeCAD Automation Studio` is the preferred browser UI on the non-legacy `fcad serve` path. The Start workspace now explains the supported first-run path in terms of examples, previews, tracked results, and artifact re-entry. The legacy viewer remains intentionally reachable only as a classic compatibility mode for workflows that still depend on the old websocket shell.
 
 ## Browser modes
@@ -139,7 +141,7 @@ When a job settles while other tracked jobs are still active, the shell prefers 
 - Dimension edits stay on the preview route through `POST /api/studio/drawing-previews/:id/dimensions`.
 - Browser-visible preview responses use safe labels such as `preview_reference` and `editable_plan_reference`; the actual preview-plan file stays server-side.
 - `Run Tracked Draw Job` posts the shared TOML to `POST /api/studio/jobs` as type `draw`.
-- When the tracked draw is launched from an edited preview, the server tries to preserve that preview plan. If preservation is not safe, the tracked run falls back to the current TOML and drawing settings and records the reason in `request.options.studio.preview_plan`.
+- A tracked draw from the current Studio sends its preview revision and snapshot identity. Missing, stale, or mismatched preview snapshots are rejected with a request to regenerate; the server must not silently substitute current editor text for a revision-bound saved drawing. Legacy requests without revision requirements may still record a fallback in `request.options.studio.preview_plan`.
 
 `Artifacts` and `Review`
 

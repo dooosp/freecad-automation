@@ -58,9 +58,20 @@ function reportSummaryFromJob(job = {}) {
       || result.decision_summary
       || result._decision_summary
       || result.summary
-      || (drawingQuality.status ? { overall_status: drawingQuality.status } : null)
-      || (createQuality.status ? { overall_status: createQuality.status } : null)
+      || (job.type !== 'report' && drawingQuality.status ? { overall_status: drawingQuality.status } : null)
+      || (job.type !== 'report' && createQuality.status ? { overall_status: createQuality.status } : null)
   );
+}
+
+export function qualitySummaryFromJob(job = {}) {
+  const result = asObject(job.result);
+  const key = job.type === 'draw' ? 'drawing_quality' : job.type === 'create' ? 'create_quality' : '';
+  if (key && Object.hasOwn(result, key)) {
+    const quality = asObject(result[key]);
+    return { ...quality, overall_status: quality.status };
+  }
+  // Older jobs recorded only a generic summary; keep that compatibility path.
+  return reportSummaryFromJob(job);
 }
 
 function firstObjectWithAnyKey(candidates = [], keys = []) {
@@ -219,9 +230,15 @@ export function formatReadyForManufacturingReview(value) {
 
 export function deriveRecentJobQualityStatus(job = {}) {
   const reportSummary = reportSummaryFromJob(job);
-  const qualityStatus = formatQualityStatus(reportSummary.overall_status);
+  const qualityStatus = formatQualityStatus(qualitySummaryFromJob(job).overall_status);
+  const canonicalKey = job.type === 'draw' ? 'drawing_quality' : job.type === 'create' ? 'create_quality' : '';
+  const hasCanonicalQuality = canonicalKey && Object.hasOwn(asObject(job.result), canonicalKey);
+  // A generic affirmative decision cannot override failed or unavailable canonical checks.
+  const recordedReadiness = hasCanonicalQuality && qualityStatus !== 'Quality passed'
+    && reportSummary.ready_for_manufacturing_review === true
+    ? null : reportSummary.ready_for_manufacturing_review;
   const readyForManufacturingReview = readinessHoldLabel(job, reportSummary)
-    || formatReadyForManufacturingReview(reportSummary.ready_for_manufacturing_review);
+    || formatReadyForManufacturingReview(recordedReadiness);
 
   return {
     configName: deriveConfigName(job, reportSummary),
@@ -233,9 +250,11 @@ export function deriveRecentJobQualityStatus(job = {}) {
 }
 
 function hasDecisionPayload(job = {}) {
-  const reportSummary = reportSummaryFromJob(job);
+  const reportSummary = qualitySummaryFromJob(job);
   const readinessSummary = readinessSummaryFromJob(job, reportSummary);
-  return Object.keys(reportSummary).length > 0 || Object.keys(readinessSummary).length > 0;
+  const hasReportComponents = job.type === 'report'
+    && ['create_quality', 'drawing_quality'].some((key) => Object.hasOwn(asObject(job.result), key));
+  return Object.keys(reportSummary).length > 0 || Object.keys(readinessSummary).length > 0 || hasReportComponents;
 }
 
 function executionDecisionState(status = '') {

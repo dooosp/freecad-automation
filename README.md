@@ -1,5 +1,7 @@
 # FreeCAD Automation
 
+Current maintenance and version boundaries: [current state](./docs/current-state.md).
+
 FreeCAD Automation turns FreeCAD configs and existing CAD files into traceable manufacturing review, revision-impact, inspection-planning, and evidence-onboarding artifacts. It is for engineers and reviewers who need a local, auditable path from design input to reviewable outputs without treating generated analysis as physical inspection evidence.
 
 ## Choose a workflow
@@ -245,8 +247,8 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
 | FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
-| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `closeout-package`, `evidence-graph`, `evidence-readiness-audit`, `evidence-artifacts-materialize`, `maintainer-decision-journal`, `inspection-evidence-intake`, `inspection-evidence-quarantine`, `inspection-evidence-validate`, `inspection-evidence-authorize`, `inspection-evidence-attach`, `inspection-evidence-regenerate-readiness`, `inspection-evidence-promotion-dry-run`, `inspection-plan`, `manufacturing-action-dataset`, `inspection-plan-release-record`, `inspection-result-normalize`, `stage5b-evidence-audit`, `stage5b-evidence-review-dry-run`, `stage5b-evidence-attachment-controller`, `stage5b-evidence-pipeline-doctor`, `stage5b-evidence-source-kit`, `stage5b-evidence-source-preflight`, `stage5b-surrogate-inspection-validation`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json`, while inspection evidence uses checksum-bound plan release, untrusted result normalization, quarantine, and separately authorized attachment/readiness boundaries so ordinary readiness packaging remains held on unverified claims |
-| Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `closeout-package`, `evidence-graph`, `evidence-readiness-audit`, `evidence-artifacts-materialize`, `maintainer-decision-journal`, `inspection-evidence-intake`, `inspection-evidence-quarantine`, `inspection-evidence-validate`, `inspection-evidence-authorize`, `inspection-evidence-attach`, `inspection-evidence-regenerate-readiness`, `inspection-evidence-promotion-dry-run`, `inspection-plan`, `manufacturing-action-dataset`, `inspection-plan-release-record`, `inspection-result-normalize`, `stage5b-evidence-audit`, `stage5b-evidence-review-dry-run`, `stage5b-evidence-attachment-controller`, `stage5b-evidence-pipeline-doctor`, `stage5b-evidence-source-kit`, `stage5b-evidence-source-preflight`, `stage5b-surrogate-inspection-validation`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json`, while inspection evidence uses checksum-bound plan release, untrusted result normalization, quarantine, and separately authorized attachment/readiness boundaries so ordinary readiness packaging remains held on unverified claims |
+| Mixed / conditional | `review-context`, `analyze-part`, `design`, `sweep` | `review-context` and `analyze-part` can inspect CAD through FreeCAD when a model/context supplies geometry, with metadata-only fallback; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 
 ### Production-Readiness Commands
 
@@ -1083,7 +1085,7 @@ See the [authoritative system blueprint](./docs/architecture/README.md) for the 
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 24+ (CI tests Node 24; Node 18 is not supported)
 - Python 3.11+
 - FreeCAD 1.1.x for the FreeCAD-backed commands
 

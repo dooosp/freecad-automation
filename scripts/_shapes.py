@@ -334,8 +334,8 @@ def apply_shell(shape, thickness, face_indices=None):
 
 def _fetch_url(url, cache_dir):
     """
-    Download a file from URL to cache_dir using SHA256-based filename.
-    Returns the local cached filepath. Skips download if cached.
+    Refresh a URL into cache_dir using a SHA256-based filename.
+    Publish complete downloads atomically; errors never return stale cache bytes.
     """
     # Determine extension from URL
     url_path = url.split("?")[0]
@@ -346,16 +346,37 @@ def _fetch_url(url, cache_dir):
     url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
     cached_path = os.path.join(cache_dir, f"{url_hash}{ext}")
 
-    if os.path.exists(cached_path):
-        print(f"[freecad] Import: cache hit {cached_path}", file=sys.stderr, flush=True)
-        return cached_path
-
     os.makedirs(cache_dir, exist_ok=True)
 
-    # Use urllib (available in FreeCAD's bundled Python)
+    # Always contact the source, including through HTTP caches. These standard
+    # library modules are available in FreeCAD's bundled Python.
+    import shutil
+    import tempfile
+    import urllib.error
     import urllib.request
+    request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
     print(f"[freecad] Import: downloading {url}", file=sys.stderr, flush=True)
-    urllib.request.urlretrieve(url, cached_path)
+    temporary_path = None
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            with tempfile.NamedTemporaryFile(mode="wb", dir=cache_dir,
+                                             prefix=f"{url_hash}.", suffix=".tmp",
+                                             delete=False) as download:
+                temporary_path = download.name
+                shutil.copyfileobj(response, download)
+                expected_size = response.headers.get("Content-Length")
+                if expected_size is not None and download.tell() < int(expected_size):
+                    raise urllib.error.ContentTooShortError(
+                        f"Import download incomplete: expected {expected_size} bytes, got {download.tell()}",
+                        None,
+                    )
+        os.replace(temporary_path, cached_path)
+    finally:
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
     print(f"[freecad] Import: saved to {cached_path}", file=sys.stderr, flush=True)
     return cached_path
 

@@ -1333,8 +1333,8 @@ function emitConfigWarnings(summary) {
   }
 }
 
-async function loadConfigDocumentForCli(filepath) {
-  const result = await loadConfigWithDiagnostics(filepath);
+async function loadConfigDocumentForCli(filepath, options = {}) {
+  const result = await loadConfigWithDiagnostics(filepath, options);
   emitConfigWarnings(result.summary);
   return result;
 }
@@ -1440,11 +1440,13 @@ async function emitOutputManifestSafe({
   repoContext,
   startedAt,
   inputPath = null,
+  inputRecord = undefined,
   primaryOutputPath = null,
   outputDir = null,
   baseName = null,
   outputs = [],
   linkedArtifacts = {},
+  producedQuality = null,
   warnings = [],
   errors = [],
   status = undefined,
@@ -1457,6 +1459,7 @@ async function emitOutputManifestSafe({
       command,
       commandArgs,
       inputPath,
+      inputRecord,
       outputs,
       linkedArtifacts,
       warnings,
@@ -1467,6 +1470,17 @@ async function emitOutputManifestSafe({
         finishedAt,
       },
     });
+    if (producedQuality?.path && producedQuality.report) {
+      const record = manifest.outputs.find((entry) => entry.path === resolve(producedQuality.path));
+      if (!record) throw new Error('Produced quality must be declared as a manifest output.');
+      // Bind the quality writer's exact serialization, not replacement bytes
+      // another process may have put at the same path before publication.
+      const bytes = Buffer.from(`${JSON.stringify(producedQuality.report, null, 2)}\n`);
+      Object.assign(record, {
+        exists: true, size_bytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      });
+    }
     const manifestPath = createOutputManifestPath({
       primaryOutputPath,
       outputDir,
@@ -3799,7 +3813,7 @@ async function cmdDesign(description) {
 
   // Build the generated TOML
   console.log('\nBuilding model...');
-  await cmdCreate(tomlPath);
+  await cmdCreate([tomlPath]);
   console.log('\nLegacy viewer: fcad serve --legacy-viewer → http://localhost:3000');
 }
 
@@ -3851,7 +3865,7 @@ async function cmdDraw(rawArgs = []) {
   const absPath = resolveMaybe(configPath);
   let configDocument = null;
   try {
-    configDocument = await loadConfigDocumentForCli(absPath);
+    configDocument = await loadConfigDocumentForCli(absPath, { captureInputRecord: true });
     const result = await runDrawPipeline({
       projectRoot: PROJECT_ROOT,
       configPath: absPath,
@@ -3860,7 +3874,9 @@ async function cmdDraw(rawArgs = []) {
       failUnderValue,
       weightsPresetValue,
       strictQuality,
-      loadConfig: loadConfigForCli,
+      loadConfig: (filepath) => resolve(filepath) === absPath
+        ? structuredClone(configDocument.config)
+        : loadConfigForCli(filepath),
       deepMerge,
       generateDrawing,
       runScript: runWithCliStderr,
@@ -3888,9 +3904,13 @@ async function cmdDraw(rawArgs = []) {
     await emitOutputManifestSafe({
       command: 'draw',
       commandArgs: rawArgs,
+      producedQuality: { path: result.drawing_quality_path, report: result.drawing_quality },
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: overridePath
+        ? { path: absPath, sha256: null, size_bytes: null }
+        : configDocument.inputRecord,
       primaryOutputPath: svgPath,
       outputDir: configDocument.config.export?.directory || null,
       outputs: (result.drawing_paths || [])
@@ -3939,6 +3959,9 @@ async function cmdDraw(rawArgs = []) {
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: !overridePath && configDocument?.inputRecord
+        ? configDocument.inputRecord
+        : { path: absPath, sha256: null, size_bytes: null },
       primaryOutputPath: predicted.primaryOutputPath,
       outputDir: configDocument?.config?.export?.directory || null,
       outputs: predicted.outputs,
@@ -4023,7 +4046,7 @@ async function cmdCreate(rawArgs = []) {
   let configDocument = null;
   let config = null;
   try {
-    configDocument = await loadConfigDocumentForCli(absPath);
+    configDocument = await loadConfigDocumentForCli(absPath, { captureInputRecord: true });
     config = configDocument.config;
     console.log(`Creating model: ${config.name || 'unnamed'}`);
     console.log(`  Shapes: ${config.shapes?.length || 0}`);
@@ -4085,14 +4108,17 @@ async function cmdCreate(rawArgs = []) {
     await emitOutputManifestSafe({
       command: 'create',
       commandArgs: strictQuality ? [configPath, '--strict-quality'] : [configPath],
+      producedQuality: { path: createQuality.path, report: createQuality.report },
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: configDocument?.inputRecord,
       primaryOutputPath: result.exports?.[0]?.path || null,
       outputDir: config.export?.directory || null,
       outputs: [
         ...createOutputEntriesFromExports(result.exports, 'model'),
         ...createOutputEntriesFromPartFiles(result.assembly?.part_files),
+        createOutputEntry('model.create-quality', createQuality.path),
       ],
       linkedArtifacts: {
         quality_json: createQuality.path,
@@ -4148,6 +4174,7 @@ async function cmdCreate(rawArgs = []) {
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: configDocument?.inputRecord,
       outputDir: config?.export?.directory || null,
       outputs: buildExpectedModelOutputs(config),
       warnings: configDocument?.summary?.warnings || [],
@@ -4638,7 +4665,7 @@ async function cmdReport(rawArgs = []) {
   let configDocument = null;
   let config = null;
   try {
-    configDocument = await loadConfigDocumentForCli(absPath);
+    configDocument = await loadConfigDocumentForCli(absPath, { captureInputRecord: true });
     config = configDocument.config;
     const includeTolerance = options['no-tolerance'] !== true;
     const includeFem = options.fem === true;
@@ -4704,6 +4731,7 @@ async function cmdReport(rawArgs = []) {
       loadConfig: loadConfigForCli,
       configPath: absPath,
       config,
+      inputRecord: configDocument?.inputRecord,
       outputDir,
       includeDrawing: false,
       includeDfm,
@@ -4737,6 +4765,7 @@ async function cmdReport(rawArgs = []) {
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: configDocument?.inputRecord,
       primaryOutputPath: result.path,
       outputDir,
       outputs: [
@@ -4792,6 +4821,7 @@ async function cmdReport(rawArgs = []) {
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: configDocument?.inputRecord,
       outputDir,
       outputs: expectedOutputs,
       linkedArtifacts: {

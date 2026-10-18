@@ -34,7 +34,8 @@ test('full_quality is a boolean option accepted only for report jobs', () => {
   }
 });
 
-async function runReport(t, { invalidShape = false, createFailure = false, runtimeAvailable = true, formats, fullQuality = true, pathInput = false, unsafeHole = false } = {}) {
+// Native CAD and PDF boundaries are synthetic; orchestration and provenance are real.
+async function runReport(t, { invalidShape = false, createFailure = false, runtimeAvailable = true, formats, fullQuality = true, pathInput = false, unsafeHole = false, replaceCreateQuality = false, replaceDrawingQuality = false } = {}) {
   await mkdir(join(ROOT, 'tmp'), { recursive: true });
   const temp = await mkdtemp(join(ROOT, 'tmp/full-quality-report-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
@@ -96,6 +97,9 @@ async function runReport(t, { invalidShape = false, createFailure = false, runti
     projectRoot: ROOT, jobStore: store, runScriptFn: runtime,
     exportDrawingPdf: async ({ outputDir }) => {
       calls.push('drawing_pdf');
+      if (replaceDrawingQuality) {
+        await writeFile(join(outputDir, `${NAME}_drawing_quality.json`), JSON.stringify({ status: 'pass' }));
+      }
       const path = join(outputDir, `${NAME}_drawing.pdf`);
       await writeFile(path, '%PDF-1.4\nfixture print renderer boundary\n%%EOF\n');
       return { path, physical_width_mm: 297, physical_height_mm: 210, page_box_tolerance_mm: 0.2 };
@@ -104,6 +108,9 @@ async function runReport(t, { invalidShape = false, createFailure = false, runti
     generateDrawing: async ({ config: drawn }) => {
       calls.push('drawing');
       drawingConfig = structuredClone(drawn);
+      if (replaceCreateQuality) {
+        await writeFile(join(drawn.export.directory, `${NAME}_create_quality.json`), JSON.stringify({ status: 'pass' }));
+      }
       const path = join(drawn.export.directory, `${NAME}_drawing.svg`);
       await writeFile(path, '<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 297 210"><rect x="20" y="20" width="50" height="50" fill="none" stroke="black"/></svg>');
       return { success: true, drawing_paths: [{ format: 'svg', path }], views: ['front'], scale: '1:2' };
@@ -158,6 +165,21 @@ test('full report adds STEP and STL when the captured config has no export block
   assert.deepEqual(result.createConfig.export.formats, ['step', 'stl']);
   assert.equal(result.job.result.create_result.create_quality.step_roundtrip.reimport_valid, true);
   assert.equal(result.job.result.create_result.create_quality.stl_quality.triangle_count, 12);
+});
+
+test('synthetic: full report cannot bless create quality replaced during drawing', async (t) => {
+  const result = await runReport(t, { replaceCreateQuality: true });
+  assert.equal(result.job.status, 'succeeded', result.job.error?.message);
+  assert.equal(result.job.result.report_summary.surfaces.create_quality.available, false);
+  assert.equal(result.job.result.report_summary.surfaces.create_quality.provenance.reason, 'quality_sha256_mismatch');
+  assert.notEqual(result.job.result.report_summary.ready_for_manufacturing_review, true);
+});
+
+test('synthetic: full report cannot bless drawing quality replaced by a downstream renderer', async (t) => {
+  const result = await runReport(t, { replaceDrawingQuality: true });
+  assert.equal(result.job.status, 'succeeded', result.job.error?.message);
+  assert.equal(result.job.result.report_summary.surfaces.drawing_quality.available, false);
+  assert.equal(result.job.result.report_summary.surfaces.drawing_quality.provenance.reason, 'quality_sha256_mismatch');
 });
 
 test('create quality failure remains a failed quality decision while PDF execution succeeds', async (t) => {

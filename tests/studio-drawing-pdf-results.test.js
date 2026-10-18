@@ -123,3 +123,54 @@ test('advanced generated downloads never mislabel a drawing PDF as the report', 
   const drawingOnlyGroups = collectGeneratedArtifactGroups([artifact('drawing.pdf')]);
   assert.equal(drawingOnlyGroups.find((group) => group.id === 'reports').rows.some((row) => row.id === 'pdf-report'), false);
 });
+
+for (const [locale, label, coverage] of [
+  ['en', 'Quality blockers', 'Drawing evidence coverage is 80%'],
+  ['ko', '품질 통과를 막는 문제', '도면 근거 연결률이 80%'],
+]) {
+  test(`${locale} results show canonical drawing blockers and clear them with the next result`, async (t) => {
+    const { root, state, controller } = await mountResults(t, {
+      locale, artifacts: [artifact('drawing.qa-report', { extension: '.json' }), artifact('drawing.svg', { capabilities: { can_open: false, can_download: true } })],
+      result: {
+        summary: { overall_status: 'pass', blocking_issues: ['stale generic blocker'] },
+        drawing_quality: {
+          status: 'fail', score: 89,
+          traceability: { coverage_percent: 80, unmapped_required_entities: ['WIDTH', '', null] },
+          blocking_issues: [
+            { code: 'traceability-coverage', message: 'Traceability coverage is below the required threshold.' },
+            { code: 'missing-dimension', message: 'Required diameter is missing.' },
+            null,
+          ],
+        },
+      },
+    });
+    const summary = root.querySelector('[data-hook="artifacts-result-summary"]');
+    assert.ok(summary.textContent.includes(label), summary.textContent);
+    assert.ok(summary.textContent.includes(coverage), summary.textContent);
+    assert.match(summary.textContent, /WIDTH/);
+    assert.match(summary.textContent, /Required diameter is missing\./);
+    assert.doesNotMatch(summary.textContent, /stale generic blocker/);
+    assert.match(summary.textContent, locale === 'en' ? /Failed/ : /실패/);
+    assert.equal(summary.querySelector('[data-primary-result="true"]').dataset.resultArtifactId, 'drawing-svg');
+
+    state.data.activeJob.summary.result.drawing_quality = {
+      status: 'pass', traceability: { coverage_percent: 100, unmapped_required_entities: [] }, blocking_issues: [],
+    };
+    controller.syncFromShell();
+    assert.match(summary.textContent, locale === 'en' ? /Passed/ : /통과/);
+    assert.doesNotMatch(summary.textContent, /WIDTH|80%|Required diameter|stale generic blocker/);
+    assert.equal(summary.textContent.includes(label), false);
+  });
+}
+
+test('create results surface canonical string blockers without changing execution success', async (t) => {
+  const { root } = await mountResults(t, {
+    type: 'create', artifacts: [artifact('model.step')],
+    result: { summary: { overall_status: 'pass' }, create_quality: { status: 'fail', blocking_issues: ['STEP round-trip failed.'] } },
+  });
+  const summary = root.querySelector('[data-hook="artifacts-result-summary"]');
+  assert.match(summary.textContent, /Quality blockers/);
+  assert.match(summary.textContent, /STEP round-trip failed\./);
+  assert.match(summary.textContent, /Completed/);
+  assert.match(summary.textContent, /Failed/);
+});

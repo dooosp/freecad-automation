@@ -145,6 +145,12 @@ assert.deepEqual(readyJson, buildRuntimeDiagnostics({
 }));
 assert.equal(readyJson.command_classes.freecad_backed.includes('inspect'), true);
 assert.equal(readyJson.capability_map['check-runtime'].classification, 'diagnostics');
+// A model/context with geometry can launch inspection; diagnostics must not
+// promise that review-context is always a non-FreeCAD operation.
+assert.equal(readyJson.capability_map['review-context'].classification, 'mixed-conditional');
+assert.equal(readyJson.capability_map['review-context'].requires_freecad_runtime, null);
+assert.match(readyJson.capability_map['review-context'].note, /metadata-only/i);
+assert.equal(readyJson.command_classes.plain_python_or_node.includes('review-context'), false);
 assert.equal(readyJson.support_boundary_note, null);
 assert.equal(readyJson.artifact_class, 'runtime_diagnostics');
 assert.equal(readyJson.inspection_evidence_status, 'not_inspection_evidence');

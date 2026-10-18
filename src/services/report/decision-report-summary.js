@@ -832,6 +832,7 @@ export function buildDecisionReportSummary({
   drawingQuality = null,
   createManifest = null,
   drawingManifest = null,
+  qualityProvenance = null,
   extractedDrawingSemantics = null,
   featureCatalog = null,
   reportManifest = null,
@@ -848,6 +849,16 @@ export function buildDecisionReportSummary({
     ...(artifactPaths || {}),
   };
 
+  if (qualityProvenance?.create_quality?.status === 'unverified') {
+    createQuality = null;
+    createManifest = null;
+  }
+  if (qualityProvenance?.drawing_quality?.status === 'unverified') {
+    drawingQuality = null;
+    drawingManifest = null;
+  }
+  if (qualityProvenance?.dfm?.status === 'unverified') dfm = null;
+
   const surfaces = {
     create_quality: summarizeCreateQuality(createQuality),
     drawing_quality: summarizeDrawingQuality(drawingQuality),
@@ -855,6 +866,13 @@ export function buildDecisionReportSummary({
     fem: summarizeFem(fem),
     tolerance: summarizeTolerance(tolerance, thresholds.tolerance_success_rate_pct),
   };
+  for (const key of ['create_quality', 'drawing_quality', 'dfm']) {
+    if (!qualityProvenance?.[key]) continue;
+    surfaces[key].provenance = qualityProvenance[key];
+    if (qualityProvenance[key].status !== 'verified') {
+      surfaces[key].warnings.push(`${key} provenance: ${qualityProvenance[key].reason}. Current-input quality could not be verified.`);
+    }
+  }
   const drawingIntent = getDrawingIntent(config);
 
   let overallStatus = 'pass';
@@ -955,18 +973,21 @@ export function buildDecisionReportSummary({
       'Create quality JSON',
       paths.create_quality,
       deriveArtifactStatus(paths.create_quality, createQuality),
+      qualityProvenance?.create_quality?.status !== 'verified' ? qualityProvenance?.create_quality?.reason || null : null,
     ),
     artifactRef(
       'drawing_quality',
       'Drawing quality JSON',
       paths.drawing_quality,
       deriveArtifactStatus(paths.drawing_quality, drawingQuality),
+      qualityProvenance?.drawing_quality?.status !== 'verified' ? qualityProvenance?.drawing_quality?.reason || null : null,
     ),
     artifactRef(
       'dfm',
       'DFM analysis',
       null,
       deriveArtifactStatus(null, null, { inMemory: Boolean(dfm) }),
+      qualityProvenance?.dfm?.status !== 'verified' ? qualityProvenance?.dfm?.reason || null : null,
     ),
     artifactRef(
       'fem',

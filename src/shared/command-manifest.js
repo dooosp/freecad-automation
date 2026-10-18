@@ -765,7 +765,7 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
   }),
   Object.freeze({
     name: 'review-context',
-    helpSection: 'plain-python-node',
+    helpSection: 'mixed-conditional',
     helpEntries: Object.freeze([
       Object.freeze({
         usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json --attachment-authorization authorization_record.json --evidence-attachment-record attachment_record.json] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
@@ -777,9 +777,9 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
       }),
     ]),
     runtime: Object.freeze({
-      classification: 'plain-python-node',
-      requiresFreecadRuntime: false,
-      note: null,
+      classification: 'mixed-conditional',
+      requiresFreecadRuntime: null,
+      note: 'Uses FreeCAD for model inspection when a model or context geometry path is supplied; retains metadata-only fallback when runtime inspection is unavailable.',
     }),
     surfaces: Object.freeze({
       jobExecutor: true,

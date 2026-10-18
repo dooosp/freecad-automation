@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { registerHooks } from 'node:module';
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import { setLocale } from '../public/js/i18n/index.js';
 import { workspaceDefinitions } from '../public/js/studio/workspaces.js';
 import { createStudioShellState } from '../public/js/studio/studio-shell-store.js';
@@ -27,6 +28,14 @@ const fields = [
 const inspected = (configText = source) => ({ ok: true, supported: true, profile_id: 'bracket', source_sha256: hash(configText), fields });
 const applied = (configText = candidate) => ({ ...inspected(), fields: fields.map((field) => field.id === 'plate_length_mm' ? { ...field, value_mm: 180 } : field), config_toml: configText, candidate_sha256: hash(configText), changed: configText !== source });
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+async function finishParameterOperation(state) {
+  const deadline = performance.now() + 5000;
+  while (['inspecting', 'applying'].includes(state.data.model.parameterEditor?.status)) {
+    assert.ok(performance.now() < deadline, 'The operation should settle after its response and hash validation');
+    await delay(5);
+  }
+}
 
 async function setup(t) {
   const { mountModelParameterEditor } = await import('../public/js/studio/model-parameters.js');
@@ -61,10 +70,7 @@ async function setup(t) {
   const controller = mount();
   t.after(() => mounts.forEach((entry) => entry.destroy()));
   const click = (action) => root.querySelector(`[data-action="model-parameters-${action}"]`).dispatch('click');
-  async function finish() {
-    for (let step = 0; step < 1000 && ['inspecting', 'applying'].includes(state.data.model.parameterEditor?.status); step += 1) await settle();
-    assert.ok(!['inspecting', 'applying'].includes(state.data.model.parameterEditor?.status), 'The operation should settle after its response and hash validation');
-  }
+  const finish = () => finishParameterOperation(state);
   async function inspect() { click('inspect'); requests.at(-1).resolve(inspected()); await finish(); }
   const input = (id = 'plate_length_mm') => root.querySelector(`[data-model-parameter="${id}"]`);
   function edit(value, id = 'plate_length_mm') { input(id).value = String(value); input(id).dispatch('input'); }
@@ -162,9 +168,10 @@ test('a delayed inspection cannot replace fields for a changed source', async (t
 });
 
 test('unsupported configurations keep their TOML and expose no guessed numeric form', async (t) => {
-  const { requests, state, click, input, root } = await setup(t);
+  const { requests, state, click, input, root, finish } = await setup(t);
   click('inspect'); requests[0].resolve({ ok: true, supported: false, source_sha256: hash(source), profile_id: null, fields: [], reason: 'unsupported_configuration' });
-  await settle(); await settle();
+  await finish();
+  assert.equal(state.data.model.parameterEditor.status, 'unsupported');
   assert.equal(input(), null); assert.equal(state.data.model.configText, source);
   assert.match(root.querySelector('[data-hook="model-parameters-status"]').textContent, /TOML/);
 });
@@ -270,12 +277,12 @@ test('the mounted Model controller installs parameter changes into its existing 
   const controller = mountModelWorkspace({ root, state, addLog() {}, onDraftChange() { draftWrites += 1; } });
   t.after(() => controller.destroy());
   root.querySelector('[data-action="model-parameters-inspect"]').dispatch('click'); requests[0].resolve(inspected());
-  for (let step = 0; step < 1000 && state.data.model.parameterEditor.status === 'inspecting'; step += 1) await settle();
+  await finishParameterOperation(state);
   const input = root.querySelector('[data-model-parameter="plate_length_mm"]');
   assert.ok(input); input.value = '180'; input.dispatch('input');
   const beforeApply = draftWrites;
   root.querySelector('[data-action="model-parameters-apply"]').dispatch('click'); requests[1].resolve(applied());
-  for (let step = 0; step < 1000 && state.data.model.parameterEditor.status === 'applying'; step += 1) await settle();
+  await finishParameterOperation(state);
   assert.equal(root.querySelector('[data-hook="config-textarea"]').value, candidate);
   assert.equal(root.querySelector('[data-model-guided-step="preflight"]').hidden, false);
   assert.ok(draftWrites > beforeApply, 'the shared draft is persisted through the existing Model callback');
@@ -309,37 +316,40 @@ async function setupMountedSourceReload(t, { fileSource = false } = {}) {
   const controller = mountModelWorkspace({ root, state, addLog() {} });
   t.after(() => controller.destroy());
   const click = (action) => root.querySelector(`[data-action="model-parameters-${action}"]`).dispatch('click');
-  async function finish() {
-    for (let step = 0; step < 1000 && ['inspecting', 'applying'].includes(state.data.model.parameterEditor.status); step += 1) await settle();
-    assert.ok(!['inspecting', 'applying'].includes(state.data.model.parameterEditor.status));
-  }
+  const finish = () => finishParameterOperation(state);
   click('inspect'); requests[0].resolve(inspected()); await finish();
   const input = root.querySelector('[data-model-parameter="plate_length_mm"]');
-  input.value = '180'; input.dispatch('input'); click('apply');
+  input.value = '180'; input.dispatch('input');
+  const pendingApply = click('apply');
   assert.equal(state.data.model.parameterEditor.status, 'applying');
-  return { state, root, requests, finish };
+  return { state, root, requests, pendingApply };
 }
 
 for (const action of ['same-example', 'same-file', 'file-read-pending', 'same-text-edit', 'text-A-B-A']) {
   test(`explicit ${action} intent retires delayed Apply even when final source values match`, async (t) => {
-    const { state, root, requests } = await setupMountedSourceReload(t, { fileSource: action.includes('file') });
+    const { state, root, requests, pendingApply } = await setupMountedSourceReload(t, { fileSource: action.includes('file') });
     let releaseFile;
+    let sourceIntent;
     if (action === 'same-example') root.querySelector('[data-hook="load-example"]').dispatch('click');
     else if (action.includes('file')) {
       const input = root.querySelector('[data-hook="config-file"]');
       input.files = [{ name: 'bracket.toml', text: () => action === 'file-read-pending'
         ? new Promise((resolve) => { releaseFile = resolve; }) : Promise.resolve(source) }];
-      input.dispatch('change');
+      sourceIntent = input.dispatch('change');
     } else {
       const input = root.querySelector('[data-hook="config-textarea"]');
       if (action === 'text-A-B-A') { input.value = 'name = "B"'; input.dispatch('input'); }
       input.value = source; input.dispatch('input');
     }
-    await settle();
-    assert.equal(state.data.model.configText, source, 'new intent restores or retains the original source');
-    requests[1].resolve(applied()); await settle(); await settle();
-    assert.equal(state.data.model.configText, source, 'the retired Apply must not reinstall discarded edits');
-    assert.equal(root.querySelector('[data-model-parameter="plate_length_mm"]'), null, 'source replacement retires the old numeric profile');
-    if (releaseFile) { releaseFile(source); await settle(); }
+    try {
+      if (!releaseFile) await sourceIntent;
+      assert.equal(state.data.model.parameterEditor.status, 'stale', 'the new intent retires the profile before a pending file read finishes');
+      assert.equal(state.data.model.configText, source, 'new intent restores or retains the original source');
+      requests[1].resolve(applied()); await pendingApply;
+      assert.equal(state.data.model.configText, source, 'the retired Apply must not reinstall discarded edits');
+      assert.equal(root.querySelector('[data-model-parameter="plate_length_mm"]'), null, 'source replacement retires the old numeric profile');
+    } finally {
+      if (releaseFile) { releaseFile(source); await sourceIntent; }
+    }
   });
 }

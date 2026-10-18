@@ -1,6 +1,6 @@
 # Studio UI Plan
 
-This planning note is now complemented by the contributor handoff in [docs/studio-handoff.md](./studio-handoff.md). Treat the handoff as the source of truth for the current phase-3 execution model and route surface.
+Historical phase-3 planning note. It does not describe every later Studio workflow. Start with [current state](./current-state.md), the [user walkthrough](./studio-first-user-walkthrough.md), and the maintained [contributor handoff](./studio-handoff.md); the current implementation and tests take precedence over this original plan.
 
 This thread adds a parallel browser shell called `FreeCAD Automation Studio` without deleting the legacy viewer.
 

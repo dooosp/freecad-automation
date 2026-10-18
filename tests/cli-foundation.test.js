@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { parseCliArgs } from '../src/cli/args.js';
 import { dispatchCliCommand } from '../src/cli/dispatch.js';
@@ -240,5 +241,99 @@ assert.equal(checkRuntimePositionalRun.status, 1);
 assert.match(checkRuntimePositionalRun.stderr, /check-runtime does not accept positional arguments/);
 
 assert.equal(existsSync(resolve(ROOT, 'bin', 'fcad.js')), true);
+
+// Exercise the real design -> TOML -> create handoff. Only the external API
+// transport and FreeCAD runner are stubbed; no network or CAD runtime is used.
+const designRoot = mkdtempSync(join(tmpdir(), 'fcad-cli-design-'));
+const designName = `cli_design_handoff_${basename(designRoot).slice(-6).toLowerCase()}`;
+const generatedPath = join(ROOT, 'configs', 'generated', `${designName}.toml`);
+try {
+  const outputDir = join(designRoot, 'output');
+  const runtimeInputPath = join(designRoot, 'runtime-input.json');
+  const apiInputPath = join(designRoot, 'api-input.json');
+  const generatedToml = `config_version = 1
+name = "${designName}"
+final = "body"
+
+[[shapes]]
+id = "body"
+type = "box"
+length = 20
+width = 10
+height = 4
+material = "aluminum"
+
+[export]
+formats = ["step"]
+directory = ${JSON.stringify(outputDir)}
+`;
+  const apiResponseText = [
+    '### GENERATED TOML', '```toml', generatedToml.trim(), '```',
+    '### DESIGN REPORT', '```json', JSON.stringify({ mechanism_type: designName, dof: 0 }), '```',
+  ].join('\n');
+  const model = {
+    volume: 800, faces: 6, edges: 12, valid_shape: true,
+    bounding_box: { min: [0, 0, 0], max: [20, 10, 4], size: [20, 10, 4] },
+  };
+  const runnerSource = `
+    import { mkdirSync, writeFileSync } from 'node:fs';
+    import { join } from 'node:path';
+    export async function runScript(script, input) {
+      if (script !== 'create_model.py') throw new Error('Unexpected runtime script: ' + script);
+      writeFileSync(${JSON.stringify(runtimeInputPath)}, JSON.stringify(input));
+      mkdirSync(input.export.directory, { recursive: true });
+      const path = join(input.export.directory, input.name + '.step');
+      writeFileSync(path, 'stub STEP');
+      return { success: true, model: ${JSON.stringify(model)}, exports: [{ format: 'step', path, size_bytes: 9 }] };
+    }
+  `;
+  const preloadPath = join(designRoot, 'stub-external-boundaries.mjs');
+  writeFileSync(preloadPath, `
+    import { registerHooks } from 'node:module';
+    import { writeFileSync } from 'node:fs';
+    globalThis.fetch = async (_url, options) => {
+      writeFileSync(${JSON.stringify(apiInputPath)}, options.body);
+      return { ok: true, json: async () => ({ output_text: ${JSON.stringify(apiResponseText)} }) };
+    };
+    registerHooks({ load(url, context, nextLoad) {
+      if (url === ${JSON.stringify(pathToFileURL(join(ROOT, 'lib', 'runner.js')).href)}) {
+        return { format: 'module', shortCircuit: true, source: ${JSON.stringify(runnerSource)} };
+      }
+      return nextLoad(url, context);
+    } });
+  `);
+  const description = 'a 20 by 10 by 4 aluminum box';
+  const designed = spawnSync(process.execPath, [
+    '--import', pathToFileURL(preloadPath).href, join(ROOT, 'bin', 'fcad.js'), 'design', description,
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 15_000,
+    env: {
+      ...process.env,
+      OPENAI_API_KEY: 'test-only-no-network',
+      OPENAI_ALLOW_LIVE_REQUEST: '1',
+      OPENAI_REQUEST_LIMIT: '1',
+      OPENAI_ALLOW_REPAIR_RETRY: '0',
+      FREECAD_PYTHON: join(designRoot, 'unavailable-freecad'),
+    },
+  });
+  assert.equal(designed.status, 0, `design must build its generated config: ${designed.stderr || designed.stdout}`);
+  assert.match(designed.stdout, /Model created successfully!/);
+  assert.equal(readFileSync(generatedPath, 'utf8'), generatedToml.trim());
+  assert.ok(JSON.parse(readFileSync(apiInputPath, 'utf8')).input.includes(description));
+  const runtimeInput = JSON.parse(readFileSync(runtimeInputPath, 'utf8'));
+  assert.equal(runtimeInput.name, designName);
+  assert.deepEqual(runtimeInput.shapes[0], {
+    id: 'body', type: 'box', length: 20, width: 10, height: 4, material: 'aluminum',
+  });
+  assert.equal(readFileSync(join(outputDir, `${designName}.step`), 'utf8'), 'stub STEP');
+  const manifest = JSON.parse(readFileSync(join(outputDir, `${designName}_manifest.json`), 'utf8'));
+  assert.equal(manifest.command, 'create');
+  assert.equal(manifest.input.path, generatedPath);
+} finally {
+  rmSync(generatedPath, { force: true });
+  rmSync(designRoot, { recursive: true, force: true });
+}
 
 console.log('cli-foundation.test.js: ok');

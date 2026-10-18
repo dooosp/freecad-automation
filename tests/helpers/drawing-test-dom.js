@@ -15,7 +15,8 @@ export class TestElement {
   get ownerDocument() { return globalThis.document; }
   addEventListener(type, fn) { if (!this.listeners.has(type)) this.listeners.set(type, new Set()); this.listeners.get(type).add(fn); }
   removeEventListener(type, fn) { this.listeners.get(type)?.delete(fn); }
-  dispatch(type, event) { for (const fn of this.listeners.get(type) || []) fn(event); }
+  // Tests may await async listeners without guessing how many event-loop turns they need.
+  dispatch(type, event) { return Promise.all([...this.listeners.get(type) || []].map((fn) => fn(event))); }
   append(...nodes) { for (const node of nodes) { node.parentNode = this; node.parentElement = this; this.children.push(node); } }
   appendChild(node) { this.append(node); return node; }
   insertBefore(node, reference) {

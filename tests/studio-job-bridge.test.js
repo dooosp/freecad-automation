@@ -20,6 +20,42 @@ formats = ["step"]
 directory = "output/studio-bridge"
 `;
 
+const baseJson = JSON.stringify({
+  name: 'studio_bridge',
+  shapes: [{ id: 'body', type: 'box', length: 20, width: 10, height: 5 }],
+  export: { formats: ['step'], directory: 'output/studio-bridge' },
+});
+
+for (const type of ['create', 'draw', 'report']) {
+  const options = type === 'draw'
+    ? { drawing_settings: { views: ['front', 'iso'], scale: '1:2' } }
+    : type === 'report' ? { report_options: { style: 'summary' } } : {};
+  const tomlSubmission = await translateStudioJobSubmission({ type, config_toml: baseToml, ...options });
+  const jsonSubmission = await translateStudioJobSubmission({ type, config_toml: ` \n${baseJson}\n `, ...options });
+  assert.equal(jsonSubmission.ok, true, jsonSubmission.errors?.join('\n'));
+  assert.deepEqual(jsonSubmission, tomlSubmission, `${type} must normalize JSON and TOML identically`);
+  assert.equal(jsonSubmission.request.config.config_version, 1);
+  assert.equal(jsonSubmission.request.config.name, 'studio_bridge');
+  assert.equal(jsonSubmission.request.config.shapes[0].length, 20);
+  assert.equal(Object.hasOwn(jsonSubmission.request, 'config_toml'), false,
+    'tracked storage must receive a validated config object instead of raw source text');
+  assert.equal(Object.hasOwn(jsonSubmission.request, 'config_path'), false,
+    'inline JSON must use the existing inline config persistence path');
+
+  for (const [configText, expectedError] of [
+    ['{"name":"broken",}', /JSON parse error:.*(?:position|line|property name)/i],
+    ['{"shapes":"not-an-array"}', /root\.shapes must be array/],
+    ...['__proto__', 'constructor', 'prototype'].map((key) => [
+      `{"metadata":{"${key}":"unsafe"}}`, /Unsafe config key/,
+    ]),
+  ]) {
+    const rejected = await translateStudioJobSubmission({ type, config_toml: configText });
+    assert.equal(rejected.ok, false, `${type} must reject invalid JSON config before enqueue`);
+    assert.match(rejected.errors.join('\n'), expectedError);
+    assert.equal(rejected.request, undefined);
+  }
+}
+
 const drawSubmission = await translateStudioJobSubmission({
   type: 'draw',
   config_toml: baseToml,
