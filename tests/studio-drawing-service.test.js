@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { test } from 'node:test';
 import { parse as parseTOML, stringify as stringifyTOML } from 'smol-toml';
 
-import { compileDrawingPlan } from '../src/orchestration/drawing-prep.js';
+import { compileDrawingPlan, loadDrawingPlan } from '../src/orchestration/drawing-prep.js';
 import { createLocalApiJobCoordinator } from '../src/server/local-api-job-operations.js';
 import { toPublicDrawingPreviewPayload } from '../src/server/public-drawing-preview.js';
 import { createStudioDrawingService } from '../src/server/studio-drawing-service.js';
@@ -162,6 +162,145 @@ function fullConfigToml() {
   compileDrawingPlan({ projectRoot: process.cwd(), config });
   return stringifyTOML(config);
 }
+
+function transactionConfigToml() {
+  const config = parseTOML(fullConfigToml());
+  config.drawing_plan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm = 42;
+  return stringifyTOML(config);
+}
+
+for (const failureMode of ['throw', 'unsuccessful result']) {
+  test(`failed dimension render (${failureMode}) preserves the accepted plan and artifacts`, async (t) => {
+    const previewDirs = [];
+    const renderer = createFakeDrawingService();
+    const service = parityService(t, {
+      mkdtempFn: async (prefix) => {
+        const directory = mkdtempSync(prefix);
+        previewDirs.push(directory);
+        return directory;
+      },
+      generateDrawing: async (args) => {
+        const result = await renderer(args);
+        const value = args.config.drawing_plan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm;
+        const qaPath = join(args.config.export.directory, `${args.config.name}_drawing_qa.json`);
+        writeFileSync(qaPath, JSON.stringify({ rendered_width: value }), 'utf8');
+        if (value === 99) {
+          if (failureMode === 'throw') throw new Error('Injected renderer failure after partial writes');
+          return { success: false, error: 'Injected renderer failure after partial writes' };
+        }
+        return result;
+      },
+    });
+    const configToml = transactionConfigToml();
+    const { preview } = await service.buildPreview({ configToml });
+    const acceptedFiles = [preview.plan_path, preview.artifacts.drawing, preview.artifacts.qa]
+      .map((path) => ({ path, content: readFileSync(path, 'utf8') }));
+
+    await assert.rejects(
+      service.updateDimension({ previewId: preview.id, dimId: 'WIDTH', valueMm: 99 }),
+      /Injected renderer failure after partial writes/,
+    );
+
+    const tracked = await service.getTrackedDrawPlan({ previewId: preview.id, configToml });
+    assert.equal(tracked.reason, 'preserved');
+    assert.equal(tracked.drawingPlan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm, 42);
+    for (const { path, content } of acceptedFiles) {
+      assert.equal(readFileSync(path, 'utf8'), content, `failed edit changed accepted artifact ${path}`);
+    }
+    assert.equal(preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 42);
+    assert.match(preview.svg, /data-value-mm="42"/);
+    assert.equal(previewDirs.length, 2);
+    assert.equal(existsSync(previewDirs[1]), false, 'discard failed candidate artifacts');
+
+    const updated = await service.updateDimension({ previewId: preview.id, dimId: 'WIDTH', valueMm: 45 });
+    assert.equal(updated.update.old_value, 42);
+    assert.equal(updated.update.new_value, 45);
+    assert.equal(updated.preview.id, preview.id);
+    assert.equal(updated.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 45);
+    assert.match(readFileSync(updated.preview.artifacts.drawing, 'utf8'), /data-value-mm="45"/);
+    assert.equal(existsSync(dirname(preview.plan_path)), false, 'release superseded preview artifacts');
+    const accepted = await service.getTrackedDrawPlan({ previewId: preview.id, configToml });
+    assert.equal(accepted.drawingPlan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm, 45);
+  });
+}
+
+test('overlapping dimension edits commit in order and continue after a failed render', async (t) => {
+  let releaseRender;
+  let notifyRenderStarted;
+  const renderStarted = new Promise((resolve) => { notifyRenderStarted = resolve; });
+  const renderGate = new Promise((resolve) => { releaseRender = resolve; });
+  t.after(() => releaseRender());
+  const renderer = createFakeDrawingService();
+  const service = parityService(t, {
+    generateDrawing: async (args) => {
+      const value = args.config.drawing_plan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm;
+      const result = await renderer(args);
+      if (value === 99) {
+        notifyRenderStarted();
+        await renderGate;
+        throw new Error('First concurrent render failed');
+      }
+      return result;
+    },
+  });
+  const configToml = transactionConfigToml();
+  const { preview } = await service.buildPreview({ configToml });
+  const failedEdit = assert.rejects(
+    service.updateDimension({ previewId: preview.id, dimId: 'WIDTH', valueMm: 99 }),
+    /First concurrent render failed/,
+  );
+  await renderStarted;
+  const secondEdit = service.updateDimension({ previewId: preview.id, dimId: 'WIDTH', valueMm: 45 });
+  const thirdEdit = service.updateDimension({ previewId: preview.id, dimId: 'WIDTH', valueMm: 50 });
+  const pendingPlan = await service.getTrackedDrawPlan({ previewId: preview.id, configToml });
+  releaseRender();
+  const [, second, third] = await Promise.all([failedEdit, secondEdit, thirdEdit]);
+
+  assert.equal(pendingPlan.drawingPlan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm, 42);
+  assert.equal(second.update.old_value, 42);
+  assert.equal(second.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 45);
+  assert.equal(third.update.old_value, 45);
+  assert.equal(third.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 50);
+  const accepted = await service.getTrackedDrawPlan({ previewId: preview.id, configToml });
+  assert.equal(accepted.drawingPlan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm, 50);
+});
+
+test('a tracked plan read in progress keeps its accepted plan while an edit renders', async (t) => {
+  let releasePlanRead;
+  let notifyPlanReadStarted;
+  let notifyUpdatedRender;
+  const planReadStarted = new Promise((resolve) => { notifyPlanReadStarted = resolve; });
+  const planReadGate = new Promise((resolve) => { releasePlanRead = resolve; });
+  const updatedRender = new Promise((resolve) => { notifyUpdatedRender = resolve; });
+  t.after(() => releasePlanRead());
+  const renderer = createFakeDrawingService();
+  const service = parityService(t, {
+    loadDrawingPlanFn: async (args) => {
+      if (Object.keys(args.config).length === 0) {
+        notifyPlanReadStarted();
+        await planReadGate;
+      }
+      return loadDrawingPlan(args);
+    },
+    generateDrawing: async (args) => {
+      const result = await renderer(args);
+      if (args.config.drawing_plan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm === 45) {
+        notifyUpdatedRender();
+      }
+      return result;
+    },
+  });
+  const configToml = transactionConfigToml();
+  const { preview } = await service.buildPreview({ configToml });
+  const planRead = service.getTrackedDrawPlan({ previewId: preview.id, configToml });
+  await planReadStarted;
+  const edit = service.updateDimension({ previewId: preview.id, dimId: 'WIDTH', valueMm: 45 });
+  await updatedRender;
+  releasePlanRead();
+  const [tracked, updated] = await Promise.all([planRead, edit]);
+  assert.equal(tracked.drawingPlan.dim_intents.find((dim) => dim.id === 'WIDTH').value_mm, 42);
+  assert.equal(updated.preview.dimensions.find((dim) => dim.id === 'WIDTH').value_mm, 45);
+});
 
 test('partial plans receive compiled editable dimensions without losing explicit notes', async (t) => {
   const service = parityService(t);

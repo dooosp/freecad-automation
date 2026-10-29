@@ -8,18 +8,21 @@ import { runPythonJsonScript } from '../lib/context-loader.js';
 import { buildDecisionReportSummary } from '../src/services/report/decision-report-summary.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const PYTHON_COMMAND = process.env.PYTHON || process.env.PYTHON3 || 'python3';
 const TMP_DIR = mkdtempSync(join(tmpdir(), 'fcad-report-pdf-'));
 
 try {
-  const matplotlibProbe = spawnSync('python3', ['-c', 'import matplotlib'], {
+  const matplotlibProbe = spawnSync(PYTHON_COMMAND, ['-c', 'import matplotlib'], {
     cwd: ROOT,
     env: process.env,
     encoding: 'utf8',
   });
-  if (matplotlibProbe.status !== 0) {
-    console.log('report-decision-pdf.test.js: skipped (python3 matplotlib unavailable)');
-    process.exit(0);
-  }
+  assert.equal(matplotlibProbe.status, 0, [
+    `PDF report checks require matplotlib in the selected Python: ${PYTHON_COMMAND}.`,
+    'Install .github/requirements/ci-report.txt in a repo-local virtual environment',
+    'and set PYTHON to its Python executable. See docs/testing.md for setup commands.',
+    matplotlibProbe.error?.message || matplotlibProbe.stderr,
+  ].join('\n'));
 
   const summary = buildDecisionReportSummary({
     configPath: join(TMP_DIR, 'partial.toml'),
@@ -57,13 +60,13 @@ try {
         status: 'generated',
       },
     },
-  });
+  }, { pythonCommand: PYTHON_COMMAND });
 
   assert.equal(result.success, true);
   assert.equal(existsSync(result.path), true);
   assert.equal(result.size_bytes > 0, true);
 
-  const koreanFontProbe = spawnSync('python3', [
+  const koreanFontProbe = spawnSync(PYTHON_COMMAND, [
     '-c',
     "import sys; sys.path.insert(0, 'scripts'); from _report_styles import get_font; print(get_font('ko'))",
   ], {
@@ -86,7 +89,7 @@ try {
     },
     _decision_summary: koreanSummary,
     _report_artifacts: [],
-  });
+  }, { pythonCommand: PYTHON_COMMAND });
 
   assert.equal(koreanResult.success, true);
   assert.equal(koreanResult.report_language, 'ko');
@@ -124,7 +127,7 @@ try {
   assert.equal(result.font_family, 'sans-serif');
   assert.equal(result.font_support, 'default');
 
-  const templateFontProbe = spawnSync('python3', [
+  const templateFontProbe = spawnSync(PYTHON_COMMAND, [
     '-c',
     [
       'import json, sys',
@@ -156,7 +159,7 @@ try {
     assert.equal(templateFonts.capable_style.font_family, templateFonts.capable);
   }
 
-  const restrictedFontProbe = spawnSync('python3', [
+  const restrictedFontProbe = spawnSync(PYTHON_COMMAND, [
     '-c',
     [
       'import json, sys',
@@ -187,7 +190,7 @@ try {
   assert.equal(restrictedFonts.english_pdf_fonttype, restrictedFonts.default_pdf_fonttype);
   assert.equal(restrictedFonts.english_style.font_family, 'DejaVu Sans');
 
-  const missingKoreanFontProbe = spawnSync('python3', [
+  const missingKoreanFontProbe = spawnSync(PYTHON_COMMAND, [
     '-c',
     [
       'import json, sys',
@@ -206,6 +209,100 @@ try {
   assert.equal(fallbackStyle.font_language, 'ko');
   assert.equal(fallbackStyle.font_family, 'sans-serif');
   assert.equal(fallbackStyle.font_support, 'fallback');
+
+  const headerLayoutProbe = spawnSync(PYTHON_COMMAND, [
+    '-c',
+    [
+      'import json, sys',
+      "sys.path.insert(0, 'scripts')",
+      'from matplotlib.backends.backend_pdf import PdfPages',
+      'from engineering_report import generate_legacy_report',
+      'headers = []',
+      'contexts = []',
+      'dfm_counts = []',
+      'savefig = PdfPages.savefig',
+      'def inspect_header(pdf, figure, *args, **kwargs):',
+      '    figure.canvas.draw()',
+      '    renderer = figure.canvas.get_renderer()',
+      '    title = figure._suptitle',
+      "    subtitles = [text for text in figure.texts if text.get_text().startswith(('Generated:', 'Process:'))]",
+      '    assert title is not None and len(subtitles) == 1',
+      '    title_box = title.get_window_extent(renderer)',
+      '    subtitle_box = subtitles[0].get_window_extent(renderer)',
+      '    section_boxes = [axis._left_title.get_window_extent(renderer) for axis in figure.axes if axis._left_title.get_text()]',
+      "    headers.append({'language': language, 'title': title.get_text(), 'gap_points': (title_box.y0 - subtitle_box.y1) * 72 / figure.dpi, 'section_gap_points': (subtitle_box.y0 - max(box.y1 for box in section_boxes)) * 72 / figure.dpi})",
+      '    for axis in figure.axes:',
+      "        if axis.get_title(loc='left') == 'DFM Score':",
+      "            counts = next(text for text in axis.texts if text.get_text().startswith('Errors:'))",
+      '            box = counts.get_window_extent(renderer)',
+      '            bounds = axis.get_window_extent(renderer)',
+      "            dfm_counts.append({'language': language, 'inside_panel': bool(bounds.contains(box.x0, box.y0) and bounds.contains(box.x1, box.y1)),",
+      "                'section_overlaps': [other.get_title(loc='left') for other in figure.axes if other.get_title(loc='left') and box.overlaps(other._left_title.get_window_extent(renderer))],",
+      "                'tick_overlaps': [tick.get_text() for tick in axis.get_xticklabels() if box.overlaps(tick.get_window_extent(renderer))],",
+      "                'bar_overlaps': [index for index, bar in enumerate(axis.patches) if box.overlaps(bar.get_window_extent(renderer))]})",
+      "        if axis.get_title(loc='left') != 'Run Context': continue",
+      '        bounds = axis.get_window_extent(renderer)',
+      '        overflow = []',
+      '        text_boxes = [(text.get_text(), text.get_window_extent(renderer)) for text in axis.texts]',
+      '        for text, box in text_boxes:',
+      '            if box.y0 < bounds.y0 or box.y1 > bounds.y1: overflow.append(text)',
+      '        overlaps = [(text, other_text) for index, (text, box) in enumerate(text_boxes) for other_text, other_box in text_boxes[index + 1:] if box.overlaps(other_box)]',
+      "        contexts.append({'language': language, 'overflow': overflow, 'overlaps': overlaps, 'texts': [text for text, _ in text_boxes]})",
+      '    return savefig(pdf, figure, *args, **kwargs)',
+      'PdfPages.savefig = inspect_header',
+      'reports = []',
+      "for language, name in [('en', 'Header layout'), ('ko', '헤더 레이아웃')]:",
+      '    reports.append(generate_legacy_report({',
+      "        'name': name, 'export': {'directory': sys.argv[1]},",
+      "        '_decision_summary': {'config_name': name, 'overall_status': 'incomplete',",
+      "            'input_config': '/validation/long-report-output-directory/header-layout-validation-configuration.toml',",
+      "            'git_commit': '0123456789abcdef0123456789abcdef01234567',",
+      "            'git_branch': 'codex/mega-studio-api-contract-fuzz-audit'},",
+      "        'dfm_results': {'checks': [], 'score': 100, 'process': 'milling', 'material': 'aluminum'},",
+      '    }))',
+      "print(json.dumps({'headers': headers, 'contexts': contexts, 'dfm_counts': dfm_counts, 'reports': reports}))",
+    ].join('\n'),
+    TMP_DIR,
+  ], {
+    cwd: ROOT,
+    env: process.env,
+    encoding: 'utf8',
+  });
+  assert.equal(headerLayoutProbe.status, 0, headerLayoutProbe.stderr);
+  const headerLayout = JSON.parse(headerLayoutProbe.stdout.trim());
+  assert.deepEqual(headerLayout.headers.map(({ language, title }) => [language, title]), [
+    ['en', 'Executive Decision Summary'],
+    ['en', 'Engineering Report: Header layout'],
+    ['en', 'DFM Analysis: Header layout'],
+    ['ko', 'Executive Decision Summary'],
+    ['ko', 'Engineering Report: 헤더 레이아웃'],
+    ['ko', 'DFM Analysis: 헤더 레이아웃'],
+  ]);
+  for (const header of headerLayout.headers) {
+    assert(header.gap_points > 0,
+      `${header.language} ${header.title}: title overlaps subtitle by ${-header.gap_points.toFixed(2)} pt`);
+    assert(header.section_gap_points > 0,
+      `${header.language} ${header.title}: subtitle overlaps section heading by ${-header.section_gap_points.toFixed(2)} pt`);
+  }
+  assert.deepEqual(headerLayout.contexts.map(({ language }) => language), ['en', 'ko']);
+  for (const context of headerLayout.contexts) {
+    assert.deepEqual(context.overflow, [], `${context.language} Run Context clips metadata`);
+    assert.deepEqual(context.overlaps, [], `${context.language} Run Context has overlapping metadata`);
+    assert(context.texts.includes('Optional missing'));
+    assert(context.texts.includes('none'));
+  }
+  assert.deepEqual(headerLayout.dfm_counts.map(({ language }) => language), ['en', 'ko']);
+  for (const counts of headerLayout.dfm_counts) {
+    assert.deepEqual(counts.section_overlaps, [], `${counts.language} DFM counts overlap section headings`);
+    assert.deepEqual(counts.tick_overlaps, [], `${counts.language} DFM counts overlap chart ticks`);
+    assert.deepEqual(counts.bar_overlaps, [], `${counts.language} DFM counts overlap score bars`);
+    assert.equal(counts.inside_panel, true, `${counts.language} DFM counts leave the score panel`);
+  }
+  for (const report of headerLayout.reports) {
+    assert.equal(report.success, true);
+    assert.equal(existsSync(report.path), true);
+    assert(report.size_bytes > 0);
+  }
 } finally {
   rmSync(TMP_DIR, { recursive: true, force: true });
 }

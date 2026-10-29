@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
+  NODE_TEST_INVENTORY_EXCEPTIONS,
   getExpectedPackageScripts,
   getLaneManifest,
   renderFastLocalCommandsMarkdown,
@@ -88,6 +89,31 @@ const expectedScripts = getExpectedPackageScripts();
 Object.entries(expectedScripts).forEach(([scriptName, command]) => {
   assert.equal(packageJson.scripts[scriptName], command, `${scriptName} should stay aligned with the lane manifest`);
 });
+
+const topLevelNodeTests = readdirSync(resolve(ROOT, 'tests'), { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith('.test.js'))
+  .map((entry) => `tests/${entry.name}`)
+  .sort();
+const registeredNodeTests = new Set(getLaneManifest().flatMap((lane) => [
+  ...(lane.steps || []).flatMap((step) => step.args),
+  ...lane.packageCommand.split(/\s+/),
+]).filter((arg) => /^tests\/[^/]+\.test\.js$/.test(arg)));
+
+for (const testPath of registeredNodeTests) {
+  assert(topLevelNodeTests.includes(testPath), `Lane references a missing Node test: ${testPath}`);
+}
+for (const [testPath, reason] of Object.entries(NODE_TEST_INVENTORY_EXCEPTIONS)) {
+  assert(topLevelNodeTests.includes(testPath), `Inventory exception references a missing Node test: ${testPath}`);
+  assert.equal(registeredNodeTests.has(testPath), false, `Remove the obsolete inventory exception for registered test ${testPath}`);
+  assert.equal(typeof reason, 'string', `Inventory exception needs a reason: ${testPath}`);
+  assert(reason.trim(), `Inventory exception needs a nonempty reason: ${testPath}`);
+}
+assert.deepEqual(
+  topLevelNodeTests.filter((testPath) => !registeredNodeTests.has(testPath)
+    && !Object.hasOwn(NODE_TEST_INVENTORY_EXCEPTIONS, testPath)),
+  [],
+  'Every top-level Node test must belong to a lane or have an explicit reason in NODE_TEST_INVENTORY_EXCEPTIONS'
+);
 
 assert.equal(extractGeneratedBlock(testingDoc, 'lane-table'), renderLaneTableMarkdown());
 assert.equal(extractGeneratedBlock(testingDoc, 'workflow-mapping'), renderWorkflowMappingMarkdown());

@@ -100,10 +100,22 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Setup Python for report checks
+        id: report-python
+        # provenance: actions/setup-python@v6 -> a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+
       - name: Install Node Dependencies
         run: bash .github/scripts/retry.sh 3 15 npm ci --ignore-scripts --no-audit --prefer-offline
 
+      - name: Install PDF Report Test Dependencies
+        run: bash .github/scripts/retry.sh 3 15 "${{ steps.report-python.outputs.python-path }}" -m pip install --disable-pip-version-check -r .github/requirements/ci-report.txt
+
       - name: Run Node integration lane
+        env:
+          PYTHON: ${{ steps.report-python.outputs.python-path }}
         run: npm run test:node:integration
 
   snapshots:

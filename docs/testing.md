@@ -27,6 +27,50 @@ Runtime domain checks remain available for deeper local verification:
 
 The runtime domain runner uses the same FreeCAD-backed script path as the CLI and will fail early if you request runtime-backed layers without a detectable runtime.
 
+### Node test inventory
+
+`tests/lane-manifest.test.js` compares every top-level `tests/*.test.js` file
+against the lane steps and direct lane commands. New tests must be assigned to
+a lane; an intentionally unassigned test needs an explicit prerequisite or
+execution-boundary reason in `NODE_TEST_INVENTORY_EXCEPTIONS` in
+`tests/lane-manifest.js`. The guard rejects missing files, empty reasons, and
+obsolete exceptions for tests that have since joined a lane. There are currently
+no inventory exceptions. Browser and FreeCAD tests remain in their dedicated
+lanes rather than being added to the default Node suite.
+
+The hosted Node lanes include the manifest CLI, readiness, tracked execution,
+evidence audit, and browser helper regressions. CLI integration checks may use
+plain `python3` for DFM or standard-document generation; they do not require
+FreeCAD. The DFM manifest tests copy their config to a unique fixture name and
+clean only their own generated manifests, preserving existing example outputs
+such as `output/ks_bracket_manifest.json`.
+
+### Python and PDF test dependencies
+
+The default Node suite includes the decision-report PDF smoke test, which
+requires matplotlib. Missing report dependencies fail the test with setup
+guidance; they do not count as a successful PDF check. The hosted Node
+integration job installs the pinned report dependencies with Python 3.11.
+
+For local Python and PDF checks, create a repository-local virtual environment
+and install both dependency files without changing the global Python environment:
+
+```bash
+python3 -m venv .cache/test-python
+.cache/test-python/bin/python -m pip install -r .github/requirements/ci-python.txt -r .github/requirements/ci-report.txt
+source .cache/test-python/bin/activate
+export PYTHON="$PWD/.cache/test-python/bin/python"
+npm test
+npm run test:py
+```
+
+Use Python 3.11 or newer for this environment. The PDF smoke selects `PYTHON`,
+then `PYTHON3`, then `python3`, and uses that same executable for its dependency
+checks and report generation. Alternatively, activate the virtual environment
+with `source .cache/test-python/bin/activate` so `python3` resolves to it; clear
+any existing `PYTHON` or `PYTHON3` overrides that point elsewhere. Optional
+`pdffonts` and `pdftotext` checks run when those Poppler tools are available.
+
 ## Workflow Mapping
 
 <!-- GENERATED:workflow-mapping:start -->
@@ -196,9 +240,11 @@ The hosted-safe Node lanes now also cover the decision-ready report upgrade:
 
 - `tests/report-decision-summary.test.js` validates report readiness logic, summary schema compliance, and missing-artifact truthfulness
 - `tests/report-service-summary.test.js` validates that `createReportService()` writes `<base>_report_summary.json` and passes executive-summary payloads into the Python renderer input
-- `tests/report-decision-pdf.test.js` attempts a partial-data PDF smoke, but it exits early with a skip message when the local `python3` environment cannot import `matplotlib`
+- `tests/report-decision-pdf.test.js` generates partial-data English and Korean PDFs with the selected Python and fails with setup guidance when `matplotlib` is unavailable
 
-Treat that PDF smoke exactly like runtime-backed verification: if the renderer dependency is unavailable, record it as environment-unavailable rather than claiming the PDF path was verified.
+Install the [Python and PDF test dependencies](#python-and-pdf-test-dependencies)
+before running the Node integration lane. A missing renderer dependency is a
+failed prerequisite; only a successful smoke run verifies PDF generation.
 
 Real runtime smoke:
 

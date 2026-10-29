@@ -14,9 +14,9 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 if [ "$1" = "-c" ]; then
-  if echo "$2" | grep -q "import pytest"; then
-    ${hasPytest ? 'exit 0' : 'echo "No module named pytest" >&2; exit 1'}
-  fi
+  case "$2" in
+    *"import pytest"*) ${hasPytest ? 'exit 0' : 'echo "No module named pytest" >&2; exit 1'} ;;
+  esac
 fi
 if [ "$1" = "-m" ] && [ "$2" = "pytest" ]; then
   echo "${label}"
@@ -59,8 +59,10 @@ exit 1
     encoding: 'utf8',
     env: {
       ...process.env,
+      PYTHON: '',
+      PYTHON3: '',
       pythonLocation: join(sandbox, 'active'),
-      PATH: `${pathDir}:${process.env.PATH || ''}`,
+      PATH: pathDir,
     },
   });
 
@@ -86,7 +88,10 @@ exit 1
     encoding: 'utf8',
     env: {
       ...process.env,
-      PATH: `${pathDir}:${process.env.PATH || ''}`,
+      PYTHON: '',
+      PYTHON3: '',
+      pythonLocation: '',
+      PATH: pathDir,
     },
   });
 

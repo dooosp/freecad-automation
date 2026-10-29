@@ -143,14 +143,21 @@ def _compact_path(value, max_length=56, tail_segments=2):
 
 
 def _render_key_value_rows(ax, rows, label_x=0.0, value_x=0.32, wrap_width=36):
-    y = 0.95
+    rendered_rows = []
     for label, value in rows:
         rendered = _compact_path(value) if label in {"Input"} else _format_scalar(value)
         wrapped_value = textwrap.wrap(rendered, width=wrap_width) or [rendered]
+        row_height = max(0.12, 0.09 * len(wrapped_value) + 0.03)
+        rendered_rows.append((label, wrapped_value, row_height))
+
+    height_scale = 0.90 / max(0.90, sum(row[2] for row in rendered_rows))
+    line_height = 0.09 * height_scale
+    y = 0.95
+    for label, wrapped_value, row_height in rendered_rows:
         ax.text(label_x, y, label, fontsize=8, fontweight="bold", va="top", color="#2c3e50")
         for index, line in enumerate(wrapped_value):
-            ax.text(value_x, y - (index * 0.09), line, fontsize=8, va="top", color="#333333", clip_on=True)
-        y -= max(0.12, 0.09 * len(wrapped_value) + 0.03)
+            ax.text(value_x, y - (index * line_height), line, fontsize=8, va="top", color="#333333", clip_on=True)
+        y -= row_height * height_scale
 
 
 def _render_text_block(fig, title, lines, rect):
@@ -175,7 +182,7 @@ def _render_executive_summary_page(fig, model_name, summary, artifacts):
     runtime_status = summary.get("runtime_status") or {}
 
     fig.suptitle("Executive Decision Summary", fontsize=16, fontweight="bold", y=0.97)
-    fig.text(0.5, 0.94, f"Generated: {generated_at}", ha="center", fontsize=8, color="#666666")
+    fig.text(0.5, 0.94, f"Generated: {generated_at}", ha="center", va="top", fontsize=8, color="#666666")
     fig.text(
         0.08, 0.87, str(status).upper(), fontsize=14, fontweight="bold", color="white",
         bbox=dict(boxstyle="round,pad=0.35", facecolor=_decision_status_color(status), edgecolor="none")
@@ -336,7 +343,7 @@ def generate_legacy_report(config):
 
         # Subtitle with date
         fig.text(0.5, 0.94, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-                 ha='center', fontsize=8, color='#666')
+                 ha='center', va='top', fontsize=8, color='#666')
 
         # Layout: 2x2 (no DFM) or 3x2 (with DFM)
         # Top-left: Tolerance table | Top-right: MC histogram
@@ -488,7 +495,7 @@ def generate_legacy_report(config):
             fig2.suptitle(f"DFM Analysis: {model_name}", fontsize=14, fontweight='bold', y=0.97)
             fig2.text(0.5, 0.94,
                       f"Process: {dfm.get('process', '?')} | Material: {dfm.get('material', '?')}",
-                      ha='center', fontsize=9, color='#666')
+                      ha='center', va='top', fontsize=9, color='#666')
 
             # Left: DFM Score gauge
             ax_score = fig2.add_axes([0.05, 0.52, 0.40, 0.38])
@@ -497,6 +504,7 @@ def generate_legacy_report(config):
             ax_score.barh([0], [score], color=score_color, height=0.5, edgecolor='white')
             ax_score.barh([0], [100], color='#ecf0f1', height=0.5, edgecolor='#ccc', zorder=0)
             ax_score.set_xlim(0, 100)
+            ax_score.set_ylim(-0.5, 0.5)
             ax_score.set_yticks([])
             ax_score.set_title("DFM Score", fontsize=10, fontweight='bold', loc='left')
             ax_score.text(score / 2, 0, f"{score}/100", ha='center', va='center',
@@ -507,7 +515,7 @@ def generate_legacy_report(config):
             summary_text = (f"Errors: {summary.get('errors', 0)}  |  "
                             f"Warnings: {summary.get('warnings', 0)}  |  "
                             f"Info: {summary.get('info', 0)}")
-            ax_score.text(0, -0.15, summary_text, fontsize=9, color='#333',
+            ax_score.text(0, 0.03, summary_text, fontsize=9, color='#333', va='bottom',
                           transform=ax_score.transAxes)
 
             # Right: DFM Check details table

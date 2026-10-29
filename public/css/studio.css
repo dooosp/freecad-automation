@@ -3285,6 +3285,15 @@ body::after {
   .canonical-preview-panel {
     padding: 0.85rem;
   }
+
+  .info-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .info-value-wrap {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* CAD inspection layouts respond to the workspace left after navigation. */
@@ -3438,27 +3447,43 @@ body::after {
 }
 
 @media (max-width: 920px) {
-  .studio-shell:has(.cad-workbench) .studio-sidebar {
+  .studio-shell :is(.brand-summary, .brand-kicker, .nav-copy, .sidebar-footer, .app-kicker, .workspace-summary) {
+    display: none;
+  }
+
+  .studio-shell .studio-sidebar {
     padding: 0.75rem 1rem;
     gap: 0.5rem;
   }
 
-  .studio-shell:has(.cad-workbench) .brand-lockup {
+  .studio-shell .brand-lockup {
     padding: 0;
     border: 0;
     align-items: center;
   }
 
-  .studio-shell:has(.cad-workbench) .sidebar-footer {
-    display: none;
+  .studio-shell .app-bar {
+    padding-block: 1rem;
+    gap: 0.75rem;
   }
 
-  .studio-shell:has(.cad-workbench) .workspace-nav {
+  .studio-shell .app-title {
+    font-size: 1.1rem;
+  }
+
+  .studio-shell .workspace-nav {
     display: flex;
     flex-wrap: wrap;
   }
 
-  .studio-shell:has(.cad-workbench) .nav-link {
+  .studio-shell .workspace-nav .nav-link {
+    min-height: 2.75rem;
+    align-items: center;
     padding: 0.5rem 0.7rem;
+  }
+
+  /* The workflow stacks vertically here, so horizontal connectors no longer apply. */
+  .workflow-step-line {
+    display: none;
   }
 }

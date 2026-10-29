@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { parse as parseTOML } from 'smol-toml';
 
 import { deepMerge } from '../../lib/config-loader.js';
@@ -149,12 +149,18 @@ export function createStudioDrawingService({
   loadDrawingPlanFn = loadDrawingPlan,
 }) {
   const previews = new Map();
+  const pendingUpdates = new Map();
+
+  async function removePreviewFiles(preview) {
+    await Promise.allSettled([...preview.planReads]);
+    await rmFn(preview.previewDir, { recursive: true, force: true }).catch(() => {});
+  }
 
   async function cleanupPreview(id) {
     const preview = previews.get(id);
     if (!preview) return;
     previews.delete(id);
-    await rmFn(preview.previewDir, { recursive: true, force: true }).catch(() => {});
+    await removePreviewFiles(preview);
   }
 
   async function trimPreviews(maxEntries = 6) {
@@ -314,13 +320,18 @@ export function createStudioDrawingService({
         artifacts: artifactPaths,
       };
 
+      const previousPreview = previews.get(previewId);
       previews.set(previewId, {
         previewDir: nextPreviewDir,
         configToml: source,
         planPath: stablePlanPath,
         settings,
         preview,
+        planReads: new Set(),
       });
+      if (previousPreview && previousPreview.previewDir !== nextPreviewDir) {
+        await removePreviewFiles(previousPreview);
+      }
       await trimPreviews();
 
       return { preview };
@@ -334,6 +345,7 @@ export function createStudioDrawingService({
 
   return {
     async dispose() {
+      await Promise.allSettled([...pendingUpdates.values()]);
       await Promise.allSettled([...previews.keys()].map((id) => cleanupPreview(id)));
     },
     async getTrackedDrawPlan({ previewId, configToml }) {
@@ -349,10 +361,16 @@ export function createStudioDrawingService({
       }
 
       const config = {};
-      await loadDrawingPlanFn({
+      const planRead = loadDrawingPlanFn({
         config,
         planPath: previewRecord.planPath,
       });
+      previewRecord.planReads.add(planRead);
+      try {
+        await planRead;
+      } finally {
+        previewRecord.planReads.delete(planRead);
+      }
 
       return {
         drawingPlan: config.drawing_plan ? structuredClone(config.drawing_plan) : null,
@@ -371,36 +389,54 @@ export function createStudioDrawingService({
       valueMm,
       historyOp = 'edit',
     }) {
-      const previewRecord = previews.get(previewId);
-      if (!previewRecord) {
-        throw new Error(`No drawing preview found for id ${previewId}.`);
-      }
-      if (!previewRecord.planPath) {
-        throw new Error('This drawing preview has no editable plan path.');
-      }
+      const previousUpdate = pendingUpdates.get(previewId) || Promise.resolve();
+      const update = previousUpdate.catch(() => {}).then(async () => {
+        const previewRecord = previews.get(previewId);
+        if (!previewRecord) {
+          throw new Error(`No drawing preview found for id ${previewId}.`);
+        }
+        if (!previewRecord.planPath) {
+          throw new Error('This drawing preview has no editable plan path.');
+        }
 
-      const result = await updateDimIntentFn(previewRecord.planPath, dimId, valueMm);
-      if (!result.ok) {
-        throw new Error(result.error || `Could not update ${dimId}.`);
-      }
+        // Keep the accepted plan and every artifact immutable until rendering succeeds.
+        const previewDir = await mkdtempFn(join(tmpdir(), 'fcad-studio-drawing-'));
+        try {
+          await cp(previewRecord.previewDir, previewDir, { recursive: true });
+          const planPath = join(previewDir, relative(previewRecord.previewDir, previewRecord.planPath));
+          const result = await updateDimIntentFn(planPath, dimId, valueMm);
+          if (!result.ok) {
+            throw new Error(result.error || `Could not update ${dimId}.`);
+          }
 
-      const rerendered = await renderPreview({
-        configToml: previewRecord.configToml,
-        drawingSettings: previewRecord.settings,
-        previewId,
-        previewDir: previewRecord.previewDir,
-        planPath: previewRecord.planPath,
+          const rerendered = await renderPreview({
+            configToml: previewRecord.configToml,
+            drawingSettings: previewRecord.settings,
+            previewId,
+            previewDir,
+            planPath,
+          });
+
+          return {
+            update: {
+              dim_id: dimId,
+              old_value: result.oldValue,
+              new_value: valueMm,
+              history_op: historyOp,
+            },
+            preview: rerendered.preview,
+          };
+        } catch (error) {
+          await rmFn(previewDir, { recursive: true, force: true }).catch(() => {});
+          throw error;
+        }
       });
-
-      return {
-        update: {
-          dim_id: dimId,
-          old_value: result.oldValue,
-          new_value: valueMm,
-          history_op: historyOp,
-        },
-        preview: rerendered.preview,
-      };
+      pendingUpdates.set(previewId, update);
+      try {
+        return await update;
+      } finally {
+        if (pendingUpdates.get(previewId) === update) pendingUpdates.delete(previewId);
+      }
     },
   };
 }

@@ -21,6 +21,7 @@ const BOOTSTRAP_DRAFT_CONFIG_PATH = join(BOOTSTRAP_SESSION_DIR, 'artifacts', 'bo
 const DOTFILE_TEST_PATH = join(ROOT, 'public', `.codex-local-api-dotfile-deny-${process.pid}`);
 const PREVIEW_DRAFT_CONFIG_TOML = 'name = "bootstrap_preview"\n[import]\nsource_step = "tests/fixtures/imports/simple_bracket.step"\n';
 const bootstrapCalls = [];
+const jobExecutions = new Map();
 
 function assertNoLeakedPathStrings(payload, blocked = []) {
   const serialized = JSON.stringify(payload);
@@ -115,6 +116,14 @@ function seedBootstrapTrackedReviewContext() {
 const { server, jobStore } = createLocalApiServer({
   projectRoot: ROOT,
   jobsDir,
+  executorFactory: ({ baseExecutor }) => ({
+    ...baseExecutor,
+    execute(jobId) {
+      const execution = baseExecutor.execute(jobId);
+      jobExecutions.set(jobId, execution);
+      return execution;
+    },
+  }),
   bootstrapImportServiceFactory: () => async ({ model, bom, inspection, quality }) => {
     seedBootstrapTrackedReviewContext();
     bootstrapCalls.push({ model, bom, inspection, quality });
@@ -1560,10 +1569,17 @@ try {
   assert.equal(arbitraryPreviewText.includes('"name"'), false);
   assert.equal(arbitraryPreviewText.includes('freecad-automation'), false);
 
-  console.log('local-api-server.test.js: ok');
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
+  // Routes schedule execution after responding; HTTP close alone does not finish those jobs.
+  await new Promise((resolveScheduled) => setImmediate(resolveScheduled));
+  await Promise.all(jobExecutions.values());
+  const unfinishedJobs = (await Promise.all([...jobExecutions.keys()].map((id) => jobStore.getJob(id))))
+    .filter((job) => job.status === 'queued' || job.status === 'running');
+  assert.deepEqual(unfinishedJobs.map((job) => ({ type: job.type, status: job.status })), []);
   rmSync(DOTFILE_TEST_PATH, { force: true });
   rmSync(BOOTSTRAP_SESSION_DIR, { recursive: true, force: true });
   rmSync(tmpRoot, { recursive: true, force: true });
 }
+
+console.log('local-api-server.test.js: ok');

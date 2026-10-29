@@ -791,10 +791,8 @@ export function bootStudioShell({
   windowRef.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && app.elements.jobsDrawer.classList.contains('is-open')) {
       app.dom.setJobsDrawer(false);
-      app.elements.jobsToggle.focus();
     } else if (event.key === 'Escape' && app.elements.logDrawer.classList.contains('is-open')) {
       app.dom.setLogDrawer(false);
-      app.elements.logToggle.focus();
     }
   });
 

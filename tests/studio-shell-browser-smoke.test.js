@@ -79,13 +79,23 @@ function studioSnapshotExpression() {
 }
 
 function drawerSnapshotExpression() {
-  return `(() => ({
-    jobsOpen: document.getElementById('jobs-drawer')?.classList.contains('is-open') || false,
-    jobsExpanded: document.getElementById('jobs-toggle')?.getAttribute('aria-expanded') || '',
-    logOpen: document.getElementById('log-drawer')?.classList.contains('is-open') || false,
-    logExpanded: document.getElementById('log-toggle')?.getAttribute('aria-expanded') || '',
-    activeElementId: document.activeElement?.id || '',
-  }))()`;
+  return `(() => {
+    const isInViewport = (id) => {
+      const rect = document.getElementById(id)?.getBoundingClientRect();
+      return Boolean(rect && rect.width > 0 && rect.height > 0
+        && rect.top >= 0 && rect.left >= 0
+        && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth);
+    };
+    return {
+      jobsOpen: document.getElementById('jobs-drawer')?.classList.contains('is-open') || false,
+      jobsExpanded: document.getElementById('jobs-toggle')?.getAttribute('aria-expanded') || '',
+      logOpen: document.getElementById('log-drawer')?.classList.contains('is-open') || false,
+      logExpanded: document.getElementById('log-toggle')?.getAttribute('aria-expanded') || '',
+      activeElementId: document.activeElement?.id || '',
+      jobsCloseVisible: isInViewport('jobs-close'),
+      logCloseVisible: isInViewport('log-close'),
+    };
+  })()`;
 }
 
 function localeSnapshotExpression() {
@@ -191,6 +201,78 @@ function routeLabelExpression(route) {
   return `(() => document.querySelector('.nav-link[data-route="${route}"] .nav-label')?.textContent?.trim() || '')()`;
 }
 
+async function assertResponsiveShell(cdp) {
+  const original = await cdp.evaluate(localeSnapshotExpression());
+  const failures = [];
+  for (const width of [390, 920]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width, height: 844, deviceScaleFactor: 1, mobile: false,
+    });
+    for (const locale of ['en', 'ko']) {
+      await cdp.evaluate(`(() => {
+        const select = document.getElementById('studio-locale-select');
+        select.value = '${locale}';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      })()`);
+      await waitFor(async () => {
+        assert.equal((await cdp.evaluate(localeSnapshotExpression())).lang, locale);
+      });
+      for (const route of ['start', 'review', 'artifacts', 'model', 'drawing']) {
+        await cdp.evaluate(`document.querySelector('.nav-link[data-route="${route}"]').click()`);
+        await waitForRoute(cdp, route);
+        if (route === 'start') {
+          await waitFor(async () => {
+            assert.equal(await cdp.evaluate(`[...document.querySelectorAll('.info-note')].some(note => note.textContent.includes('<freecad-runtime>/freecadcmd'))`), true);
+          });
+        }
+        // Allow route rendering and layout to settle before measuring real browser geometry.
+        await cdp.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+        const layout = await cdp.evaluate(`(() => {
+          window.scrollTo(0, 0);
+          const viewport = document.documentElement.clientWidth;
+          const workspace = document.getElementById('workspace-root');
+          const rect = workspace.getBoundingClientRect();
+          const nav = [...document.querySelectorAll('.nav-link')];
+          return {
+            viewport,
+            documentWidth: document.documentElement.scrollWidth,
+            workspaceWidth: workspace.scrollWidth,
+            workspaceClientWidth: workspace.clientWidth,
+            workspaceTop: rect.top,
+            sidebarHeight: document.querySelector('.studio-sidebar').getBoundingClientRect().height,
+            accessibleNavigation: nav.length === 5 && nav.every(link => {
+              const bounds = link.getBoundingClientRect();
+              return bounds.height >= 44 && bounds.width >= 44 && bounds.left >= 0
+                && bounds.right <= viewport + 1 && bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+            }),
+            overflowing: [...workspace.querySelectorAll('*')].filter(element => {
+              const bounds = element.getBoundingClientRect();
+              return bounds.width > 0 && bounds.right > viewport + 1;
+            }).slice(0, 8).map(element => element.className || element.tagName),
+          };
+        })()`);
+        if (layout.documentWidth > layout.viewport + 1
+          || layout.workspaceWidth > layout.workspaceClientWidth + 1
+          || layout.workspaceTop > 844 * 0.75
+          || layout.sidebarHeight > 844 * 0.25
+          || !layout.accessibleNavigation
+          || layout.overflowing.length > 0) {
+          failures.push({ width, locale, route, ...layout });
+        }
+      }
+    }
+  }
+  await cdp.send('Emulation.clearDeviceMetricsOverride');
+  await cdp.evaluate(`(() => {
+    const select = document.getElementById('studio-locale-select');
+    select.value = '${original.lang}';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('.nav-link[data-route="${original.activeRoute}"]').click();
+  })()`);
+  await waitForRoute(cdp, original.activeRoute);
+  assert.deepEqual(failures, [], `Responsive shell must expose all navigation and workspace without horizontal overflow:\n${JSON.stringify(failures, null, 2)}`);
+}
+
 async function waitForRoute(
   cdp,
   route,
@@ -291,7 +373,8 @@ async function launchChrome(chromeBinary) {
   return await new Promise((resolveLaunch, rejectLaunch) => {
     const child = spawn(chromeBinary, [
       '--headless=new',
-      '--disable-gpu',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
       '--no-first-run',
       '--no-default-browser-check',
       '--remote-debugging-port=0',
@@ -1563,7 +1646,7 @@ function browserSmokeRuntimeDiagnostics() {
     executable_detected: true,
     probe_status: 'usable',
     platform: process.platform,
-    description: 'Browser smoke deterministic runtime stub.',
+    description: 'Browser smoke deterministic runtime stub (<freecad-runtime>/freecadcmd).',
     source: 'browser-smoke',
     mode: 'stubbed',
     path_style: 'posix',
@@ -1816,6 +1899,8 @@ try {
     return nextSnapshot;
   });
 
+  await assertResponsiveShell(cdp);
+
   const canonicalPackageSnapshot = await waitFor(async () => {
     const snapshot = await cdp.evaluate(canonicalPackageSnapshotExpression());
     assert.equal(snapshot.count, 5);
@@ -2026,6 +2111,35 @@ try {
       attempts: 60,
       delayMs: 150,
     });
+  }
+
+  async function assertQualityEvidenceLink(jobId, artifactType, label) {
+    const snapshot = await cdp.evaluate(`(async () => {
+      const response = await fetch('/jobs/${jobId}/artifacts');
+      const payload = await response.json();
+      const artifact = payload.artifacts.find(entry => entry.type === '${artifactType}');
+      const links = [...document.querySelectorAll('[data-hook="artifacts-quality-dashboard"] .quality-dashboard-links a')]
+        .filter(link => link.textContent.includes('${label}'));
+      return {
+        canOpen: artifact?.capabilities?.can_open,
+        openHref: artifact?.links?.open,
+        links: links.map(link => ({
+          href: link.getAttribute('href'),
+          target: link.getAttribute('target'),
+          rel: link.getAttribute('rel'),
+          action: link.firstElementChild?.textContent,
+        })),
+      };
+    })()`);
+    assert.equal(snapshot.canOpen, true);
+    assert.equal(snapshot.openHref.startsWith(`/artifacts/${jobId}/`), true);
+    assert.equal(snapshot.links.length > 0, true, `Expected a registered ${label} link.`);
+    for (const link of snapshot.links) {
+      assert.equal(link.href, snapshot.openHref);
+      assert.equal(link.action, 'Open');
+      assert.equal(link.target, '_blank');
+      assert.match(link.rel, /noopener/);
+    }
   }
 
   function assertIncludesAll(text, expectedValues) {
@@ -2421,11 +2535,11 @@ try {
     'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.',
     'Suggested drawing actions (0)',
     'No additional drawing actions were suggested from extracted output.',
-    'Open output - Extracted drawing semantics JSON',
     'All required quality gates passed',
     'No manufacturing blockers',
     'Ready for manufacturing review: Yes',
   ]);
+  await assertQualityEvidenceLink(passQualityJob.id, 'drawing.extracted-semantics', 'Extracted drawing semantics JSON');
   assertExcludesAll(passDashboardText, ['in_memory', 'not_available', 'What to do next', 'Run tracked create again after the fix']);
   await selectArtifactCardByText('quality_pass_bracket_extracted_drawing_semantics.json');
   const passExtractedPreviewText = await waitForArtifactPreview('"artifact_type": "extracted_drawing_semantics"');
@@ -2512,11 +2626,11 @@ try {
     'Tolerance: KS B 0401 m',
     'Manufacturing readiness',
     'Still blocked by required Geometry / Drawing / DFM gates.',
-    'Open output - Extracted drawing semantics JSON',
-    'Open output - Drawing quality JSON',
     'Manufacturing review blocked by',
     'Ready for manufacturing review: No',
   ]);
+  await assertQualityEvidenceLink(failQualityJob.id, 'drawing.extracted-semantics', 'Extracted drawing semantics JSON');
+  await assertQualityEvidenceLink(failQualityJob.id, 'drawing.quality-summary', 'Drawing quality JSON');
   assertExcludesAll(failDashboardText, ['in_memory', 'not_available']);
   const failPageTextAfterSwitch = await cdp.evaluate(pageTextExpression());
   assertExcludesAll(failPageTextAfterSwitch, [
@@ -2577,6 +2691,8 @@ try {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, true);
     assert.equal(nextSnapshot.jobsExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-close');
+    assert.equal(nextSnapshot.jobsCloseVisible, true);
     return nextSnapshot;
   });
 
@@ -2585,6 +2701,7 @@ try {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, false);
     assert.equal(nextSnapshot.jobsExpanded, 'false');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-toggle');
     return nextSnapshot;
   });
 
@@ -2593,6 +2710,8 @@ try {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, true);
     assert.equal(nextSnapshot.logExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'log-close');
+    assert.equal(nextSnapshot.logCloseVisible, true);
     return nextSnapshot;
   });
 
@@ -2601,6 +2720,7 @@ try {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, false);
     assert.equal(nextSnapshot.logExpanded, 'false');
+    assert.equal(nextSnapshot.activeElementId, 'log-toggle');
     return nextSnapshot;
   });
 
@@ -2609,6 +2729,8 @@ try {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.jobsOpen, true);
     assert.equal(nextSnapshot.jobsExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'jobs-close');
+    assert.equal(nextSnapshot.jobsCloseVisible, true);
     return nextSnapshot;
   });
   await cdp.send('Input.dispatchKeyEvent', {
@@ -2638,6 +2760,8 @@ try {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
     assert.equal(nextSnapshot.logOpen, true);
     assert.equal(nextSnapshot.logExpanded, 'true');
+    assert.equal(nextSnapshot.activeElementId, 'log-close');
+    assert.equal(nextSnapshot.logCloseVisible, true);
     return nextSnapshot;
   });
   await cdp.send('Input.dispatchKeyEvent', {
@@ -2756,19 +2880,25 @@ try {
     assert.match(snapshot.summary, /[가-힣]/);
     assert.match(nextLocaleSnapshot.summary, /[가-힣]/);
     if (route === 'model') {
-      const modelReadiness = await cdp.evaluate(modelRouteReadinessExpression());
+      const modelReadiness = await waitFor(async () => {
+        const readiness = await cdp.evaluate(modelRouteReadinessExpression());
+        assert.match(readiness.text, /Runtime ready|런타임 준비됨/);
+        assert.match(readiness.text, /API connected|API 연결됨/);
+        return readiness;
+      });
       assert.equal(/Model|모델/.test(modelReadiness.text), true);
-      assert.equal(/Runtime pending|런타임 대기/.test(modelReadiness.text), true);
-      assert.equal(/API pending|API 대기/.test(modelReadiness.text), true);
       assert.equal(modelReadiness.hasValidate, true);
       assert.equal(modelReadiness.hasBuild, true);
       assert.equal(modelReadiness.hasTrackedCreate, true);
       assert.equal(modelReadiness.hasTrackedReport, true);
     }
     if (route === 'drawing') {
-      const drawingReadiness = await cdp.evaluate(drawingRouteReadinessExpression());
+      const drawingReadiness = await waitFor(async () => {
+        const readiness = await cdp.evaluate(drawingRouteReadinessExpression());
+        assert.match(readiness.text, /Runtime ready|런타임 준비됨/);
+        return readiness;
+      });
       assert.equal(/Drawing|도면/.test(drawingReadiness.text), true);
-      assert.equal(/Runtime pending|런타임 대기/.test(drawingReadiness.text), true);
       assert.equal(/No drawing yet|아직 도면/.test(drawingReadiness.text), true);
       assert.equal(/Sheet pending|시트 준비/.test(drawingReadiness.text), true);
       assert.equal(drawingReadiness.hasPreview, true);
@@ -2938,6 +3068,10 @@ try {
   const consoleDiagnostics = cdp.logs.filter((entry) => (
     ['warning', 'error'].includes(entry.level)
       && entry.source !== 'network'
+      // SwiftShader reports readback stalls in headless mode; these are driver performance notices.
+      && !(entry.source === 'rendering'
+        && entry.level === 'warning'
+        && /GL Driver Message .*GPU stall due to ReadPixels/.test(String(entry.text || '')))
       && (
         String(entry.url || '').includes(baseUrl)
         || /\/js\/(?:studio|i18n)\//.test(`${entry.url || ''} ${entry.text || ''}`)

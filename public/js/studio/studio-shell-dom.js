@@ -284,14 +284,25 @@ export function createStudioShellDomController(app) {
     applyTranslations(app.elements.logFeed);
   }
 
+  function setDrawer(open, drawer, toggle, close) {
+    const wasOpen = drawer.classList.contains('is-open');
+    drawer.classList.toggle('is-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open) {
+      // Drawers follow the workspace, which can be much taller than the viewport.
+      close.focus({ preventScroll: true });
+      drawer.scrollIntoView({ block: 'start' });
+    } else if (wasOpen) {
+      toggle.focus();
+    }
+  }
+
   function setLogDrawer(open) {
-    app.elements.logDrawer.classList.toggle('is-open', open);
-    app.elements.logToggle.setAttribute('aria-expanded', String(open));
+    setDrawer(open, app.elements.logDrawer, app.elements.logToggle, app.elements.logClose);
   }
 
   function setJobsDrawer(open) {
-    app.elements.jobsDrawer.classList.toggle('is-open', open);
-    app.elements.jobsToggle.setAttribute('aria-expanded', String(open));
+    setDrawer(open, app.elements.jobsDrawer, app.elements.jobsToggle, app.elements.jobsClose);
   }
 
   function applyPendingFocus() {

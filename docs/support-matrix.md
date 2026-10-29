@@ -89,7 +89,7 @@ This matrix is the public support boundary for the current release. It separates
 
 ## Recommended User Flow
 
-1. Install Node.js 18+, Python 3.11+, and FreeCAD 1.1.x if you need the FreeCAD-backed commands.
+1. Install Node.js 24 (the hosted CI baseline), Python 3.11+, and FreeCAD 1.1.x if you need the FreeCAD-backed commands.
 2. Run `fcad check-runtime`.
 3. If the runtime is detected, run a small end-to-end command such as `fcad create <config.toml>` or `npm run test:runtime-smoke`.
 4. If runtime detection fails, fix the `FREECAD_*` override or install path reported by `fcad check-runtime`, then rerun it.

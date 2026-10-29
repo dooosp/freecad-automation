@@ -1,21 +1,28 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
 
 import { validateArtifactManifest } from '../lib/artifact-manifest.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const CLI = join(ROOT, 'bin', 'fcad.js');
-const TMP_DIR = mkdtempSync(join(tmpdir(), 'fcad-stdout-manifest-cli-'));
+const TMP_BASE = join(ROOT, 'tmp', 'codex');
+mkdirSync(TMP_BASE, { recursive: true });
+const TMP_DIR = mkdtempSync(join(TMP_BASE, 'fcad-stdout-manifest-cli-'));
+const fixtureName = basename(TMP_DIR);
+const outputManifestPath = join(ROOT, 'output', `${fixtureName}_manifest.json`);
 
 try {
   const manifestPath = join(TMP_DIR, 'dfm-manifest.json');
-  const result = spawnSync('node', [
+  // --manifest-out controls the artifact manifest; DFM also emits a default
+  // output manifest, so both the config basename and cleanup must be isolated.
+  const configPath = join(TMP_DIR, `${fixtureName}.toml`);
+  writeFileSync(configPath, readFileSync(join(ROOT, 'configs', 'examples', 'ks_bracket.toml'), 'utf8'), 'utf8');
+  const result = spawnSync(process.execPath, [
     CLI,
     'dfm',
-    'configs/examples/ks_bracket.toml',
+    configPath,
     '--manifest-out',
     manifestPath,
   ], {
@@ -33,12 +40,13 @@ try {
   assert.equal(manifest.command, 'dfm');
   assert.equal(['succeeded', 'failed'].includes(manifest.status), true);
   assert.equal(
-    manifest.artifacts.some((artifact) => artifact.type === 'config.input' && artifact.path.endsWith('ks_bracket.toml')),
+    manifest.artifacts.some((artifact) => artifact.type === 'config.input' && artifact.path === configPath),
     true
   );
   assert.match(result.stdout, /Manifest: /);
 
   console.log('stdout-manifest-cli.test.js: ok');
 } finally {
+  rmSync(outputManifestPath, { force: true });
   rmSync(TMP_DIR, { recursive: true, force: true });
 }

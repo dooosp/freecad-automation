@@ -31,6 +31,8 @@ Config lifecycle:
 
 For a first local verification:
 
+Prepare the [local Python and PDF test environment](./docs/testing.md#python-and-pdf-test-dependencies) before running the integration and Python lanes. The PDF smoke generates real reports and requires the pinned renderer dependencies.
+
 ```bash
 npm ci
 npm link
@@ -1016,7 +1018,7 @@ See [production-readiness-refactor.md](./docs/production-readiness-refactor.md) 
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 24 (the hosted CI baseline)
 - Python 3.11+
 - FreeCAD 1.1.x for the FreeCAD-backed commands
 

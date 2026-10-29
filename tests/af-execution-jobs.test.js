@@ -251,6 +251,7 @@ try {
   assertNoStaleCanonicalNames(docsArtifactsPayload.artifacts, 'generate-standard-docs');
   const docsReadinessArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'readiness_report');
   assert.equal(Boolean(docsReadinessArtifact), true);
+  assert.equal(docsReadinessArtifact.scope, 'internal');
   const docsManifestArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.type === 'standard-docs.summary');
   assert.equal(Boolean(docsManifestArtifact), true);
   assert.equal(docsManifestArtifact.file_name, 'standard_docs_manifest.json');
@@ -262,21 +263,41 @@ try {
   });
   assert.equal(readJson(docsManifestFile.path).artifact_type, 'docs_manifest');
 
-  const { response: packFromArtifactResponse, payload: packFromArtifactPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
+  const { response: internalPackResponse, payload: internalPackPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
     type: 'pack',
     artifact_ref: {
       job_id: docsJob.id,
       artifact_id: docsReadinessArtifact.id,
     },
   });
-  assert.equal(packFromArtifactResponse.status, 202);
+  assert.equal(internalPackResponse.status, 400);
+  assert.match(internalPackPayload.error.messages.join('\n'), /internal tracked artifact/);
+
+  const { response: packFromArtifactResponse, payload: packFromArtifactPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
+    type: 'pack',
+    artifact_ref: {
+      job_id: readinessJob.id,
+      artifact_id: readinessArtifact.id,
+    },
+  });
+  assert.equal(packFromArtifactResponse.status, 202, JSON.stringify(packFromArtifactPayload));
   assert.equal(packFromArtifactPayload.job.type, 'pack');
   assert.deepEqual(packFromArtifactPayload.job.request.artifact_ref, {
-    job_id: docsJob.id,
-    artifact_id: docsReadinessArtifact.id,
+    job_id: readinessJob.id,
+    artifact_id: readinessArtifact.id,
   });
+  const publicReadinessPackJob = await waitForJob(baseUrl, packFromArtifactPayload.job.id);
+  assert.equal(publicReadinessPackJob.execution.lifecycle_state, 'succeeded');
 
-  const packJob = await waitForJob(baseUrl, packFromArtifactPayload.job.id);
+  // The Studio artifact route accepts user-facing outputs only. Supplying both
+  // canonical inputs explicitly uses the local job API's repo-relative contract.
+  const { response: docsPackResponse, payload: docsPackPayload } = await postJson(`${baseUrl}/jobs`, {
+    type: 'pack',
+    readiness_report_path: relative(ROOT, internalReadinessReport.path).replaceAll('\\', '/'),
+    docs_manifest_path: relative(ROOT, docsManifestFile.path).replaceAll('\\', '/'),
+  });
+  assert.equal(docsPackResponse.status, 202, JSON.stringify(docsPackPayload));
+  const packJob = await waitForJob(baseUrl, docsPackPayload.job.id);
   assert.equal(packJob.execution.lifecycle_state, 'succeeded');
   const packArtifactsPayload = await fetchArtifacts(baseUrl, packJob.id);
   assertNoStaleCanonicalNames(packArtifactsPayload.artifacts, 'pack');

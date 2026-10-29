@@ -1,24 +1,27 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
 
 import { validateOutputManifest } from '../lib/output-manifest.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const CLI = join(ROOT, 'bin', 'fcad.js');
-const TMP_DIR = mkdtempSync(join(tmpdir(), 'fcad-output-manifest-cli-'));
-const manifestPath = join(ROOT, 'output', 'ks_bracket_manifest.json');
+const TMP_BASE = join(ROOT, 'tmp', 'codex');
+mkdirSync(TMP_BASE, { recursive: true });
+const TMP_DIR = mkdtempSync(join(TMP_BASE, 'fcad-output-manifest-cli-'));
+const fixtureName = basename(TMP_DIR);
+// DFM's additive manifest defaults to output/<config-basename>_manifest.json.
+// A unique config basename keeps that default-path check away from user output.
+const manifestPath = join(ROOT, 'output', `${fixtureName}_manifest.json`);
 
 try {
-  rmSync(manifestPath, { force: true });
   const sourceConfigPath = join(ROOT, 'configs', 'examples', 'ks_bracket.toml');
-  const configPath = join(TMP_DIR, 'ks_bracket.toml');
+  const configPath = join(TMP_DIR, `${fixtureName}.toml`);
   const configContent = readFileSync(sourceConfigPath, 'utf8');
   writeFileSync(configPath, configContent, 'utf8');
 
-  const result = spawnSync('node', [
+  const result = spawnSync(process.execPath, [
     CLI,
     'dfm',
     configPath,
