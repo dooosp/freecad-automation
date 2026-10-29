@@ -67,10 +67,10 @@ Studio의 **작업 성공**은 해당 작업의 실행 성공이다. 작업에 c
 
 ## 지원을 위한 진단 저장
 
-지원 요청 전에 경로를 가린 JSON을 직접 저장할 수 있다. npm 배너가 섞이지 않도록 `--silent`를 사용한다.
+지원 요청 전에 경로를 가린 JSON을 직접 저장할 수 있다. npm 배너가 섞이지 않도록 같은 quickcheck의 직접 CLI 진입점을 사용한다.
 
 ```bash
-npm run --silent customer:quickcheck -- --json > customer-quickcheck.json
+node scripts/customer-quickcheck.js --json > customer-quickcheck.json
 ```
 
 `--json`은 진단 출력 형식만 바꾼다. CAD 생성이 필요할 때만 `--create-demo`를 함께 지정한다. JSON의 런타임 경로는 가려지며, 원시 생성 로그는 로컬 출력 폴더에 남는다. 파일을 외부로 보내는 기능은 없으므로 지원에 공유할 내용은 사용자가 선택한다.

@@ -1,0 +1,70 @@
+name: "99만 원 파일럿 범위 문의"
+description: "기밀 자료 없이 부품군·실행 환경·조합 수의 적합성을 확인합니다."
+title: "[파일럿 문의] 범위 확인"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 공개 문의 안내
+        이 Issue와 계정 이름은 공개됩니다. 연락처, 고객명, 도면, 모델, 치수, 원시 로그 또는 기밀 자료를 작성하거나 첨부하지 마세요.
+        아래 일반 범주만 선택해 주세요. 상세 자료 전달 방법은 별도로 합의합니다.
+
+        제안 금액은 **990,000원, 부가세 별도**입니다. 회사 1곳 · 합의한 실행 환경 1개 · 부품군 1개 · 파라미터 조합 최대 10개 · 설정 수정 2회 · 인계 후 14일 안에 총 2시간 원격 지원을 기준으로 합니다.
+        우선 지원 경로는 macOS + FreeCAD 1.1.x / Node.js 24 이상이며, 쓰기 권한이 있는 로컬 소스 체크아웃을 사용합니다. 소스는 MIT 라이선스이며 비용은 설치·설정·검수·인계·지원 서비스에 대한 제안입니다.
+        문의는 계약·결제 또는 일정 확정이 아닙니다. 고객별 범위·납기·결제 조건은 별도로 정합니다.
+  - type: dropdown
+    id: part_family
+    attributes:
+      label: "부품군의 일반적인 종류"
+      description: "고객명·모델명·치수를 공개하지 말고 가장 가까운 범주만 선택해 주세요."
+      options:
+        - "브래킷·지지대 계열"
+        - "간격재·단순 블록 계열"
+        - "그 외 단일 부품 계열 - 지원 형상 확인 필요"
+        - "조립품 또는 신규 형상 - 별도 범위 확인 필요"
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: "예정 실행 환경"
+      options:
+        - "macOS + FreeCAD 1.1.x + Node.js 24 이상 준비됨"
+        - "macOS 사용 예정, 설치 지원 필요"
+        - "Windows 또는 Linux - 별도 환경 검증 필요"
+        - "실행 환경 미정"
+    validations:
+      required: true
+  - type: dropdown
+    id: variants
+    attributes:
+      label: "한 부품군의 예상 파라미터 조합 수"
+      description: "실제 파라미터 값이나 치수는 기입하지 않습니다."
+      options:
+        - "1-5개"
+        - "6-10개"
+        - "10개 초과 - 별도 범위 확인 필요"
+        - "아직 미정"
+    validations:
+      required: true
+  - type: dropdown
+    id: deliverables
+    attributes:
+      label: "희망 출력 범위"
+      options:
+        - "STEP/STL + 품질 JSON·매니페스트 + 재실행 안내"
+        - "도면·FEM·PDF 엔지니어링 보고서도 필요 - 별도 범위 확인 필요"
+        - "희망 출력 미정"
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgments
+    attributes:
+      label: "공개 범위와 제안 조건 확인"
+      options:
+        - label: "이 문의가 공개됨을 이해했고, 연락처·고객명·도면·모델·치수·원시 로그·기밀 자료를 포함하지 않았습니다."
+          required: true
+        - label: "99만 원은 부가세 별도 제안 금액이며, 고객별 범위·일정·결제 조건과 적용 가능성은 별도 확인이 필요함을 이해합니다."
+          required: true
+        - label: "소프트웨어 검수는 제조 승인·실물 검사·공차 또는 안전성 인증을 대체하지 않음을 이해합니다."
+          required: true

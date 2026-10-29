@@ -10,6 +10,10 @@ export function registerLandingRoutes(app, {
   projectRoot,
   jobsDir,
 }) {
+  app.use('/pilot', express.static(LOCAL_API_STATIC_ASSET_REGISTRY.pilot_dir, {
+    ...LOCAL_API_STATIC_FILE_OPTIONS,
+  }));
+
   app.use(
     '/js/app',
     express.static(LOCAL_API_STATIC_ASSET_REGISTRY.app_js_dir, {

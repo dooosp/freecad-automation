@@ -19,6 +19,7 @@ const BOOTSTRAP_SOURCE_MODEL_PATH = join(BOOTSTRAP_SESSION_DIR, 'source', 'simpl
 const BOOTSTRAP_ENGINEERING_CONTEXT_PATH = join(BOOTSTRAP_SESSION_DIR, 'artifacts', 'engineering_context.json');
 const BOOTSTRAP_DRAFT_CONFIG_PATH = join(BOOTSTRAP_SESSION_DIR, 'artifacts', 'bootstrap_draft_config.toml');
 const DOTFILE_TEST_PATH = join(ROOT, 'public', `.codex-local-api-dotfile-deny-${process.pid}`);
+const PILOT_DOTFILE_TEST_PATH = join(ROOT, 'public', 'pilot', `.private-${process.pid}`);
 const PREVIEW_DRAFT_CONFIG_TOML = 'name = "bootstrap_preview"\n[import]\nsource_step = "tests/fixtures/imports/simple_bracket.step"\n';
 const bootstrapCalls = [];
 const jobExecutions = new Map();
@@ -209,6 +210,29 @@ try {
   const dotfileResponse = await fetch(`${baseUrl}/${DOTFILE_TEST_PATH.split('/').at(-1)}`);
   assert.notEqual(dotfileResponse.status, 200);
   assert.equal((await dotfileResponse.text()).includes('hidden static fixture'), false);
+
+  const pilotRedirect = await fetch(`${baseUrl}/pilot`, { redirect: 'manual' });
+  assert.equal(pilotRedirect.status, 301);
+  assert.equal(pilotRedirect.headers.get('location'), '/pilot/');
+  const pilotPage = await fetch(`${baseUrl}/pilot/`);
+  assert.equal(pilotPage.status, 200);
+  assert.match(pilotPage.headers.get('content-type'), /text\/html/);
+  assert.match(await pilotPage.text(), /FreeCAD Automation/);
+  const offerResponse = await fetch(`${baseUrl}/pilot/offer.json`);
+  assert.equal(offerResponse.status, 200);
+  const offer = await offerResponse.json();
+  assert.equal(offer.price_krw, 990000);
+  for (const [file, type] of [[offer.proposal_file, /application\/pdf/], [offer.demo_file, /text\/markdown/]]) {
+    const response = await fetch(`${baseUrl}/pilot/${file}`);
+    assert.equal(response.status, 200, `Pilot download missing: ${file}`);
+    assert.match(response.headers.get('content-type'), type);
+    assert.ok((await response.arrayBuffer()).byteLength > 100);
+  }
+  writeFileSync(PILOT_DOTFILE_TEST_PATH, 'private pilot fixture');
+  const pilotPrivateResponse = await fetch(`${baseUrl}/pilot/${PILOT_DOTFILE_TEST_PATH.split('/').at(-1)}`);
+  assert.notEqual(pilotPrivateResponse.status, 200);
+  assert.equal((await pilotPrivateResponse.text()).includes('private pilot fixture'), false);
+  assert.notEqual((await fetch(`${baseUrl}/pilot/assets/not-found.pdf`)).status, 200);
 
   const htmlResponse = await fetch(baseUrl, {
     headers: {
@@ -1578,6 +1602,7 @@ try {
     .filter((job) => job.status === 'queued' || job.status === 'running');
   assert.deepEqual(unfinishedJobs.map((job) => ({ type: job.type, status: job.status })), []);
   rmSync(DOTFILE_TEST_PATH, { force: true });
+  rmSync(PILOT_DOTFILE_TEST_PATH, { force: true });
   rmSync(BOOTSTRAP_SESSION_DIR, { recursive: true, force: true });
   rmSync(tmpRoot, { recursive: true, force: true });
 }

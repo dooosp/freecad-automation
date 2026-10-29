@@ -42,6 +42,8 @@ The default quickcheck is read-only. The optional demo runs the existing strict 
 
 Follow the [customer first-run guide (한국어)](./docs/customer-start.ko.md) for Studio actions and recovery. The [paid pilot proposal (한국어)](./docs/commercial-pilot.ko.md) records market comparisons, proposed pricing, support limits, and acceptance criteria; its prices are unvalidated offer hypotheses. For contributor verification, prepare the [local Python/PDF environment](./docs/testing.md#python-and-pdf-test-dependencies) and run the documented test lanes.
 
+The [customer sales kit (한국어)](./docs/sales/README.md) includes the 990,000 KRW pilot landing page, downloadable proposal, and a rehearsable demo script. After `npm run serve`, open [the pilot introduction](http://127.0.0.1:3000/pilot/). The fee covers scoped setup and support; the source remains MIT licensed.
+
 If you are reviewing the repository on GitHub:
 
 1. Start with the [project closeout status](./docs/project-closeout-status.md) and the [canonical example library](./docs/examples/README.md) for the current CAD publish/review package route.

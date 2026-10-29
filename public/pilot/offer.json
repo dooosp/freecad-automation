@@ -1,0 +1,37 @@
+{
+  "id": "freecad-automation-pilot-990",
+  "revision": "2026-10-29",
+  "name": "FreeCAD Automation 파일럿",
+  "price_krw": 990000,
+  "tax_note": "부가세 별도",
+  "scope": {
+    "companies": 1,
+    "environments": 1,
+    "part_families": 1,
+    "max_variants": 10,
+    "revision_rounds": 2,
+    "support_days_after_handoff": 14,
+    "support_hours": 2
+  },
+  "supported_environment": "macOS + FreeCAD 1.1.x / Node.js 24 이상",
+  "delivery_mode": "쓰기 권한이 있는 로컬 소스 체크아웃",
+  "source_license": "MIT",
+  "repository_url": "https://github.com/dooosp/freecad-automation",
+  "inquiry_url": "https://github.com/dooosp/freecad-automation/issues/new?title=%5B%ED%8C%8C%EC%9D%BC%EB%9F%BF+%EB%AC%B8%EC%9D%98%5D+%EC%A0%81%EC%9A%A9+%EA%B0%80%EB%8A%A5+%EB%B2%94%EC%9C%84+%ED%99%95%EC%9D%B8&body=99%EB%A7%8C+%EC%9B%90+%ED%8C%8C%EC%9D%BC%EB%9F%BF+%EC%A0%81%EC%9A%A9+%EA%B0%80%EB%8A%A5+%EB%B2%94%EC%9C%84+%EB%AC%B8%EC%9D%98%0A%0A-+%EC%8B%A4%ED%96%89+%ED%99%98%EA%B2%BD%3A+macOS+%2F+FreeCAD+1.1.x+%2F+Node.js+24+%EC%9D%B4%EC%83%81+%EC%97%AC%EB%B6%80%0A-+%EA%B3%B5%EA%B0%9C+%EA%B0%80%EB%8A%A5%ED%95%9C+%EB%B6%80%ED%92%88+%EC%9C%A0%ED%98%95%3A+%EB%B8%8C%EB%9E%98%ED%82%B7+%2F+%ED%94%8C%EB%A0%88%EC%9D%B4%ED%8A%B8+%2F+%EA%B8%B0%ED%83%80+%EC%9D%BC%EB%B0%98+%EC%9C%A0%ED%98%95%0A-+%ED%9D%AC%EB%A7%9D+%EC%A1%B0%ED%95%A9+%EC%88%98%3A+1%7E10%EA%B0%9C+%EB%B2%94%EC%9C%84+%EC%97%AC%EB%B6%80%0A-+%ED%99%95%EC%9D%B8%ED%95%A0+%EC%82%AC%ED%95%AD%3A+%EC%A0%9C%EA%B3%B5+%EB%B2%94%EC%9C%84+%2F+%EC%A7%80%EC%9B%90+%EC%A1%B0%EA%B1%B4+%2F+%EC%9D%BC%EC%A0%95%0A%0A%EA%B3%B5%EA%B0%9C+%EB%AC%B8%EC%9D%98%EC%9E%85%EB%8B%88%EB%8B%A4.+%EC%97%B0%EB%9D%BD%EC%B2%98%2C+%EA%B3%A0%EA%B0%9D%EB%AA%85%2C+%EB%8F%84%EB%A9%B4%2C+%EB%AA%A8%EB%8D%B8%2C+%EC%B9%98%EC%88%98+%EB%B0%8F+%EA%B8%B0%EB%B0%80+%EC%9E%90%EB%A3%8C%EB%8A%94+%EC%A0%81%EA%B1%B0%EB%82%98+%EC%B2%A8%EB%B6%80%ED%95%98%EC%A7%80+%EC%95%8A%EC%8A%B5%EB%8B%88%EB%8B%A4.+%EC%83%81%EC%84%B8+%EC%9E%90%EB%A3%8C+%EC%A0%84%EB%8B%AC+%EB%B0%A9%EB%B2%95%EC%9D%80+%EB%B3%84%EB%8F%84+%ED%95%A9%EC%9D%98%ED%95%A9%EB%8B%88%EB%8B%A4.",
+  "inquiry_privacy_note": "GitHub 문의는 공개됩니다. 연락처, 고객명, 도면, 모델, 치수 및 기밀 자료는 올리지 마세요. 상세 자료 전달 방법은 별도로 합의합니다.",
+  "proposal_file": "assets/pilot-proposal.ko.pdf",
+  "demo_file": "assets/pilot-demo.ko.md",
+  "price_status": "제안 가격. 고객별 범위·일정·결제 조건은 상담 후 별도 확정.",
+  "acceptance": [
+    "합의한 입력 조합별 STEP/STL 생성 및 strict create-quality 통과",
+    "실제 STEP 재읽기·STL 검사와 매니페스트 파일 근거 확인",
+    "재실행 가능한 입력·명령·검수 기록 인계"
+  ],
+  "exclusions": [
+    "Windows/Linux 전체 워크플로우 지원 보증",
+    "복잡한 조립, 신규 형상 엔진, 클라우드 다중 사용자 기능",
+    "도면·FEM·PDF 보고서의 자동 포함 — 필요한 경우 별도 범위 확정",
+    "제조 승인, 실물 검사, 공차·안전성 인증",
+    "무제한 수정·지원 및 고객 작업 시간 절감 보장"
+  ]
+}
