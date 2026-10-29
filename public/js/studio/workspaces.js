@@ -369,6 +369,38 @@ function createRuntimeHealthCard(state) {
     );
   }
 
+  if (health.status === 'ready' && health.reachable && !runtimeAvailable) {
+    const remediation = health.remediation || [];
+    const nextSteps = health.nextSteps || [];
+    const sections = [
+      { title: 'Recommended fixes', steps: remediation },
+      { title: 'Next steps', steps: nextSteps },
+    ];
+    if (remediation.length === 0 && nextSteps.length === 0) {
+      sections[0].steps = ['Run `fcad check-runtime` to see runtime discovery details and setup steps.'];
+    }
+    notes.push(el('section', {
+      className: 'note-stack',
+      dataset: { hook: 'runtime-setup-guidance' },
+      children: [
+        el('h4', { className: 'card-title', text: 'Set up FreeCAD' }),
+        ...sections.filter(({ steps }) => steps.length > 0).map(({ title, steps }) =>
+          el('div', {
+            className: 'note-stack',
+            children: [
+              el('p', { className: 'eyebrow', text: title }),
+              createList(steps.map((step) => ({ label: step }))),
+            ],
+          })
+        ),
+        el('p', {
+          className: 'support-note',
+          text: 'Apply these steps in the terminal that runs the local API, restart `fcad serve`, then refresh status.',
+        }),
+      ],
+    }));
+  }
+
   return createCard({
     kicker: 'Runtime health',
     title: 'Runtime posture',

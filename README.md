@@ -29,19 +29,18 @@ Config lifecycle:
 
 ## Start Here
 
-For a first local verification:
-
-Prepare the [local Python and PDF test environment](./docs/testing.md#python-and-pdf-test-dependencies) before running the integration and Python lanes. The PDF smoke generates real reports and requires the pinned renderer dependencies.
+For a first customer run, use a writable source checkout with Node.js 24+ and FreeCAD 1.1.x. The owned live runtime path is macOS; other platforms require local verification.
 
 ```bash
 npm ci
-npm link
-fcad check-runtime
-npm run test:node:contract
-npm run test:node:integration
-npm run test:snapshots
-npm run test:runtime-smoke
+npm run customer:quickcheck
+npm run customer:quickcheck -- --create-demo
+npm run serve
 ```
+
+The default quickcheck is read-only. The optional demo runs the existing strict create pipeline in a unique `output/customer-demo/run-*` directory and verifies real STEP/STL, runtime-backed quality checks, and both manifests. Environment readiness alone is not geometry validation or manufacturing approval. Global installation is not the supported customer data-storage workflow.
+
+Follow the [customer first-run guide (한국어)](./docs/customer-start.ko.md) for Studio actions and recovery. The [paid pilot proposal (한국어)](./docs/commercial-pilot.ko.md) records market comparisons, proposed pricing, support limits, and acceptance criteria; its prices are unvalidated offer hypotheses. For contributor verification, prepare the [local Python/PDF environment](./docs/testing.md#python-and-pdf-test-dependencies) and run the documented test lanes.
 
 If you are reviewing the repository on GitHub:
 

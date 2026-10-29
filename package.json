@@ -2,6 +2,10 @@
   "name": "freecad-automation",
   "version": "1.1.0",
   "description": "FreeCAD-backed automation pipeline for CAD, TechDraw, inspection, FEM, reports, and manufacturing-review artifacts",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "homepage": "https://github.com/dooosp/freecad-automation#readme",
   "repository": {
     "type": "git",
@@ -26,7 +30,37 @@
     "fcad": "./bin/fcad.js",
     "mfg-agent": "./bin/fcad.js"
   },
+  "files": [
+    "bin/",
+    "lib/",
+    "src/",
+    "scripts/",
+    "public/",
+    "configs/",
+    "data/",
+    "schemas/",
+    "prompts/",
+    "docs/",
+    "tests/",
+    ".github/",
+    ".gitignore",
+    "AGENTS.md",
+    "pytest.ini",
+    "server.js",
+    "!**/.env*",
+    "!**/__pycache__/**",
+    "!**/*.py[co]",
+    "!**/node_modules/**",
+    "!**/output/**",
+    "!**/tmp/**",
+    "!**/.cache/**",
+    "!**/.ci/**",
+    "!**/logs/**",
+    "!**/local/**",
+    "!public/**/.*"
+  ],
   "scripts": {
+    "customer:quickcheck": "node scripts/customer-quickcheck.js",
     "check:runtime": "node scripts/check-runtime.js",
     "check:source-hygiene": "node scripts/check-source-tree-hygiene.js",
     "bootstrap:doctor": "node scripts/bootstrap-doctor.js",

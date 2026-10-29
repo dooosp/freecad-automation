@@ -2,6 +2,8 @@
 
 Use this walkthrough when you want to understand the checked-in Studio package flow without regenerating CAD, release bundles, readiness reports, or inspection evidence.
 
+To generate your first new part, follow the [customer first-run guide (한국어)](customer-start.ko.md): check the local environment, optionally create the verified CLI demo, then open Studio and use **Load verified bracket** followed by **Run tracked create first**. The runtime status card shows setup guidance when the API is reachable but FreeCAD is unavailable. CLI demo files and Studio tracked jobs are separate runs.
+
 ## What Studio Shows Today
 
 Studio is the browser UI served by `fcad serve` on `/` and `/studio`. In this repo it can show the canonical CAD packages, their readiness status, tracked job history, and read-only canonical artifact previews.

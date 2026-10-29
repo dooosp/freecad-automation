@@ -103,6 +103,11 @@ const ko = {
     'api.locale.caption': '언어',
   },
   phrases: {
+    'Set up FreeCAD': 'FreeCAD 설정',
+    'Recommended fixes': '권장 해결 방법',
+    'Next steps': '다음 단계',
+    'Run `fcad check-runtime` to see runtime discovery details and setup steps.': '`fcad check-runtime`을 실행하여 런타임 탐색 결과와 설정 방법을 확인하세요.',
+    'Apply these steps in the terminal that runs the local API, restart `fcad serve`, then refresh status.': '로컬 API를 실행하는 터미널에서 안내에 따라 설정하고 `fcad serve`를 다시 시작한 뒤 상태를 다시 확인하세요.',
     'Working config': '현재 설정',
     'Loaded from': '불러온 원본',
     'Runtime and run details': '런타임 및 실행 상세',

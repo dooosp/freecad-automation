@@ -273,6 +273,78 @@ async function assertResponsiveShell(cdp) {
   assert.deepEqual(failures, [], `Responsive shell must expose all navigation and workspace without horizontal overflow:\n${JSON.stringify(failures, null, 2)}`);
 }
 
+async function assertCanonicalPackageLayout(cdp) {
+  const original = await cdp.evaluate(localeSnapshotExpression());
+  const failures = [];
+  try {
+    for (const width of [1265, 1440, 390]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', {
+        width, height: 900, deviceScaleFactor: 1, mobile: false,
+      });
+      for (const locale of ['en', 'ko']) {
+        await cdp.evaluate(`(() => {
+          const select = document.getElementById('studio-locale-select');
+          select.value = '${locale}';
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          document.querySelector('.nav-link[data-route="start"]').click();
+        })()`);
+        await waitForRoute(cdp, 'start');
+        await waitFor(async () => {
+          assert.ok((await cdp.evaluate(canonicalPackageSnapshotExpression())).count >= 2);
+        });
+        await cdp.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+        const layout = await cdp.evaluate(`(() => ({
+          viewport: document.documentElement.clientWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          cards: [...document.querySelectorAll('.canonical-package-card')].map(card => {
+            const bounds = card.getBoundingClientRect();
+            const title = card.querySelector('.canonical-package-card-header h4');
+            return {
+              title: title.textContent,
+              titleWidth: title.getBoundingClientRect().width,
+              cardWidth: bounds.width,
+              scrollWidth: card.scrollWidth,
+              clientWidth: card.clientWidth,
+              artifactMetadata: [...card.querySelectorAll('.canonical-artifact-meta')].map(meta => {
+                const metaBounds = meta.getBoundingClientRect();
+                return {
+                  label: meta.querySelector('.canonical-artifact-label')?.textContent || '',
+                  width: metaBounds.width,
+                  overflowing: [...meta.querySelectorAll('*')].some(element => {
+                    const child = element.getBoundingClientRect();
+                    return child.width > 0 && (child.left < metaBounds.left - 1 || child.right > metaBounds.right + 1);
+                  }),
+                };
+              }),
+              overflowing: [...card.querySelectorAll('*')].filter(element => {
+                const child = element.getBoundingClientRect();
+                return child.width > 0 && (child.left < bounds.left - 1 || child.right > bounds.right + 1);
+              }).slice(0, 5).map(element => element.className || element.tagName),
+            };
+          }),
+        }))()`);
+        if (layout.documentWidth > layout.viewport + 1 || layout.cards.some(card => (
+          card.titleWidth < 100 || card.scrollWidth > card.clientWidth + 1 || card.overflowing.length > 0
+          || card.artifactMetadata.length === 0
+          || card.artifactMetadata.some(meta => meta.width < 100 || meta.overflowing)
+        ))) {
+          failures.push({ width, locale, ...layout });
+        }
+      }
+    }
+  } finally {
+    await cdp.send('Emulation.clearDeviceMetricsOverride');
+    await cdp.evaluate(`(() => {
+      const select = document.getElementById('studio-locale-select');
+      select.value = '${original.lang}';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('.nav-link[data-route="${original.activeRoute}"]').click();
+    })()`);
+    await waitForRoute(cdp, original.activeRoute);
+  }
+  assert.deepEqual(failures, [], `Canonical package titles and artifact metadata need readable width without overflow:\n${JSON.stringify(failures, null, 2)}`);
+}
+
 async function waitForRoute(
   cdp,
   route,
@@ -1940,6 +2012,7 @@ try {
     delayMs: 150,
   });
   assert.equal(canonicalPackageSnapshot.slugs.includes('hinge-block'), true);
+  await assertCanonicalPackageLayout(cdp);
 
   await cdp.evaluate(`(() => {
     const card = [...document.querySelectorAll('.canonical-package-card')]

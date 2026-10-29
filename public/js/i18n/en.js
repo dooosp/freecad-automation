@@ -41,6 +41,11 @@ const en = {
     'api.locale.caption': 'Language',
   },
   phrases: {
+    'Set up FreeCAD': 'Set up FreeCAD',
+    'Recommended fixes': 'Recommended fixes',
+    'Next steps': 'Next steps',
+    'Run `fcad check-runtime` to see runtime discovery details and setup steps.': 'Run `fcad check-runtime` to see runtime discovery details and setup steps.',
+    'Apply these steps in the terminal that runs the local API, restart `fcad serve`, then refresh status.': 'Apply these steps in the terminal that runs the local API, restart `fcad serve`, then refresh status.',
     'Copy repo path': 'Copy repo path',
     'Copied': 'Copied',
     'Copy failed': 'Copy failed',

@@ -39,6 +39,8 @@ export function createStudioShellState(locationLike = {}) {
         checkedAt: null,
         warnings: [],
         errors: [],
+        remediation: [],
+        nextSteps: [],
         fallbackMessage: '',
       },
       examples: {

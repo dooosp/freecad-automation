@@ -69,6 +69,12 @@ function resolveRuntimePath(runtime = {}) {
     || '';
 }
 
+function diagnosticStrings(value) {
+  return Array.isArray(value)
+    ? value.filter((entry) => typeof entry === 'string' && entry.trim())
+    : [];
+}
+
 async function copyTextToClipboard({ documentRef, navigatorRef }, text) {
   const value = typeof text === 'string' ? text : '';
   if (!value) {
@@ -216,8 +222,10 @@ export function bootStudioShell({
         freecadVersion: health?.runtime?.version_details?.freecad?.version || '',
         projectRoot: app.state.data.landing?.project_root || app.state.data.health.projectRoot,
         checkedAt: new Date().toISOString(),
-        warnings: Array.isArray(health?.runtime?.warnings) ? health.runtime.warnings : [],
-        errors: Array.isArray(health?.runtime?.errors) ? health.runtime.errors : [],
+        warnings: diagnosticStrings(health?.runtime?.warnings),
+        errors: diagnosticStrings(health?.runtime?.errors),
+        remediation: diagnosticStrings(health?.runtime?.remediation),
+        nextSteps: diagnosticStrings(health?.runtime?.next_steps),
         fallbackMessage: '',
       };
       app.addLog({
@@ -239,6 +247,8 @@ export function bootStudioShell({
         checkedAt: new Date().toISOString(),
         warnings: [],
         errors: [],
+        remediation: [],
+        nextSteps: [],
         fallbackMessage: app.state.connectionState === 'legacy'
           ? 'Legacy shell detected. Example loading can still work, but /health and tracked jobs are not exposed here.'
           : 'No /health endpoint responded. The shell stays usable, but runtime posture cannot be verified from here.',

@@ -2678,7 +2678,7 @@ body::after {
 }
 
 .canonical-package-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
 }
 
 .canonical-package-card {
@@ -2700,6 +2700,7 @@ body::after {
 }
 
 .canonical-artifact-ref {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
   padding: 0.65rem 0.75rem;
   border-radius: var(--radius-1);
   border: 1px solid rgba(126, 164, 198, 0.12);
