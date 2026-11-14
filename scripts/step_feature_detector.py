@@ -38,11 +38,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _bootstrap import init_freecad, read_input, respond, respond_error
 
 
-def extract_cylinders_from_step(shape):
-    """Extract all cylindrical faces from a STEP-loaded shape."""
+def extract_cylinders_from_step(shape, *, cylinders_only=False):
+    """Extract round faces from STEP, optionally restricted to actual cylinders."""
     cylinders = []
     for i, face in enumerate(shape.Faces):
         surf = face.Surface
+        if cylinders_only and type(surf).__name__ != 'Cylinder':
+            continue
         if hasattr(surf, 'Radius'):
             center = surf.Center if hasattr(surf, 'Center') else face.CenterOfMass
             axis = surf.Axis if hasattr(surf, 'Axis') else FreeCAD.Vector(0, 0, 1)

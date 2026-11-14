@@ -33,11 +33,13 @@ checks:
 | --- | --- | --- |
 | `Source hygiene guard` | `source-hygiene` | `npm run check:source-hygiene` |
 | `Node contract lane (ubuntu-24.04)` | `node-contract` matrix | `npm run test:node:contract` |
-| `Node contract lane (macos-14)` | `node-contract` matrix | `npm run test:node:contract` |
+| `Node contract lane (macos-14)` | `node-contract` matrix on `macos-15` | `npm run test:node:contract` |
 | `Node integration lane` | `node-integration` | `npm run test:node:integration` |
 | `Snapshot lane` | `snapshots` | `npm run test:snapshots` |
 | `Studio browser smoke lane` | `studio-browser-smoke` | `npm run test:studio-browser-smoke` |
 | `Python lane` | `python` | `npm run test:py` |
+
+The macOS check keeps its existing name for branch protection and runs on the `macos-15` hosted image.
 
 Local parity command for those hosted checks:
 

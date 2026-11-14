@@ -85,6 +85,21 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'retrofit-check',
+    helpSection: 'freecad-backed',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad retrofit-check <case.json> --out <report.json>',
+        summary: 'Experimental STEP retrofit fit check for specified mounting placements',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'freecad-backed',
+      requiresFreecadRuntime: true,
+      note: 'Local geometric review for single-solid STEP files and a specified flat adapter.',
+    }),
+  }),
+  Object.freeze({
     name: 'fem',
     helpSection: 'freecad-backed',
     helpEntries: Object.freeze([
@@ -943,6 +958,9 @@ const COMMAND_LIFECYCLE_METADATA = Object.freeze({
   create: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 20, safetyBoundary: 'Generates model artifacts; quality output is software analysis, not inspection evidence.' }),
   draw: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 30, safetyBoundary: 'Generates drawing artifacts; drawing QA is not physical inspection evidence.' }),
   inspect: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 40, safetyBoundary: 'Inspects supplied CAD and writes optional manifests without changing canonical readiness.' }),
+  'retrofit-check': experimental('engineering', {
+    safetyBoundary: 'Checks supplied STEP placements for geometric fit. Physical inspection and installation approval require separate evidence.',
+  }),
   fem: beta(),
   tolerance: beta(),
   report: beta(),

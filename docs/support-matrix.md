@@ -27,7 +27,7 @@ See [command lifecycle](./command-lifecycle.md) and [product workflows](./produc
 | Platform / runtime path | `fcad check-runtime` detection | Repository-owned live verification | Current status | Notes |
 | --- | --- | --- | --- | --- |
 | macOS + `FreeCAD.app` 1.1.x | Yes | Yes | Covered for listed checks | Maintainer-local checks cover `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`. Repository-owned runtime smoke covers `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report` on self-hosted macOS; PR smoke is sequenced after successful hosted CI for same-repository heads. |
-| macOS hosted CI (`macos-14`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node runtime-contract tests only. It does not install or launch FreeCAD. |
+| macOS hosted CI (`macos-15`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node runtime-contract tests only. It does not install or launch FreeCAD. |
 | Ubuntu hosted CI (`ubuntu-24.04`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node contract, Node integration, snapshots, Studio browser smoke, and Python lanes without installing FreeCAD; the Node contract lane includes the non-mutating Stage 5B no-evidence CLI lane, audit CLI smoke with GitHub discovery disabled, source acquisition/preflight guard, and surrogate inspection validation guard. |
 | Linux local with FreeCAD installed | Yes | No | Compatibility path | Runtime discovery and command assembly exist, but there is no repository-owned live runtime smoke on Linux yet. Validate locally with `fcad check-runtime` and your own smoke runs. |
 | Windows native + FreeCAD 1.1 | Yes | No | Compatibility path | Use explicit `FREECAD_*` overrides if PATH discovery is insufficient. Runtime ownership is not yet backed by repository-owned live smoke. |
@@ -42,6 +42,7 @@ See [command lifecycle](./command-lifecycle.md) and [product workflows](./produc
 - `create`
 - `draw`
 - `inspect`
+- `retrofit-check` (experimental, CLI only)
 - `fem`
 - `tolerance`
 - `report`
