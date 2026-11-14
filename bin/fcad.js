@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { resolve, join, dirname, extname, parse, sep } from 'node:path';
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { writeRetrofitReport } from '../src/cli/retrofit-check.js';
 import {
   buildArtifactManifest,
   createManifestPath,
@@ -1160,6 +1161,7 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'migrate-config': cmdMigrateConfig,
   dfm: cmdDfm,
   inspect: cmdInspect,
+  'retrofit-check': cmdRetrofitCheck,
   serve: cmdServe,
 });
 
@@ -4805,6 +4807,22 @@ async function cmdReport(rawArgs = []) {
     console.error(`\nError: ${error.message}`);
     process.exit(1);
   }
+}
+
+async function cmdRetrofitCheck(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('retrofit-check', options, ['out']);
+  const usage = 'fcad retrofit-check <case.json> --out <report.json>';
+  if (positional.length !== 1) throw new Error(usage);
+
+  const casePath = resolveMaybe(positional[0]);
+  const reportPath = resolveMaybe(requireOptionValue('--out', options.out, usage));
+  if (extname(casePath ?? '').toLowerCase() !== '.json' || extname(reportPath ?? '').toLowerCase() !== '.json') {
+    throw new Error('retrofit-check requires .json input and output paths');
+  }
+  requireExistingInputFile('retrofit case', casePath);
+  await writeRetrofitReport(casePath, reportPath, runWithCliStderr);
+  console.log(reportPath);
 }
 
 async function cmdInspect(rawArgs = []) {

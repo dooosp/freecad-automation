@@ -42,6 +42,7 @@ See [command lifecycle](./command-lifecycle.md) and [product workflows](./produc
 - `create`
 - `draw`
 - `inspect`
+- `retrofit-check` (experimental, CLI only)
 - `fem`
 - `tolerance`
 - `report`

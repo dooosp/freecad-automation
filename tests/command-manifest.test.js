@@ -152,6 +152,15 @@ assertSameCommands(
 );
 assert.deepEqual(DIAGNOSTIC_COMMANDS, ['check-runtime']);
 assert.equal(FREECAD_BACKED_COMMANDS.includes('inspect'), true);
+assert.equal(FREECAD_BACKED_COMMANDS.includes('retrofit-check'), true);
+assert.match(renderCommandUsage('retrofit-check'), /fcad retrofit-check <case\.json> --out <report\.json>/);
+const retrofitCommand = commandManifest.find((entry) => entry.name === 'retrofit-check');
+assert.equal(retrofitCommand.lifecycle, 'experimental');
+assert.equal(retrofitCommand.defaultHelpVisible, false);
+assert.doesNotMatch(defaultHelp, /fcad retrofit-check/);
+assert.match(allHelp, /fcad retrofit-check <case\.json> --out <report\.json>/);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('retrofit-check'), false);
+assert.equal(STUDIO_JOB_COMMANDS.includes('retrofit-check'), false);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('serve'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('closeout-package'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('evidence-readiness-audit'), true);

@@ -237,6 +237,8 @@ This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tol
 
 ## Command Surface
 
+The experimental [`retrofit-check` CLI](./docs/retrofit-check.md) measures fit for a specified STEP mounting placement and one optional flat adapter.
+
 Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance. Add `--json` when a tool needs the same machine-readable runtime contract that the local API exposes from `GET /health`, or `--fingerprint-out <runtime_fingerprint.json>` when a local reproducibility snapshot is needed.
 
 ### Command Classification
@@ -244,7 +246,7 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | Class | Commands | Runtime boundary |
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
-| FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
+| FreeCAD-backed | `create`, `draw`, `inspect`, `retrofit-check`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
 | Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `closeout-package`, `evidence-graph`, `evidence-readiness-audit`, `evidence-artifacts-materialize`, `maintainer-decision-journal`, `inspection-evidence-intake`, `inspection-evidence-quarantine`, `inspection-evidence-validate`, `inspection-evidence-authorize`, `inspection-evidence-attach`, `inspection-evidence-regenerate-readiness`, `inspection-evidence-promotion-dry-run`, `inspection-plan`, `manufacturing-action-dataset`, `inspection-plan-release-record`, `inspection-result-normalize`, `stage5b-evidence-audit`, `stage5b-evidence-review-dry-run`, `stage5b-evidence-attachment-controller`, `stage5b-evidence-pipeline-doctor`, `stage5b-evidence-source-kit`, `stage5b-evidence-source-preflight`, `stage5b-surrogate-inspection-validation`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json`, while inspection evidence uses checksum-bound plan release, untrusted result normalization, quarantine, and separately authorized attachment/readiness boundaries so ordinary readiness packaging remains held on unverified claims |
 | Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 

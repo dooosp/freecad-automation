@@ -28,7 +28,7 @@
 
 - Stable: the 12 default commands plus `validate-config`, `migrate-config`, and `help`.
 - Beta: `fem`, `tolerance`, `report`, `dfm`, `review`, `process-plan`, `quality-risk`, `evidence-graph`, `stabilization-review`, `generate-standard-docs`, `validate`, and `analyze-part`.
-- Experimental: `line-plan`, `investment-review`, `design`, and `sweep`.
+- Experimental: `line-plan`, `investment-review`, `design`, `sweep`, and `retrofit-check`.
 - Maintainer: `closeout-package`, the evidence-readiness audit/materializer/journal family, the authoritative inspection-evidence control family, and the Stage 5B helper family.
 - Compatibility: `readiness-report`; `readiness-report --review-pack` remains available, while the config-positional route is deprecated.
 - Internal: `ingest`, `quality-link`, and `review-pack` orchestration primitives.
