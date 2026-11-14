@@ -442,6 +442,12 @@ assert.match(hostedWorkflow, /^name: Automation CI \(hosted fast lanes\)$/m);
 assert.match(hostedWorkflow, /^\s+pull_request:\s*$/m);
 assert.match(hostedWorkflow, /^\s+workflow_dispatch:\s*$/m);
 assert.match(hostedWorkflow, /^\s+push:\s*\n\s+branches: \[master\]/m);
+assert.match(
+  hostedWorkflow,
+  /^        include:\r?\n          - os: macos-14\r?\n            runner: macos-15$/m,
+  'The protected macOS contract check should use a supported hosted runner'
+);
+assert.match(hostedWorkflow, /^    runs-on: \$\{\{ matrix\.runner \|\| matrix\.os \}\}$/m);
 [
   ['Source hygiene guard', 'npm run check:source-hygiene'],
   ['Node contract lane (ubuntu-24.04)', 'npm run test:node:contract'],

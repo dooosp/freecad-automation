@@ -42,8 +42,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Keep the macOS check name required by master branch protection.
         os: [ubuntu-24.04, macos-14]
-    runs-on: ${{ matrix.os }}
+        include:
+          - os: macos-14
+            runner: macos-15
+    runs-on: ${{ matrix.runner || matrix.os }}
     timeout-minutes: 35
     steps:
       - name: Checkout

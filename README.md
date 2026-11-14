@@ -1218,7 +1218,7 @@ npm test
 GitHub-hosted CI currently covers:
 
 - `check:source-hygiene` on `ubuntu-24.04`
-- `test:node:contract` on `ubuntu-24.04` and `macos-14`
+- `test:node:contract` on `ubuntu-24.04` and `macos-15`
 - `test:node:integration` on `ubuntu-24.04`
 - `test:snapshots` on `ubuntu-24.04`
 - `test:studio-browser-smoke` on `ubuntu-24.04`
