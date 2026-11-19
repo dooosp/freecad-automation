@@ -1,0 +1,11 @@
+{
+  "part": "부품",
+  "revision": "도면개정",
+  "lot": "로트",
+  "sample": "표본",
+  "characteristic": "검사항목",
+  "value": "실측값",
+  "unit": "단위",
+  "supplier_result": "협력사판정",
+  "supplier": "협력사"
+}
