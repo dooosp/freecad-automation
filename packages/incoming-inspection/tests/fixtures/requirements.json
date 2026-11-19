@@ -1,0 +1,14 @@
+{
+  "part": "BRACKET-01",
+  "revision": "B",
+  "characteristics": [
+    {
+      "id": "H1",
+      "drawing_ref": "도면 B · 1면 C3 · 구멍 H1",
+      "unit": "mm",
+      "lower": "9.90",
+      "upper": "10.10",
+      "samples": ["S1", "S2", "S3"]
+    }
+  ]
+}

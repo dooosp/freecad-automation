@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "incoming-inspection"
+version = "0.1.0"
+description = "Compare supplier measurements against purchaser inspection requirements"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+incoming-inspection = "incoming_inspection.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,10 @@
+{
+  "part": "Part Number",
+  "revision": "Rev",
+  "lot": "Batch",
+  "sample": "Specimen",
+  "characteristic": "Feature ID",
+  "value": "Reading",
+  "unit": "Reading Unit",
+  "supplier_result": "Disposition"
+}
