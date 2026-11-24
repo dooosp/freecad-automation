@@ -50,3 +50,23 @@ STEP paths resolve relative to `case.json` or can be absolute. The report includ
 - Connector clearance is the minimum distance from the translated connector box to the declared obstacle boxes. Positive connector intersection gets its own reason code. A confirmed empty obstacle list produces no numerical minimum. Missing geometry that prevents a clearance measurement produces a null result.
 - When the only direct failure is hole offset and an adapter is supplied, the CLI uses the two measured hole patterns and diameters to drill a rectangular plate in memory. It checks the minimum web between all holes and to any plate edge, both mounting interfaces, body interference, and the installed connector clearance.
 - A candidate report carries the direct assessment, the adapter assessment when performed, and reason codes. `direct_mount` and `adapter_candidate` describe the supplied placements. `blocked` means all supplied placements in scope fail a known requirement. `needs_input` gives the missing or ambiguous inputs that can change the result.
+
+## Review the supplied placement
+
+From the demo block above, read `first.json` in this order.
+
+1. Match `source_case.sha256`, `mount_plate.step.sha256` and each `candidate_model.step.sha256` to the input files. Confirm the FreeCAD version, units, requirements and numerical tolerances. The CLI hashes and imports the same STEP snapshot.
+2. Check each candidate's `status`, `reason_codes` and `needed_inputs`. In D, supply the candidate-local envelope at `candidates[D].connector_box` before rerunning. Obtain fixed obstacle bounds from the installation layout. Omit unknown bounds to expose missing evidence. Use an empty array only for a known obstacle-free layout.
+3. Pick the mating faces and fastener bores from the STEP in its source orientation. Record the outward normals and local Z heights, give each intended bore a local center/axis hint and pair IDs explicitly. Read measured source coordinates under `candidate_model.holes`. For B the local hole at [32, 32, 0] appears at [32, 32, 4] in the direct placement and sits over the plate at Z=10 in the adapter placement. Each translation is measured from the source STEP position.
+4. Inspect `direct.hole_pairs`, `mount_interfaces`, `intersections` and `clearance` together. In C the measured clearance is 2 mm against a 5 mm requirement. For B, read both adapter interfaces and the clearance after installation. The plate's hole centers are reported on its lower face at Z=4.
+
+To export the exact evaluated solid for candidate B and inspect the installed coordinates, continue in the same shell after the demo.
+
+```sh
+node bin/fcad.js retrofit-check "$run_dir/inputs/case.json" --out "$run_dir/review.json" --export-adapter B &&
+node bin/fcad.js inspect "$run_dir/review.adapter.step"
+```
+
+Only a qualified `adapter_candidate` can be selected. The STEP is saved beside the new JSON using the report stem. FreeCAD reimports the staged STEP and checks its solid, volume and placement. The CLI verifies the file digest and publishes the report last. Its `candidates[].adapter.review_step` records the filename and SHA-256 of the exported bytes. Existing output paths cause an error. Use the default JSON-only invocation when comparing reports byte-for-byte. STEP writers can include export-time header metadata.
+
+Use `fcad help --all` to find this experimental command. The stable review sequence starts with `check-runtime`, then `create` or `inspect`, followed by `draw` for a configured part. A downstream drawing of the adapter needs an explicit drawing configuration and dimension references. The STEP can be opened directly for geometric review.

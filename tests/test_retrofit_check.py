@@ -97,6 +97,21 @@ def test_four_cases_use_step_holes_and_solid_contact(demo):
     assert len(report["mount_plate"]["step"]["sha256"]) == 64
 
 
+def test_step_digest_identifies_the_bytes_imported_by_freecad(demo):
+    directory, _ = demo
+    driver = (
+        "import { runScript } from './lib/runner.js'; "
+        "console.log(JSON.stringify(await runScript('../tests/fixtures/retrofit/verify_revision.py', "
+        "{ directory: process.argv[1] })));"
+    )
+    result = run(["--input-type=module", "-e", driver, str(directory)])
+    assert result.returncode == 0, result.stderr
+    measured = json.loads(result.stdout)
+    assert measured["digest"] == measured["expected_digest"]
+    assert measured["supplied_volume"] != pytest.approx(measured["other_volume"])
+    assert measured["imported_volume"] == pytest.approx(measured["supplied_volume"])
+
+
 def test_same_hole_spacing_with_shifted_placement_is_blocked(demo):
     def shift(case):
         candidate_a_only(case)["translation_mm"][0] = 0.5
@@ -326,3 +341,118 @@ def test_known_clearance_failure_still_blocks_with_an_unmeasured_obstacle(demo):
     clearance = candidate["direct"]["clearance"]
     assert clearance["minimum_mm"] is None
     assert clearance["obstacles"][0]["distance_mm"] == pytest.approx(2)
+
+
+@pytest.fixture(scope="module")
+def independent_inputs(demo, tmp_path_factory):
+    # The demo fixture has already verified availability of this FreeCAD installation.
+    directory = tmp_path_factory.mktemp("retrofit-independent")
+    driver = (
+        "import { runScript } from './lib/runner.js'; "
+        "await runScript('../tests/fixtures/retrofit/independent_case.py', "
+        "{ output_directory: process.argv[1] });"
+    )
+    result = run(["--input-type=module", "-e", driver, str(directory)])
+    assert result.returncode == 0, result.stderr
+    return directory
+
+
+def verify_observations(item, expected):
+    direct = item["direct"]
+    interfaces = direct["mount_interfaces"]
+    pairs = direct["hole_pairs"]
+    assert item["status"] == expected["status"]
+    if "reason" in expected:
+        assert expected["reason"] in item["reason_codes"]
+    if "needed_inputs" in expected:
+        assert item["needed_inputs"] == expected["needed_inputs"]
+    if "clearance" in expected:
+        clearance = direct["clearance"]["minimum_mm"]
+        if expected["clearance"] is None:
+            assert clearance is None
+            assert direct["clearance"]["obstacles"] == []
+        else:
+            assert clearance == pytest.approx(expected["clearance"], abs=1e-6)
+    if "offset" in expected or "offsets" in expected:
+        offsets = expected["offsets"] if "offsets" in expected else [expected["offset"]] * 4
+        assert [pair["offset_mm"] for pair in pairs] == pytest.approx(offsets, abs=1e-6)
+    if "diameter" in expected:
+        assert pairs[0]["candidate"]["diameter_mm"] == pytest.approx(expected["diameter"])
+    if "intersection" in expected:
+        fixed = next(entry for entry in direct["intersections"] if entry["against_kind"] == "solid")
+        assert fixed["volume_mm3"] == pytest.approx(expected["intersection"], abs=1e-6)
+    if "contact_area" in expected:
+        assert interfaces[0]["contact_area_mm2"] == pytest.approx(expected["contact_area"], abs=1e-6)
+    if "plane_gap" in expected:
+        assert interfaces[0]["plane_gap_mm"] == pytest.approx(expected["plane_gap"])
+    if item["status"] == "adapter_candidate":
+        adapter = item["adapter"]
+        plate = adapter["plate"]
+        assert plate["thickness_mm"] == pytest.approx(expected["thickness"])
+        assert plate["min_hole_web_mm"] == pytest.approx(expected["hole_web"], abs=1e-6)
+        assert plate["min_edge_web_mm"] == pytest.approx(expected["edge_web"], abs=1e-6)
+        assert adapter["clearance"]["minimum_mm"] == pytest.approx(expected["installed_clearance"])
+        assert [face["contact_area_mm2"] for face in adapter["mount_interfaces"]] == pytest.approx(
+            expected["installed_contacts"], abs=1e-6
+        )
+        assert all(abs(entry["volume_mm3"]) <= 1e-6 for entry in adapter["intersections"])
+
+
+@pytest.mark.parametrize("filename", ["case.json", "obstacles-missing.json", "obstacles-empty.json"])
+def test_independent_dimensions_and_limits(independent_inputs, filename):
+    directory = independent_inputs
+    report_path = directory / f"report-{filename}"
+    result = run([str(CLI), "retrofit-check", str(directory / filename), "--out", str(report_path)])
+    assert result.returncode == 0, result.stderr
+    candidates = json.loads(report_path.read_text())["candidates"]
+    oracle = json.loads((ROOT / "tests/fixtures/retrofit/oracle.json").read_text())[filename]
+    assert [item["id"] for item in candidates] == list(oracle)
+    for item in candidates:
+        verify_observations(item, oracle[item["id"]])
+
+
+def test_exported_adapter_reimports_at_measured_placement(demo):
+    import hashlib
+
+    directory, _ = demo
+    report_path = directory / "adapter-review.json"
+    command = [str(CLI), "retrofit-check", str(directory / "case.json"), "--out", str(report_path)]
+    result = run(command + ["--export-adapter", "B"])
+    assert result.returncode == 0, result.stderr
+    report = json.loads(report_path.read_bytes())
+    candidate = next(item for item in report["candidates"] if item["id"] == "B")
+    assert candidate["status"] == "adapter_candidate"
+    artifact = candidate["adapter"]["review_step"]
+    step = directory / artifact["file"]
+    assert hashlib.sha256(step.read_bytes()).hexdigest() == artifact["sha256"]
+
+    inspect = (
+        "import { runScript } from './lib/runner.js'; "
+        "console.log(JSON.stringify(await runScript('step_feature_detector.py', { file: process.argv[1] })));"
+    )
+    inspected = run(["--input-type=module", "-e", inspect, str(step)])
+    assert inspected.returncode == 0, inspected.stderr
+    measured = json.loads(inspected.stdout)
+    model = measured["model_metadata"]
+    assert model["valid_shape"] and model["solid_count"] == 1
+    assert model["bbox"]["min"] == [12, 12, 4]
+    assert model["bbox"]["max"] == [133, 86, 10]
+    bores = measured["features"]["cylinders"]
+    assert len(bores) == 8
+    assert all(b["is_hole"] and b["diameter"] == 4 and b["height"] == 6 for b in bores)
+    assert {tuple(b["center"][:2]) for b in bores} == {
+        (22, 22), (22, 76), (123, 22), (123, 76),
+        (32, 32), (32, 66), (113, 32), (113, 66),
+    }
+
+
+@pytest.mark.parametrize("candidate_id", ["A", "C", "D", "absent"])
+def test_only_a_qualified_adapter_can_be_exported(demo, candidate_id):
+    directory, _ = demo
+    output = directory / f"unqualified-{candidate_id}.json"
+    result = run([str(CLI), "retrofit-check", str(directory / "case.json"),
+                  "--out", str(output), "--export-adapter", candidate_id])
+    assert result.returncode != 0
+    assert "did not qualify" in result.stderr
+    assert not output.exists()
+    assert not output.with_suffix(".adapter.step").exists()

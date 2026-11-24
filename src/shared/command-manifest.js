@@ -89,7 +89,7 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
     helpSection: 'freecad-backed',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad retrofit-check <case.json> --out <report.json>',
+        usage: 'fcad retrofit-check <case.json> --out <report.json> [--export-adapter <candidate-id>]',
         summary: 'Experimental STEP retrofit fit check for specified mounting placements',
       }),
     ]),
