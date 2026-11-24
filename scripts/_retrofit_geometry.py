@@ -4,6 +4,8 @@ import hashlib
 import math
 from dataclasses import dataclass
 from itertools import combinations
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import Part
 from FreeCAD import Vector
@@ -38,9 +40,14 @@ def read_solid(path):
     try:
         if path.suffix.lower() not in {".step", ".stp"}:
             raise ValueError("expected a .step or .stp file")
-        with path.open("rb") as step_file:
-            raw_hash = hashlib.file_digest(step_file, "sha256").hexdigest()
-        shape = import_shape({"file": str(path)})
+        digest = hashlib.sha256()
+        with TemporaryDirectory() as directory:
+            snapshot = Path(directory) / "input.step"
+            with path.open("rb") as source, snapshot.open("wb") as target:
+                while chunk := source.read(1024 * 1024):
+                    target.write(chunk)
+                    digest.update(chunk)
+            shape = import_shape({"file": str(snapshot)})
         if shape.isNull() or not shape.isValid():
             raise ValueError("FreeCAD returned a null or invalid shape")
     except Exception as error:
@@ -51,7 +58,7 @@ def read_solid(path):
         if len(children) != 1:
             break
         shape = children[0]
-    return raw_hash, shape if shape.ShapeType == "Solid" and shape.Volume > VOLUME else None
+    return digest.hexdigest(), shape if shape.ShapeType == "Solid" and shape.Volume > VOLUME else None
 
 
 def parallel_z(axis):
@@ -213,3 +220,16 @@ def build_adapter(bounds, holes):
             raise RuntimeError(f"FreeCAD could not drill adapter hole {hole['id']}")
         plate = cut.Solids[0]
     return plate
+
+
+def export_review_step(plate, path):
+    """Re-import the staged export before its report can publish the STEP digest."""
+    plate.exportStep(str(path))
+    digest, imported = read_solid(path)
+    if imported is None or not math.isclose(imported.Volume, plate.Volume, rel_tol=1e-9, abs_tol=VOLUME):
+        raise ValueError("Exported STEP does not reproduce the evaluated adapter volume")
+    expected, actual = plate.BoundBox, imported.BoundBox
+    for bound in ("XMin", "YMin", "ZMin", "XMax", "YMax", "ZMax"):
+        if abs(getattr(expected, bound) - getattr(actual, bound)) > LINEAR:
+            raise ValueError("Exported STEP does not reproduce the evaluated adapter placement")
+    return digest

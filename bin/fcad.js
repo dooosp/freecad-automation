@@ -4811,8 +4811,8 @@ async function cmdReport(rawArgs = []) {
 
 async function cmdRetrofitCheck(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
-  rejectUnsupportedOptions('retrofit-check', options, ['out']);
-  const usage = 'fcad retrofit-check <case.json> --out <report.json>';
+  rejectUnsupportedOptions('retrofit-check', options, ['out', 'export-adapter']);
+  const usage = 'fcad retrofit-check <case.json> --out <report.json> [--export-adapter <candidate-id>]';
   if (positional.length !== 1) throw new Error(usage);
 
   const casePath = resolveMaybe(positional[0]);
@@ -4821,7 +4821,10 @@ async function cmdRetrofitCheck(rawArgs = []) {
     throw new Error('retrofit-check requires .json input and output paths');
   }
   requireExistingInputFile('retrofit case', casePath);
-  await writeRetrofitReport(casePath, reportPath, runWithCliStderr);
+  const candidateId = options['export-adapter'] === undefined
+    ? undefined
+    : requireOptionValue('--export-adapter', options['export-adapter'], usage);
+  await writeRetrofitReport(casePath, reportPath, runWithCliStderr, candidateId);
   console.log(reportPath);
 }
 

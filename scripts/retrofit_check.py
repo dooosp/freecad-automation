@@ -45,12 +45,14 @@ class Model:
 
 
 class RetrofitCheck:
-    def __init__(self, case, directory, geometry):
+    def __init__(self, case, directory, geometry, adapter_candidate_id=None):
         self.case = case
         self.directory = directory
         self.geo = geometry
         self.limits = case["requirements"]
         self.imports = {}
+        self.adapter_candidate_id = adapter_candidate_id
+        self.review_plate = None
 
     def load_model(self, item, prefix, side, issues):
         shape = None
@@ -248,10 +250,10 @@ class RetrofitCheck:
         issues, failures = [], []
         field = f"{prefix}.adapter"
         if not need_fields(issues, spec, field, ("bounds", "translation_mm"), "ADAPTER_PLACEMENT_REQUIRED"):
-            return None, issues, failures
+            return None, issues, failures, None
         bounds = spec["bounds"]
         if not need_fields(issues, bounds, f"{field}.bounds", ("min_mm", "max_mm"), "ADAPTER_BOUNDS_REQUIRED"):
-            return None, issues, failures
+            return None, issues, failures, None
         for key in REQUIREMENTS[-2:]:
             if self.limits[key] is None:
                 note(issues, "REQUIREMENT_REQUIRED", f"requirements.{key}")
@@ -288,6 +290,7 @@ class RetrofitCheck:
             "intersections": [],
             "clearance": None,
         }
+        plate = None
         if hole_web > self.geo.LINEAR and edge_web > self.geo.LINEAR:
             plate = self.geo.build_adapter(bounds, holes)
             bottom = self.geo.find_mount_face(plate, lower[2], -1)
@@ -298,7 +301,7 @@ class RetrofitCheck:
                 adapter_translation, base, model, connector, obstacles, failures,
                 adapter=(plate, bottom, top),
             ))
-        return result, issues, failures
+        return result, issues, failures, plate
 
     def candidate(self, item, base, shared_issues, obstacles, obstacles_complete):
         prefix = f"candidates[{item['id']}]"
@@ -328,7 +331,7 @@ class RetrofitCheck:
         adapter = None
         can_try_adapter = failures == [{"code": "HOLE_OFFSET_EXCEEDED"}] and item["adapter"] is not None
         if can_try_adapter and not issues:
-            adapter, adapter_issues, adapter_failures = self.check_adapter(
+            adapter, adapter_issues, adapter_failures, plate = self.check_adapter(
                 item["adapter"], prefix, pairs, base, model, connector, obstacles,
             )
             if adapter_failures:
@@ -338,6 +341,8 @@ class RetrofitCheck:
             else:
                 status = "adapter_candidate"
                 note(adapter_failures, "ADAPTER_REQUIREMENTS_MET")
+                if item["id"] == self.adapter_candidate_id:
+                    self.review_plate = plate
             if adapter is not None:
                 adapter["issues"] = adapter_failures + adapter_issues
             failures.extend(adapter_failures)
@@ -398,13 +403,23 @@ def translate_bounds(bounds, delta):
 
 
 def main():
-    case_path = Path(read_input()["case_path"]).absolute()
+    request = read_input()
+    case_path = Path(request["case_path"]).absolute()
     case = read_case(case_path)
     freecad = init_freecad()
     import _retrofit_geometry as geometry
 
     version = ".".join(str(part) for part in freecad.Version()[:3])
-    respond(RetrofitCheck(case, case_path.parent, geometry).report(version))
+    candidate_id = request.get("adapter_candidate_id")
+    check = RetrofitCheck(case, case_path.parent, geometry, candidate_id)
+    report = check.report(version)
+    if candidate_id is not None:
+        if check.review_plate is None:
+            raise ValueError(f"Candidate {candidate_id!r} did not qualify as adapter_candidate")
+        report["verified_step_sha256"] = geometry.export_review_step(
+            check.review_plate, Path(request["adapter_step_path"]),
+        )
+    respond(report)
 
 
 try:

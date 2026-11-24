@@ -1,0 +1,20 @@
+{
+  "units": "mm",
+  "case.json": {
+    "K76": {"status":"direct_mount","offset":0,"clearance":6,"contact_area":1485.73451754256,"intersection":0},
+    "U11": {"status":"direct_mount","offset":0.19,"clearance":5.81},
+    "M59": {"status":"direct_mount","offset":0.20,"clearance":5.80},
+    "P38": {"status":"blocked","reason":"HOLE_OFFSET_EXCEEDED","offset":0.21,"clearance":5.79},
+    "N72": {"status":"blocked","reason":"CONNECTOR_CLEARANCE_BELOW_MINIMUM","offset":0,"clearance":4.99},
+    "V14": {"status":"direct_mount","offset":0,"clearance":5.00},
+    "D85": {"status":"direct_mount","offset":0,"clearance":5.01},
+    "S43": {"status":"blocked","reason":"HOLE_DIAMETER_BELOW_MINIMUM","diameter":3,"offset":0},
+    "Q26": {"status":"blocked","reason":"HOLE_OFFSET_EXCEEDED","offsets":[34,34,0,0]},
+    "T52": {"status":"blocked","reason":"BODY_INTERFERENCE","intersection":1485.73451754256,"plane_gap":-1},
+    "A37": {"status":"adapter_candidate","thickness":5,"hole_web":2.40312423743,"edge_web":6,"installed_clearance":6,"installed_contacts":[2195.46903508513,1435.46903508513]},
+    "F94": {"status":"needs_input","reason":"CONNECTOR_BOX_REQUIRED","needed_inputs":["candidates[F94].connector_box"]},
+    "L69": {"status":"needs_input","reason":"SINGLE_SOLID_STEP_REQUIRED","needed_inputs":["candidates[L69].step_file"]}
+  },
+  "obstacles-missing.json": {"J67":{"status":"needs_input","reason":"OBSTACLES_REQUIRED","needed_inputs":["obstacles"]}},
+  "obstacles-empty.json": {"J67":{"status":"direct_mount","clearance":null}}
+}
