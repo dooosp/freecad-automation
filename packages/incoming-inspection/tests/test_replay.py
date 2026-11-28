@@ -126,6 +126,18 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(compared["reasons"], ["identity_changed"])
         self.assertEqual(compared["changes"], [])
 
+    def test_new_drawing_revision_is_a_separate_case_requiring_full_review(self):
+        before = make_review()
+        after = deepcopy(before)
+        after["identity"]["revision"] = after["requirements"]["revision"] = "C"
+        after["inputs"]["requirements"]["sha256"] = "d" * 64
+        compared = compare_reviews(before, after)
+        self.assertEqual(compared["mode"], "separate_case")
+        self.assertEqual(compared["reasons"], ["identity_changed"])
+        self.assertIs(compared.get("full_review_required"), True)
+        self.assertEqual(compared["changes"], [])
+        self.assertEqual(compared["unmatched_changes"], [])
+
     def test_rejects_incompatible_or_malformed_review(self):
         invalid = [
             lambda item: item.update(schema_version=True),

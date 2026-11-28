@@ -1,0 +1,4 @@
+Part No.,Revision,Lot ID,Vendor,Characteristic,Sample,Reading,UOM,Result
+SR-110,C,LOT-110,SYN-DUAL,SLOT,S1,6.07,mm,PASS
+SR-110,C,LOT-110,SYN-DUAL,SLOT,S2,6.00,mm,PASS
+SR-110,C,LOT-110,SYN-OTHER,SLOT,S1,5.99,mm,PASS

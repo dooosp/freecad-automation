@@ -1,0 +1,18 @@
+{
+  "part": "RF-107",
+  "revision": "C",
+  "characteristics": [
+    {
+      "id": "RIM",
+      "drawing_ref": "RF-107 / C3 / rim width",
+      "unit": "mm",
+      "lower": "11.95",
+      "upper": "12.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3"
+      ]
+    }
+  ]
+}

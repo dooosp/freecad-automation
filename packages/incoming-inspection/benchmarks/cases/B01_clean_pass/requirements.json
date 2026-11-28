@@ -1,0 +1,18 @@
+{
+  "part": "GH-101",
+  "revision": "A",
+  "characteristics": [
+    {
+      "id": "WIDTH",
+      "drawing_ref": "GH-101 / A2 / width",
+      "unit": "mm",
+      "lower": "7.95",
+      "upper": "8.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3"
+      ]
+    }
+  ]
+}

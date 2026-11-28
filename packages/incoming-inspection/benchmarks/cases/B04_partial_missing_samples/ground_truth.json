@@ -1,0 +1,31 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "WALL", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "3"},
+      {"characteristic": "WALL", "sample": "S2", "status": "missing", "reasons": ["missing_measurement"], "source_rows": [], "measured_mm": null},
+      {"characteristic": "WALL", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "3.01"},
+      {"characteristic": "WALL", "sample": "S4", "status": "missing", "reasons": ["missing_measurement"], "source_rows": [], "measured_mm": null},
+      {"characteristic": "WALL", "sample": "S5", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "2.99"}
+    ],
+    "unmatched_rows": []
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "WALL", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "3"},
+      {"characteristic": "WALL", "sample": "S2", "status": "missing", "reasons": ["missing_measurement"], "source_rows": [], "measured_mm": null},
+      {"characteristic": "WALL", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "3.01"},
+      {"characteristic": "WALL", "sample": "S4", "status": "in_tolerance", "reasons": [], "source_rows": [4], "measured_mm": "2.98"},
+      {"characteristic": "WALL", "sample": "S5", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "2.99"}
+    ],
+    "unmatched_rows": []
+  },
+  "diff": {
+    "mode": "comparison",
+    "reasons": [],
+    "changes": [
+      {"characteristic": "WALL", "sample": "S2", "kind": "unresolved"},
+      {"characteristic": "WALL", "sample": "S4", "kind": "added"}
+    ],
+    "unmatched_changes": []
+  }
+}

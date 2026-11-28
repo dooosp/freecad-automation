@@ -1,0 +1,19 @@
+{
+  "part": "HD-108",
+  "revision": "B",
+  "characteristics": [
+    {
+      "id": "DIA",
+      "drawing_ref": "HD-108 / B2 / register diameter",
+      "unit": "mm",
+      "lower": "9.90",
+      "upper": "10.10",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4"
+      ]
+    }
+  ]
+}

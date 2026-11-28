@@ -1,0 +1,30 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "DIA", "sample": "S1", "status": "undetermined", "reasons": ["invalid_measurement"], "source_rows": [1], "measured_mm": null},
+      {"characteristic": "DIA", "sample": "S2", "status": "undetermined", "reasons": ["invalid_measurement"], "source_rows": [2], "measured_mm": null},
+      {"characteristic": "DIA", "sample": "S3", "status": "undetermined", "reasons": ["invalid_measurement_unit"], "source_rows": [3], "measured_mm": null},
+      {"characteristic": "DIA", "sample": "S4", "status": "in_tolerance", "reasons": [], "source_rows": [4], "measured_mm": "10.1"}
+    ],
+    "unmatched_rows": []
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "DIA", "sample": "S1", "status": "undetermined", "reasons": ["invalid_measurement"], "source_rows": [1], "measured_mm": null},
+      {"characteristic": "DIA", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "10.05"},
+      {"characteristic": "DIA", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "10.05"},
+      {"characteristic": "DIA", "sample": "S4", "status": "in_tolerance", "reasons": [], "source_rows": [4], "measured_mm": "10.1"}
+    ],
+    "unmatched_rows": []
+  },
+  "diff": {
+    "mode": "comparison",
+    "reasons": [],
+    "changes": [
+      {"characteristic": "DIA", "sample": "S1", "kind": "unresolved"},
+      {"characteristic": "DIA", "sample": "S2", "kind": "changed"},
+      {"characteristic": "DIA", "sample": "S3", "kind": "changed"}
+    ],
+    "unmatched_changes": []
+  }
+}

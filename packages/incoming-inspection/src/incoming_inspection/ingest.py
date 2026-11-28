@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 from decimal import Decimal, InvalidOperation
 
 
@@ -15,9 +16,9 @@ REQUIRED_FIELDS = (
     "sample",
     "characteristic",
     "value",
-    "unit",
 )
-OPTIONAL_FIELDS = ("supplier_result", "supplier")
+OPTIONAL_FIELDS = ("unit", "supplier_result", "supplier")
+VALUE_HEADER_UNIT = re.compile(r"[^()\[\]]+\((mm|inch|in)\)", re.IGNORECASE | re.ASCII)
 
 
 def _decode(data: bytes, label: str) -> str:
@@ -148,6 +149,13 @@ def load_measurements(data: bytes, mapping_data: bytes) -> tuple[list[str], list
             raise ValueError(f"mapped CSV column {heading!r} for {field!r} is missing")
         headings_by_field[field] = headings.index(heading)
 
+    header_unit = None
+    if "unit" not in mapping:
+        match = VALUE_HEADER_UNIT.fullmatch(mapping["value"].strip())
+        if match is None:
+            raise ValueError("missing mapping field 'unit': the value header must end in (mm), (inch) or (in)")
+        header_unit = match[1].lower()
+
     rows = []
     try:
         for cells in reader:
@@ -162,9 +170,10 @@ def load_measurements(data: bytes, mapping_data: bytes) -> tuple[list[str], list
                 field: cells[headings_by_field[field]].strip()
                 for field in headings_by_field
             }
-            for field in OPTIONAL_FIELDS:
-                mapped.setdefault(field, None)
-            rows.append({"row": number, "cells": cells, **mapped})
+            rows.append({
+                "row": number, "cells": cells, "supplier": None, "supplier_result": None,
+                "unit": header_unit, **mapped,
+            })
     except csv.Error as error:
         raise ValueError(f"invalid CSV row {len(rows) + 1}: {error}") from error
     supplier_source = "csv" if "supplier" in mapping else "operator"

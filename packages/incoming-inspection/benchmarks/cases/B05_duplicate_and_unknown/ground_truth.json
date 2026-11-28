@@ -1,0 +1,32 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "BORE", "sample": "S1", "status": "undetermined", "reasons": ["duplicate_measurement"], "source_rows": [1, 3], "measured_mm": null},
+      {"characteristic": "BORE", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "12.01"},
+      {"characteristic": "BORE", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [5], "measured_mm": "11.99"}
+    ],
+    "unmatched_rows": [
+      {"row": 4, "characteristic": "AUX-X", "sample": "S1", "reasons": ["unknown_characteristic"]}
+    ]
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "BORE", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "12.02"},
+      {"characteristic": "BORE", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [4], "measured_mm": "12.01"},
+      {"characteristic": "BORE", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "11.99"}
+    ],
+    "unmatched_rows": [
+      {"row": 3, "characteristic": "AUX-X", "sample": "S1", "reasons": ["unknown_characteristic"]}
+    ]
+  },
+  "diff": {
+    "mode": "comparison",
+    "reasons": [],
+    "changes": [
+      {"characteristic": "BORE", "sample": "S1", "kind": "changed"}
+    ],
+    "unmatched_changes": [
+      {"kind": "unresolved", "before_row": 4, "after_row": 3}
+    ]
+  }
+}

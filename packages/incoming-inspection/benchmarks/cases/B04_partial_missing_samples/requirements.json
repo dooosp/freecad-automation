@@ -1,0 +1,20 @@
+{
+  "part": "BT-104",
+  "revision": "C",
+  "characteristics": [
+    {
+      "id": "WALL",
+      "drawing_ref": "BT-104 / C2 / wall thickness",
+      "unit": "mm",
+      "lower": "2.90",
+      "upper": "3.10",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    }
+  ]
+}

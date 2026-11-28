@@ -1,0 +1,11 @@
+{
+  "part": "Part No.",
+  "revision": "Revision",
+  "lot": "Lot ID",
+  "supplier": "Vendor",
+  "characteristic": "Characteristic",
+  "sample": "Sample",
+  "value": "Reading",
+  "unit": "UOM",
+  "supplier_result": "Result"
+}

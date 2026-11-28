@@ -1,0 +1,18 @@
+{
+  "part": "BS-105",
+  "revision": "A",
+  "characteristics": [
+    {
+      "id": "BORE",
+      "drawing_ref": "BS-105 / D2 / sleeve bore",
+      "unit": "mm",
+      "lower": "11.90",
+      "upper": "12.10",
+      "samples": [
+        "S1",
+        "S2",
+        "S3"
+      ]
+    }
+  ]
+}

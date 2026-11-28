@@ -1,0 +1,28 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "PTCH", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "25"},
+      {"characteristic": "PTCH", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "24.98"},
+      {"characteristic": "PTCH", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "25.02"},
+      {"characteristic": "PTCH", "sample": "S4", "status": "in_tolerance", "reasons": [], "source_rows": [4], "measured_mm": "25.01"}
+    ],
+    "unmatched_rows": []
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "PTCH", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "25"},
+      {"characteristic": "PTCH", "sample": "S2", "status": "out_of_tolerance", "reasons": ["above_upper_limit", "supplier_result_mismatch"], "source_rows": [3], "measured_mm": "25.11"},
+      {"characteristic": "PTCH", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [4], "measured_mm": "25.02"},
+      {"characteristic": "PTCH", "sample": "S4", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "25.01"}
+    ],
+    "unmatched_rows": []
+  },
+  "diff": {
+    "mode": "comparison",
+    "reasons": [],
+    "changes": [
+      {"characteristic": "PTCH", "sample": "S2", "kind": "changed"}
+    ],
+    "unmatched_changes": []
+  }
+}

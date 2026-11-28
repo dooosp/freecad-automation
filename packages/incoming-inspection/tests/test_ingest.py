@@ -49,6 +49,26 @@ class MeasurementInputTests(unittest.TestCase):
         self.assertEqual(rows, [])
         self.assertEqual(supplier_source, "operator")
 
+    def test_compact_measurements_preserve_the_unit_printed_on_the_value_header(self):
+        mapping = {field: name for field, name in MAPPING.items() if field != "unit"}
+        for unit in ("mm", "in", "inch"):
+            with self.subTest(unit=unit):
+                header = f"실측({unit})"
+                mapping["value"] = header
+                data = (",".join(mapping.values()) + "\nP,B,L42,S1,H1,10.10,합격\n").encode()
+                headers, rows, supplier_source = load_measurements(data, encode_json(mapping))
+                self.assertEqual(headers[5], header)
+                self.assertEqual(rows[0]["unit"], unit)
+                self.assertEqual(rows[0]["cells"][5], "10.10")
+                self.assertEqual(supplier_source, "operator")
+
+    def test_missing_unit_mapping_cannot_supply_an_unlabelled_or_ambiguous_unit(self):
+        mapping = {field: name for field, name in MAPPING.items() if field != "unit"}
+        for header in ("실측", "실측(um)", "실측(inch/mm)", "실측(mm)(in)", "실측(in)[mm]"):
+            with self.subTest(header=header), self.assertRaisesRegex(ValueError, "unit"):
+                mapping["value"] = header
+                load_measurements((",".join(mapping.values()) + "\n").encode(), encode_json(mapping))
+
     def test_header_only_retains_mapped_supplier_source(self):
         mapping = {**MAPPING, "supplier": "메모"}
         _, rows, supplier_source = load_measurements(HEADER.encode(), encode_json(mapping))

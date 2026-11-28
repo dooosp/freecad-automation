@@ -233,8 +233,13 @@ def compare_reviews(before: dict, after: dict) -> dict:
         "schema_version": 1, "mode": "comparison", "reasons": [],
         "before": before, "after": after, "changes": [], "unmatched_changes": [],
     }
-    if any(before["identity"][field] != after["identity"][field] for field in _IDENTITY_FIELDS):
-        return {**result, "mode": "separate_case", "reasons": ["identity_changed"]}
+    identity_changes = [field for field in _IDENTITY_FIELDS
+                        if before["identity"][field] != after["identity"][field]]
+    if identity_changes:
+        result.update(mode="separate_case", reasons=["identity_changed"])
+        if identity_changes == ["revision"]:
+            result["full_review_required"] = True
+        return result
     reasons = [
         f"{name}_changed" for name in ("requirements", "mapping")
         if before["inputs"][name]["sha256"] != after["inputs"][name]["sha256"]
