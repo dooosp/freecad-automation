@@ -4680,9 +4680,6 @@ async function cmdReport(rawArgs = []) {
 
     if (includeTolerance && config.assembly) {
       console.log('Running tolerance analysis...');
-      config.tolerance = config.tolerance || {};
-      if (includeMC) config.tolerance.monte_carlo = true;
-
       const tolResult = await runToleranceService({
         freecadRoot: PROJECT_ROOT,
         runScript: runWithCliStderr,

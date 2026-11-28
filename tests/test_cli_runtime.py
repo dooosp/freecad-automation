@@ -245,6 +245,20 @@ directory = "{output_dir}"
     assert manifest["linked_artifacts"]["quality_json"] == str(quality_path)
 
 
+@pytest.mark.parametrize("options", [[], ["--monte-carlo"]], ids=["default", "monte-carlo"])
+def test_assembly_report_keeps_authored_config_for_provenance(tmp_path, options):
+    if not has_freecad_runtime():
+        pytest.skip("FreeCAD runtime not available")
+    config_path = ROOT / "configs/examples/ptu_assembly_mates.toml"
+    run_cli(["report", str(config_path), "--out-dir", str(tmp_path), *options])
+    summary = json.loads((tmp_path / "ptu_assembly_mates_report_summary.json").read_text())
+    for surface in ("create_quality", "drawing_quality"):
+        evidence = summary["surfaces"][surface]["evidence_provenance"]
+        assert evidence["status"] == "unknown"
+        assert "manifest-missing" in evidence["reason_codes"]
+        assert "report-config-mismatch" not in evidence["reason_codes"]
+
+
 def test_cli_report_unverified_evidence_warns_without_failing_generation(tmp_path):
     if not has_freecad_runtime():
         pytest.skip("FreeCAD runtime not available")
