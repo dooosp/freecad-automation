@@ -11,13 +11,23 @@ import { compileDrawingPlan, ensureDrawSchema, ensureDrawingViews } from '../../
 const SHA256 = /^[a-f0-9]{64}$/i;
 const SUPPORTED_FLAGS = new Set(['--strict-quality', '--bom']);
 
+function byteReceipt(bytes) {
+  return { sha256: createHash('sha256').update(bytes).digest('hex'), size_bytes: bytes.length };
+}
+
+export async function readReportDrawingSvg(path, readFileFn = readFile) {
+  const bytes = await readFileFn(path);
+  // The embedded UTF-8 string must round-trip to the exact bytes the producer certified.
+  const value = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+  return Object.freeze({ path, ...byteReceipt(bytes), value, error: null });
+}
+
 async function readSnapshot(path, { json = false } = {}) {
   const snapshot = { path: path || null, sha256: null, size_bytes: null, value: null, error: null };
   if (!path) return { ...snapshot, error: 'missing' };
   try {
     const bytes = await readFile(path);
-    snapshot.sha256 = createHash('sha256').update(bytes).digest('hex');
-    snapshot.size_bytes = bytes.length;
+    Object.assign(snapshot, byteReceipt(bytes));
     snapshot.value = json ? JSON.parse(bytes.toString('utf8')) : bytes.toString('utf8');
   } catch (error) {
     snapshot.error = error.code === 'ENOENT' ? 'missing' : 'unreadable';
@@ -256,7 +266,7 @@ function freezeSnapshot(value) {
   return value;
 }
 
-export async function loadReportEvidenceSnapshot({ configPath, config, artifactPaths }) {
+export async function loadReportEvidenceSnapshot({ configPath, config, artifactPaths, drawingSvgSnapshot = null }) {
   const [input, create, drawing, createManifest, drawingManifest, semantics, svg] = await Promise.all([
     readSnapshot(configPath),
     readSnapshot(artifactPaths.create_quality, { json: true }),
@@ -264,7 +274,7 @@ export async function loadReportEvidenceSnapshot({ configPath, config, artifactP
     readSnapshot(artifactPaths.create_manifest, { json: true }),
     readSnapshot(artifactPaths.drawing_manifest, { json: true }),
     readSnapshot(artifactPaths.extracted_drawing_semantics, { json: true }),
-    readSnapshot(artifactPaths.drawing_svg),
+    drawingSvgSnapshot ?? readSnapshot(artifactPaths.drawing_svg),
   ]);
   const configChecks = currentConfigChecks(input, config);
   const [createEffective, drawingEffective] = await Promise.all([

@@ -26,7 +26,7 @@ import {
   deriveReportArtifactPaths,
   writeDecisionReportSummary,
 } from './decision-report-summary.js';
-import { loadReportEvidenceSnapshot } from './report-evidence-provenance.js';
+import { loadReportEvidenceSnapshot, readReportDrawingSvg } from './report-evidence-provenance.js';
 
 function toBool(value, fallback) {
   if (typeof value === 'boolean') return value;
@@ -155,7 +155,7 @@ export function createReportService({
     const normalizedResults = (analysisResults && typeof analysisResults === 'object')
       ? sanitizeObject(analysisResults)
       : {};
-    let drawingSheet = null;
+    let drawingSvgSnapshot = null;
     if (drawingResult) {
       const svgPath = drawingResult.drawing_paths?.find((entry) => entry.format === 'svg')?.path
         || drawingResult.svg_path || drawingResult.drawing_path;
@@ -169,12 +169,13 @@ export function createReportService({
       if (sourceRelative.startsWith('..') || isAbsolute(sourceRelative)) {
         throw new Error('Drawing report SVG must be generated inside its report output directory.');
       }
-      drawingSheet = {
-        svg: await readFileFn(sourcePath, 'utf8'),
-        scale: drawingResult.scale || loadedConfig.drawing?.scale || 'auto',
-        views: drawingResult.views || loadedConfig.drawing?.views || [],
-      };
+      drawingSvgSnapshot = await readReportDrawingSvg(sourcePath, readFileFn);
     }
+    const drawingSheet = drawingSvgSnapshot && {
+      svg: drawingSvgSnapshot.value,
+      scale: drawingResult.scale || loadedConfig.drawing?.scale || 'auto',
+      views: drawingResult.views || loadedConfig.drawing?.views || [],
+    };
 
     const shopProfile = await loadShopProfileFn(freecadRoot, profileName);
     const ruleProfile = await loadRuleProfileFn(freecadRoot, loadedConfig, { silent: true });
@@ -225,10 +226,12 @@ export function createReportService({
       primaryOutputPath: expectedPdfPath,
       configName: loadedConfig.name,
     });
+    if (drawingSvgSnapshot) reportArtifacts.drawing_svg = drawingSvgSnapshot.path;
     const evidenceSnapshot = await loadReportEvidenceSnapshot({
       configPath: configPath ? resolve(freecadRoot, configPath) : null,
       config: loadedConfig,
       artifactPaths: reportArtifacts,
+      drawingSvgSnapshot,
     });
     const repoContext = collectRepoContext(freecadRoot);
     const runtimeInfo = buildRuntimeDiagnostics({ runtime: getFreeCADRuntimeFn() });
