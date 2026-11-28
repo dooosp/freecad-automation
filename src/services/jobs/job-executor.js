@@ -1,5 +1,6 @@
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { copyFile, mkdir, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import {
   AfExecutionContractError,
   buildAfArtifactContractFromDocument,
@@ -32,6 +33,8 @@ import { createDrawingService, runDrawPipeline } from '../../api/drawing.js';
 import { analyzeStep, createModel, generateCreateQualityArtifact, inspectModel } from '../../api/model.js';
 import { createReportService } from '../../api/report.js';
 import { createDrawingPdfService } from '../drawing/drawing-pdf-service.js';
+import { deriveReportArtifactPaths } from '../report/decision-report-summary.js';
+import { beginTrackedReportProducer, saveTrackedCreateProof, saveTrackedDrawingProof } from './report-producer-manifests.js';
 import { runReviewContextPipeline } from '../../orchestration/review-context-pipeline.js';
 import { runReleaseBundleWorkflow } from '../../workflows/release-bundle-workflow.js';
 import { runStandardDocsWorkflow } from '../../workflows/standard-docs-workflow.js';
@@ -149,6 +152,11 @@ function sanitizeResult(result) {
   const next = structuredClone(result);
   delete next.svgContent;
   delete next.pdfBase64;
+  if (next.drawing_paths || next.drawing_path || next.authored_config_path || next.svg_path) {
+    // The renderer returns these private snapshots for verification. Job responses expose artifact metadata.
+    delete next.authored_config;
+    delete next.effective_config;
+  }
   return next;
 }
 
@@ -197,16 +205,27 @@ async function seedTrackedReportArtifacts({
   }
   const seededArtifacts = {};
 
-  for (const [key, fileName] of Object.entries(fileNames)) {
+  async function copyToReport(fileName) {
     const sourcePath = join(sourceDir, fileName);
-    if (!(await pathExists(sourcePath))) continue;
+    if (!(await pathExists(sourcePath))) return null;
     const targetPath = join(outputDir, fileName);
     if (resolve(sourcePath) !== resolve(targetPath)) {
       await copyFile(sourcePath, targetPath);
     }
-    seededArtifacts[key] = targetPath;
+    return targetPath;
   }
 
+  for (const [key, fileName] of Object.entries(fileNames)) {
+    const targetPath = await copyToReport(fileName);
+    if (targetPath) seededArtifacts[key] = targetPath;
+  }
+  // Keep producer snapshots available to the verifier without publishing them as seeded deliverables.
+  const proof = deriveReportArtifactPaths({ outputDir: sourceDir, configName });
+  if (seededArtifacts.create_manifest) await copyToReport(basename(proof.create_effective_config));
+  if (seededArtifacts.drawing_manifest) {
+    await copyToReport(basename(proof.drawing_authored_config));
+    await copyToReport(basename(proof.drawing_effective_config));
+  }
   return seededArtifacts;
 }
 
@@ -924,15 +943,16 @@ export function createJobExecutor({
     rawRelativePath = INLINE_CONFIG_RELATIVE_PATH,
   }) {
     const rawInputPath = await jobStore.writeJobFile(job.id, rawRelativePath, `${JSON.stringify(config, null, 2)}\n`);
-    const effectiveConfigPath = await jobStore.writeJobFile(
-      job.id,
-      EFFECTIVE_CONFIG_RELATIVE_PATH,
-      serializeConfig(config, 'json')
-    );
+    const content = serializeConfig(config, 'json');
+    const effectiveConfigPath = await jobStore.writeJobFile(job.id, EFFECTIVE_CONFIG_RELATIVE_PATH, content);
 
     return {
       config,
       configPath: effectiveConfigPath,
+      inputRecord: {
+        path: effectiveConfigPath, sha256: createHash('sha256').update(content).digest('hex'),
+        size_bytes: Buffer.byteLength(content),
+      },
       rawConfigPath: rawInputPath,
       summary,
       diagnostics: {
@@ -1043,6 +1063,8 @@ export function createJobExecutor({
   async function executeCreate(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
     const config = withTrackedExportDirectory(resolvedConfig.config, outputDir);
+    const run = job.type === 'report' ? beginTrackedReportProducer(projectRoot) : null;
+    const runtimeConfig = run ? structuredClone(config) : null;
     const loggedRunner = createLoggedRunner(job.id);
     const result = await createModel({
       freecadRoot: projectRoot,
@@ -1059,12 +1081,29 @@ export function createJobExecutor({
       config,
       runScript: loggedRunner,
     });
+    if (runtimeConfig) {
+      try {
+        await saveTrackedCreateProof({
+          run, outputDir, runtimeConfig, source: resolvedConfig.inputRecord, result, quality,
+        });
+      } catch {
+        await appendLog(job.id, 'The create producer manifest could not be recorded for this report.');
+      }
+    }
     return { ...result, create_quality: quality.report, create_quality_path: quality.path };
   }
 
   async function executeDraw(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
     const resolvedConfigPath = resolveMaybe(projectRoot, resolvedConfig.configPath);
+    const run = job.type === 'report' ? beginTrackedReportProducer(projectRoot) : null;
+    const loadTrackedSnapshot = async (filepath) => {
+      const document = await loadConfigWithDiagnostics(filepath);
+      if (resolveMaybe(projectRoot, filepath) === resolvedConfigPath) {
+        document.config = withTrackedExportDirectory(document.config, outputDir, { ensureExport: true });
+      }
+      return document;
+    };
     const result = await runDrawPipeline({
       projectRoot,
       configPath: resolvedConfig.configPath,
@@ -1075,13 +1114,8 @@ export function createJobExecutor({
       overridePath: job.request.options?.override_path || null,
       failUnderValue: job.request.options?.fail_under ?? null,
       weightsPresetValue: job.request.options?.weights_preset ?? null,
-      loadConfig: async (filepath) => {
-        const loaded = (await loadConfigWithDiagnostics(filepath)).config;
-        if (resolveMaybe(projectRoot, filepath) !== resolvedConfigPath) {
-          return loaded;
-        }
-        return withTrackedExportDirectory(loaded, outputDir, { ensureExport: true });
-      },
+      loadConfig: async (filepath) => (await loadTrackedSnapshot(filepath)).config,
+      loadConfigSnapshot: run ? loadTrackedSnapshot : null,
       deepMerge,
       generateDrawing,
       runScript: createLoggedRunner(job.id),
@@ -1089,6 +1123,13 @@ export function createJobExecutor({
       onError: (message) => appendLog(job.id, message),
     });
     if (result.success !== true) return result;
+    if (run) {
+      try {
+        await saveTrackedDrawingProof({ run, outputDir, configName: resolvedConfig.config.name, result });
+      } catch {
+        await appendLog(job.id, 'The drawing producer manifest could not be recorded for this report.');
+      }
+    }
     try {
       const { path, ...details } = await exportDrawingPdf({ projectRoot, outputDir, drawingResult: result });
       await appendLog(job.id, 'Print-scale drawing PDF exported. Print at Actual size / 100%.');

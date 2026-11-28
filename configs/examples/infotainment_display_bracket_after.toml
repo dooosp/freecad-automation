@@ -140,11 +140,25 @@ result = "body"
 op = "fillet"
 target = "body"
 radius = 1.2
+# Web root and the three exposed roots of the side tab.
+edge_segments = [
+  [[24, 0, 2.6], [24, 95, 2.6]],
+  [[152, 34, 2.6], [152, 62, 2.6]],
+  [[152, 34, 2.6], [180, 34, 2.6]],
+  [[152, 62, 2.6], [180, 62, 2.6]],
+]
 
 [[operations]]
 op = "chamfer"
 target = "body"
-distance = 0.8
+size = 0.8
+# Break the four accessible top edges of the tab.
+edge_segments = [
+  [[152, 34, 20.6], [152, 62, 20.6]],
+  [[152, 34, 20.6], [180, 34, 20.6]],
+  [[152, 62, 20.6], [180, 62, 20.6]],
+  [[180, 34, 20.6], [180, 62, 20.6]],
+]
 
 [[operations]]
 op = "cut"
@@ -182,6 +196,14 @@ views = ["front", "top", "right", "iso"]
 [drawing.meta]
 part_name = "Infotainment Display Bracket After"
 material = "AL6061"
+
+[drawing.detail]
+enabled = false
+
+[[drawing_plan.dim_intents]]
+id = "FILLET"
+view = "front"
+required = true
 
 [export]
 formats = ["step"]

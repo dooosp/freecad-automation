@@ -20,7 +20,11 @@ test('resolves dotted keys and table headers including quoted literal dots', () 
     { path: ['drawing.meta', 'radius.mm'], value: 4 },
     { path: ['drawing', 'settings', 'scale', 'value'], value: 3 },
   ]);
-  assert.deepEqual(parse(result), { model: { size: { width: 12 } }, 'drawing.meta': { 'radius.mm': 4 }, drawing: { settings: { scale: { value: 3 } } } });
+  assert.deepEqual(structuredClone(parse(result)), {
+    model: { size: { width: 12 } },
+    'drawing.meta': { 'radius.mm': 4 },
+    drawing: { settings: { scale: { value: 3 } } },
+  });
 });
 
 test('nested arrays of tables bind to the correct current parent and child', () => {

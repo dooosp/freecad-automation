@@ -409,7 +409,7 @@ def make_shape(spec):
     Create a shape from a spec dict.
 
     Supported types:
-      box:        length, width, height
+      box:        length, width, height (+ side_relief_radius_mm for slot cutters)
       cylinder:   radius, height
       sphere:     radius
       cone:       radius1, radius2, height
@@ -424,6 +424,8 @@ def make_shape(spec):
     """
     shape_type = spec["type"].lower()
     pos = spec.get("position", [0, 0, 0])
+    if "side_relief_radius_mm" in spec and shape_type != "box":
+        raise ValueError("side_relief_radius_mm is supported on box cutters only")
 
     if shape_type == "box":
         shape = Part.makeBox(
@@ -432,6 +434,15 @@ def make_shape(spec):
             spec["height"],
             Vector(*pos),
         )
+        if "side_relief_radius_mm" in spec:
+            from _slot_relief import relief_centers, relief_parameters
+
+            x, y, z, length, width, height, radius = relief_parameters(spec)
+            for cx, cy in relief_centers(x, y, length, width, radius):
+                shape = shape.fuse(Part.makeCylinder(radius, height, Vector(cx, cy, z)))
+            shape = shape.removeSplitter()
+            if not shape.isValid() or len(shape.Solids) != 1:
+                raise ValueError("Slot side-relief cutter did not form one valid solid")
     elif shape_type == "cylinder":
         shape = Part.makeCylinder(
             spec["radius"],
@@ -556,12 +567,61 @@ def boolean_op(op, base_shape, tool_shape):
         raise ValueError(f"Unknown boolean op: {op}")
 
 
-def apply_fillet(shape, radius, edge_indices=None):
+def _apply_segment_finish(shape, size, edge_indices, segments, kind):
+    """Finish unique, straight, right-angle edges in one validated operation."""
+    if edge_indices is not None or not isinstance(segments, (list, tuple)) or not segments:
+        raise ValueError(f"{kind}: edge_segments must be nonempty and cannot be combined with edges")
+    if (not isinstance(size, (int, float)) or isinstance(size, bool)
+            or not math.isfinite(size) or size <= 0):
+        raise ValueError(f"{kind}: finish size must be positive and finite")
+    if shape.isNull() or not shape.isValid() or len(shape.Solids) != 1:
+        raise ValueError(f"edge_finish_invalid_input: {kind} requires one valid solid")
+
+    tolerance = 1e-6
+    lines = [(edge, [tuple(v.Point) for v in edge.Vertexes]) for edge in shape.Edges
+             if type(edge.Curve).__name__ in ("Line", "LineSegment") and len(edge.Vertexes) == 2]
+    selected = []
+    for index, segment in enumerate(segments, 1):
+        if (not isinstance(segment, (list, tuple)) or len(segment) != 2
+                or not all(isinstance(p, (list, tuple)) and len(p) == 3 and all(
+                    isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in p)
+                           for p in segment)
+                or math.dist(*segment) <= tolerance):
+            raise ValueError(f"{kind}: edge_segments entry {index} requires two distinct XYZ points")
+        a, b = segment
+        matches = [edge for edge, (p, q) in lines if
+                   (math.dist(a, p) <= tolerance and math.dist(b, q) <= tolerance)
+                   or (math.dist(a, q) <= tolerance and math.dist(b, p) <= tolerance)]
+        if len(matches) != 1:
+            raise ValueError(f"edge_finish_reference_unresolved: {kind} segment {index} matched {len(matches)} edges")
+        edge = matches[0]
+        if any(edge.isSame(other) for other in selected):
+            raise ValueError(f"edge_finish_reference_duplicate: {kind} segment {index} repeats an edge")
+        faces = [face for face in shape.Faces if any(edge.isSame(e) for e in face.Edges)]
+        if (len(faces) != 2 or any(type(face.Surface).__name__ != "Plane" for face in faces)
+                or abs(faces[0].normalAt(0, 0).dot(faces[1].normalAt(0, 0))) > tolerance):
+            raise ValueError(f"edge_finish_not_orthogonal: {kind} segment {index} must join two perpendicular planes")
+        selected.append(edge)
+
+    operation = shape.makeFillet if kind == "fillet" else shape.makeChamfer
+    try:
+        result = operation(size, selected)
+    except Exception as exc:
+        raise ValueError(f"edge_finish_failed: {kind} on {len(selected)} selected edges: {exc}") from exc
+    if result.isNull() or not result.isValid() or len(result.Solids) != 1:
+        raise ValueError(f"edge_finish_invalid_result: {kind} did not produce one valid solid")
+    return result
+
+
+def apply_fillet(shape, radius, edge_indices=None, *, edge_segments=None):
     """
     Apply fillet to shape edges.
     edge_indices: list of edge indices (1-based), or None for all edges.
     When applying to all edges, uses best-effort (skips edges that fail).
+    edge_segments: exact endpoint pairs for a single validated operation.
     """
+    if edge_segments is not None:
+        return _apply_segment_finish(shape, radius, edge_indices, edge_segments, "fillet")
     import sys
     edges = shape.Edges
     if edge_indices:
@@ -593,12 +653,15 @@ def apply_fillet(shape, radius, edge_indices=None):
     return current
 
 
-def apply_chamfer(shape, size, edge_indices=None):
+def apply_chamfer(shape, size, edge_indices=None, *, edge_segments=None):
     """
     Apply chamfer to shape edges.
     edge_indices: list of edge indices (1-based), or None for all edges.
     When applying to all edges, uses best-effort (skips edges that fail).
+    edge_segments: exact endpoint pairs for a single validated operation.
     """
+    if edge_segments is not None:
+        return _apply_segment_finish(shape, size, edge_indices, edge_segments, "chamfer")
     import sys
     edges = shape.Edges
     if edge_indices:

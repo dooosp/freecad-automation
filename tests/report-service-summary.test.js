@@ -89,6 +89,7 @@ try {
 
   const result = await generateReport({
     freecadRoot: process.cwd(),
+    outputDir: TMP_DIR,
     runScript: async (script, payload) => {
       assert.equal(script, 'engineering_report.py');
       capturedPayload = payload;

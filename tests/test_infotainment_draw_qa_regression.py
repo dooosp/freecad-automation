@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 import uuid
 from pathlib import Path
 
@@ -139,3 +141,75 @@ def test_infotainment_bracket_generated_artifacts_clear_hole_dia_presence_gate(t
     assert hole_dia["required"] is True
     assert hole_dia["value_mm"] == 5
     assert hole_dia["view"] == "top"
+
+
+@pytest.mark.parametrize("case", ["normal", "changed_height", "wrong_web_target"])
+def test_infotainment_required_vertical_dimensions_follow_final_edges(tmp_path, case):
+    if not _has_freecad_runtime():
+        pytest.skip("FreeCAD runtime not available")
+    source = CONFIG_PATH.with_name("infotainment_display_bracket.toml")
+    config = tomllib.loads(source.read_text())
+    web = next(shape for shape in config["shapes"] if shape["id"] == "vertical_leg")
+    if case == "changed_height":
+        web["height"] = 44
+        next(dim for dim in config["quality"]["critical_dimensions"] if dim["id"] == "cd-02")["target_mm"] = 44
+    if case == "wrong_web_target":
+        config["drawing_plan"] = {"dim_intents": [
+            {"id": "WEB_H", "feature": "overall_height", "value_mm": 40}
+        ]}
+    output = tmp_path / "output"
+    config["export"]["directory"] = str(output)
+    case_path = tmp_path / "input.json"
+    case_path.write_text(json.dumps(config))
+    completed = _run_cli(["draw", str(case_path), "--bom", "--strict-quality"])
+    stem = config["name"]
+    plan = json.loads((output / f"{stem}_dimension_map.json").read_text())
+    entries = {entry["dim_id"]: entry for entry in plan["plan_dimensions"]}
+    qa = json.loads((output / f"{stem}_drawing_qa.json").read_text())
+    if case == "wrong_web_target":
+        assert completed.returncode == 1
+        assert entries["WEB_H"]["reason"] == "bracket_reference_definition_mismatch"
+        assert qa["details"]["required_presence_missing_ids"] == ["WEB_H"]
+        return
+
+    top = web["height"] + 2
+    expected = {"HEIGHT": (top, [[0, 0, 0], [0, 0, top]]),
+                "THK": (2, [[180, 0, 0], [180, 0, 2]]),
+                "WEB_H": (web["height"], [[20, 0, 2], [20, 0, top]])}
+    for dim_id, (value, endpoints) in expected.items():
+        assert entries[dim_id]["value_mm"] == value, dim_id
+        assert entries[dim_id]["status"] == "rendered", dim_id
+        assert entries[dim_id]["runtime_binding"]["endpoints_3d_mm"] == endpoints, dim_id
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert qa["metrics"]["required_presence_miss"] == 0
+    assert qa["metrics"]["text_overlap_pairs"] == 0
+    quality = json.loads((output / f"{stem}_drawing_quality.json").read_text())
+    assert quality["traceability"]["coverage_percent"] == 100
+
+    if case == "normal":
+        svg_path = output / f"{stem}_drawing.svg"
+        svg = svg_path.read_text()
+        extension, = re.findall(r'<line\b(?=[^>]*data-dim-id="WEB_H")(?=[^>]*data-endpoint-index="0")[^>]*>', svg)
+        shifted = re.sub(r'\sx1="([^"]+)"', lambda match: f' x1="{float(match[1]) + 3:.2f}"', extension)
+        assert shifted != extension
+        bad_svg = tmp_path / "wrong_web_extension.svg"
+        bad_svg.write_text(svg.replace(extension, shifted, 1))
+        bad_qa = _run_infotainment_qa(bad_svg, output / f"{stem}_plan.toml")
+        assert [(issue["dim_id"], issue["reason"]) for issue in bad_qa["details"]["linear_binding_issues"]] == [
+            ("WEB_H", "linear_reference_geometry_mismatch")
+        ]
+        checked = subprocess.run([
+            "node", "--input-type=module", "-e", """
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { currentTraceability } from './src/services/drawing/current-traceability.js';
+const [map, trace, good, bad] = process.argv.slice(1).map((p) => readFileSync(p, 'utf8'));
+const web = (svg) => currentTraceability(JSON.parse(trace), JSON.parse(map), svg, new Map())
+  .links.find((link) => link.dim_id === 'WEB_H');
+assert.equal(web(good).feature_id, 'vertical_leg');
+assert.equal(web(bad).feature_id, null);
+assert.equal(web(bad).reason, 'final_svg_evidence_missing_or_changed');
+""", str(output / f"{stem}_dimension_map.json"), str(output / f"{stem}_traceability.json"),
+            str(svg_path), str(bad_svg),
+        ], cwd=PROJECT_ROOT, text=True, capture_output=True)
+        assert checked.returncode == 0, checked.stdout + checked.stderr
