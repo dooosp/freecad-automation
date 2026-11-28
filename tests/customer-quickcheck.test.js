@@ -56,10 +56,10 @@ async function createFixture(command, { mutateQuality, mutateManifest, missingSt
   assert.equal(command.args[3], '--strict-quality');
   const configPath = command.args[2];
   const config = parse(await readFile(configPath, 'utf8'));
-  const source = parse(await readFile(join(command.cwd, 'configs', 'examples', 'quality_pass_bracket.toml'), 'utf8'));
-  assert.deepEqual({ ...config, export: source.export }, source, 'demo must preserve canonical geometry and fixture name');
+  const expected = parse(await readFile(join(command.cwd, 'configs', 'examples', 'quality_pass_bracket.toml'), 'utf8'));
+  expected.export.directory = dirname(configPath);
+  assert.deepEqual(config, expected, 'demo must change only the canonical export directory');
   const out = config.export.directory;
-  assert.equal(dirname(configPath), out);
   const paths = {
     step: join(out, 'quality_pass_bracket.step'), stl: join(out, 'quality_pass_bracket.stl'),
     quality: join(out, 'quality_pass_bracket_create_quality.json'),

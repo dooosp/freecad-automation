@@ -104,7 +104,10 @@ function redactBootstrapPreviewPaths(projectRoot, value) {
     return toProjectDisplayPath(projectRoot, value);
   }
 
-  return value;
+  if (typeof value !== 'string') return value;
+  // Studio reuses the draft TOML. Keep its project-relative file references usable.
+  const projectPrefix = `${resolve(projectRoot)}${sep}`;
+  return redactPublicPathValues(value.replaceAll(projectPrefix, ''));
 }
 
 export function registerStudioRoutes(app, {

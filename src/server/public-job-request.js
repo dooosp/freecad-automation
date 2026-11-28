@@ -1,4 +1,5 @@
 import { basename, posix, win32 } from 'node:path';
+import { redactPublicPathValues } from './local-api-artifacts.js';
 
 const INTERNAL_REQUEST_FIELDS = new Set([
   'config_path',
@@ -61,7 +62,7 @@ function sanitizeRequestValue(value) {
     return shortName && shortName !== '.' ? shortName : '[hidden-path]';
   }
 
-  return value;
+  return redactPublicPathValues(value);
 }
 
 function buildArtifactRefMetadata(request = {}) {
@@ -110,9 +111,8 @@ function buildDirectArtifactRefMetadata(request = {}) {
 }
 
 export function toPublicJobRequest(request = {}) {
-  const next = sanitizeRequestValue(structuredClone(request));
-  return {
-    ...next,
+  return sanitizeRequestValue({
+    ...request,
     ...buildArtifactRefMetadata(request),
-  };
+  });
 }

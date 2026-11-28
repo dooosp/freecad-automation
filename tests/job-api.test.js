@@ -321,6 +321,24 @@ try {
   assert.equal(JSON.stringify(publicArtifactRequest).includes('/tmp/private'), false);
   assert.equal(JSON.stringify(publicArtifactRequest).includes('C:\\\\temp\\\\private'), false);
 
+  const reportLabel = 'Imported from /tmp/private/fixture.step';
+  const requestWithNotes = {
+    options: {
+      studio: {
+        source: 'artifact-reference',
+        source_job_id: 'job-upstream',
+        source_artifact_id: 'fixture',
+        source_label: reportLabel,
+      },
+      notes: [reportLabel],
+    },
+  };
+  const publicNotes = toPublicJobRequest(requestWithNotes);
+  assert.deepEqual(publicNotes.options.notes, ['Imported from fixture.step']);
+  assert.equal(publicNotes.options.studio.source_label, 'Imported from fixture.step');
+  assert.equal(publicNotes.source_label, 'Imported from fixture.step');
+  assert.equal(requestWithNotes.options.notes[0], reportLabel);
+
   const publicInspectRequest = toPublicJobRequest({
     type: 'inspect',
     file_path: 'C:\\private\\secret\\source.fcstd',

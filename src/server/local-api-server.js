@@ -6,6 +6,7 @@ import { createJobExecutor } from '../services/jobs/job-executor.js';
 import { createBootstrapImportService } from '../services/import/bootstrap-import-service.js';
 import { createStudioModelService } from './studio-model-service.js';
 import { createStudioDrawingService } from './studio-drawing-service.js';
+import { createLocalApiAccessMiddleware } from './local-api-access.js';
 import { createInvalidJsonMiddleware, createInternalErrorMiddleware } from './local-api-response-helpers.js';
 import { createLocalApiJobCoordinator } from './local-api-job-operations.js';
 import { registerArtifactRoutes } from './routes/local-api-artifact-routes.js';
@@ -48,6 +49,7 @@ export function createLocalApiServer({
     studioDrawingService,
   });
 
+  app.use(createLocalApiAccessMiddleware(server));
   app.use(express.json({ limit: '5mb' }));
   registerLandingRoutes(app, {
     projectRoot,
