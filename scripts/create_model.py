@@ -120,7 +120,7 @@ try:
                 target = shapes[op_spec["target"]]
                 radius = op_spec["radius"]
                 edges = op_spec.get("edges")
-                result = apply_fillet(target, radius, edges)
+                result = apply_fillet(target, radius, edges, edge_segments=op_spec.get("edge_segments"))
                 result_id = op_spec.get("result", op_spec["target"])
                 shapes[result_id] = result
                 log(f"  Fillet r={radius} → '{result_id}'")
@@ -129,7 +129,7 @@ try:
                 target = shapes[op_spec["target"]]
                 size = op_spec["size"]
                 edges = op_spec.get("edges")
-                result = apply_chamfer(target, size, edges)
+                result = apply_chamfer(target, size, edges, edge_segments=op_spec.get("edge_segments"))
                 result_id = op_spec.get("result", op_spec["target"])
                 shapes[result_id] = result
                 log(f"  Chamfer s={size} → '{result_id}'")
@@ -180,11 +180,16 @@ try:
         metadata = get_metadata(final_shape)
         metadata["name"] = model_name
 
-        respond({
+        response = {
             "success": True,
             "model": metadata,
             "exports": exports,
-        })
+        }
+        from _slot_relief import declared_slots
+        if declared_slots(config):
+            from dfm_checker import run_dfm_check
+            response["dfm"] = run_dfm_check(config, final_shape=final_shape)
+        respond(response)
 
 except Exception as e:
     import traceback

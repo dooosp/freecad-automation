@@ -5,6 +5,10 @@ function toLocalPath(path) {
   return resolve(String(path));
 }
 
+export function slotReliefQaArgs(runtimeResult) {
+  return runtimeResult ? ['--slot-relief-dfm', JSON.stringify(runtimeResult)] : [];
+}
+
 export async function runQaScorer(freecadRoot, svgPath, opts = {}) {
   if (!svgPath || typeof svgPath !== 'string') {
     throw new Error('svgPath is required for qa_scorer');
@@ -12,7 +16,7 @@ export async function runQaScorer(freecadRoot, svgPath, opts = {}) {
 
   const scriptPath = join(freecadRoot, 'scripts', 'qa_scorer.py');
   const localSvgPath = toLocalPath(svgPath);
-  const args = [scriptPath, localSvgPath];
+  const args = [scriptPath, localSvgPath, ...slotReliefQaArgs(opts.slotReliefDfm)];
 
   if (opts.planPath) {
     args.push('--plan', toLocalPath(opts.planPath));

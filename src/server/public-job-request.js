@@ -119,9 +119,8 @@ function buildDirectArtifactRefMetadata(request = {}) {
 }
 
 export function toPublicJobRequest(request = {}) {
-  const next = sanitizeRequestValue(structuredClone(request));
-  return {
-    ...next,
+  return sanitizeRequestValue({
+    ...request,
     ...buildArtifactRefMetadata(request),
-  };
+  });
 }

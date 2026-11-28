@@ -1,6 +1,9 @@
 """SVG rendering helpers extracted from generate_drawing.py."""
 
 import math
+import re
+import json
+from html import escape as _attribute_escape
 
 from _annotation_planner import AnnotationPlanner
 from _drawing_constants import (
@@ -199,9 +202,9 @@ def _dim_horizontal(x1, x2, y_base, y_dim, value_mm, tol_text="", *, svg_element
     out = []
     # Extension lines (vertical, from shape to dimension line)
     out.append(f'<line x1="{x1:.2f}" y1="{y_base+DIM_GAP:.2f}" '
-               f'x2="{x1:.2f}" y2="{y_dim-DIM_EXT_OVERSHOOT:.2f}"/>')
+               f'x2="{x1:.2f}" y2="{y_dim+DIM_EXT_OVERSHOOT:.2f}"/>')
     out.append(f'<line x1="{x2:.2f}" y1="{y_base+DIM_GAP:.2f}" '
-               f'x2="{x2:.2f}" y2="{y_dim-DIM_EXT_OVERSHOOT:.2f}"/>')
+               f'x2="{x2:.2f}" y2="{y_dim+DIM_EXT_OVERSHOOT:.2f}"/>')
     # Dimension line (horizontal)
     out.append(f'<line x1="{x1:.2f}" y1="{y_dim:.2f}" '
                f'x2="{x2:.2f}" y2="{y_dim:.2f}"/>')
@@ -329,7 +332,7 @@ def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text="",
     return out
 
 
-def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm):
+def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm, *, inward=False):
     """Radius dimension: leader from arc surface outward + 'R{value}' text."""
     out = []
     # Direction from center to midpoint (radially outward) in page coords
@@ -344,7 +347,9 @@ def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm):
     ax = cx_pg + ndx * radius_scaled
     ay = cy_pg + ndy * radius_scaled
 
-    # Leader end (outside arc)
+    # For a concave blend, put the leader in the open corner.
+    if inward:
+        ndx, ndy = -ndx, -ndy
     leader_len = max(radius_scaled * 0.6, 5)
     ex = ax + ndx * leader_len
     ey = ay + ndy * leader_len
@@ -359,6 +364,8 @@ def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm):
 
     # Text
     text = f"R{radius_mm:.1f}" if radius_mm != int(radius_mm) else f"R{int(radius_mm)}"
+    if inward:
+        text = f"R{radius_mm:.6f}".rstrip('0').rstrip('.')
     anchor = "start" if ndx >= 0 else "end"
     tx = ex + 1.5 * ndx
     ty = ey + 1.5 * ndy + 1.0
@@ -385,9 +392,228 @@ def _collect_auto_dim_values(vd):
     return vals
 
 
+def measurement_attributes(object_id, family, feature_id, axis, reference_a, reference_b):
+    """Identity is the measured object/axis/references, never its numeric value."""
+    a, b = float(reference_a), float(reference_b)
+    a, b = (0.0 if a == 0 else a), (0.0 if b == 0 else b)
+    return {'data-measurement-key': json.dumps([object_id, family, feature_id, axis, a, b], separators=(',', ':')),
+            'data-measurement-family': family, 'data-feature-id': feature_id,
+            'data-model-object-id': object_id, 'data-model-axis': axis,
+            'data-model-reference-a': a, 'data-model-reference-b': b,
+            'data-measurement-kind': 'diameter' if family == 'circle' else 'linear'}
+
+
+def tag_annotation(elements, annotation_id, roles, metadata=None):
+    """Tag every primitive, allowing complete annotation removal without groups."""
+    if not annotation_id:
+        return elements
+    result = []
+    for index, element in enumerate(elements):
+        attrs = {'data-annotation-id': annotation_id,
+                 'data-annotation-role': roles[index] if index < len(roles) else 'tolerance'}
+        if metadata and attrs['data-annotation-role'] == 'label':
+            attrs.update(metadata)
+        elif metadata and attrs['data-annotation-role'] == 'leader':
+            attrs.update({key: metadata[key] for key in ('data-center-x', 'data-center-y', 'data-radius-page-mm', 'data-scale')
+                          if key in metadata})
+        if metadata and attrs['data-annotation-role'].startswith('extension-'):
+            for axis in ('x', 'y'):
+                if f'data-extension-gap-{axis}' in metadata:
+                    attrs[f'data-gap-{axis}'] = metadata[f'data-extension-gap-{axis}']
+        head, separator, tail = element.partition('>')
+        for key in attrs:
+            head = re.sub(r'\s' + re.escape(key) + r'''\s*=\s*(["']).*?\1''', '', head)
+        element = head + separator + tail
+        rendered = ''.join(f' {key}="{_attribute_escape(str(value), quote=True)}"' for key, value in attrs.items())
+        result.append(re.sub(r'^<(\w+)', lambda m: '<' + m[1] + rendered, element, count=1))
+    return result
+
+
+def _visible_projection_geometry(groups):
+    circles, segments = set(), []
+    for group in (0, 2, 5, 8):
+        for edge in (groups or {}).get(group, []):
+            if edge.get('circ'):
+                circles.add(tuple(edge['circ']))
+            else:
+                points = edge.get('pts', [])
+                segments.extend(zip(points, points[1:]))
+    return sorted(circles), segments
+
+
+def _on_segment(point, a, b, tolerance=1e-6):
+    dx, dy = b[0]-a[0], b[1]-a[1]
+    length = dx*dx+dy*dy
+    if length == 0:
+        return math.dist(point, a) <= tolerance
+    t = ((point[0]-a[0])*dx+(point[1]-a[1])*dy)/length
+    t = max(0, min(1, t))
+    return math.dist(point, (a[0]+t*dx, a[1]+t*dy)) <= tolerance
+
+
+def _projected_reference_pair(start, finish, axis, bounds, geometry_groups):
+    """Exact circle-center or actual outline references; never nearest shapes."""
+    circles, segments = _visible_projection_geometry(geometry_groups)
+    component = 0 if axis == 'u' else 1
+    low, high = bounds[component], bounds[component+2]
+    refs = []
+    for value in (start, finish):
+        if abs(value-low) <= 1e-6 or abs(value-high) <= 1e-6:
+            refs.append({'kind': 'outline_point', 'coordinate': value})
+            continue
+        matches = [c for c in circles if abs(c[component]-value) <= 1e-6]
+        centers = {(c[0], c[1]) for c in matches}
+        if len(centers) != 1:
+            return None
+        circle = min(matches, key=lambda c: c[2])
+        refs.append({'kind': 'circle_center', 'point': list(circle[:2]), 'radius': circle[2]})
+    if all(ref['kind'] == 'outline_point' for ref in refs):
+        return None
+    for i, ref in enumerate(refs):
+        if ref['kind'] == 'outline_point':
+            point = list(refs[1-i]['point'])
+            point[component] = ref.pop('coordinate')
+            if not any(_on_segment(point, a, b) for a, b in segments):
+                return None
+            ref['point'] = point
+    return refs
+
+
+def _projected_dimension(refs, axis, bounds, cx, cy, scale, shaft, record, context):
+    """Render an axis distance while preserving each physical endpoint's XY."""
+    if not context or context.get('source') != 'freecad_runtime':
+        return None
+    component = 0 if axis == 'u' else 1
+    if any(abs(context['bbox_min_mm'][i]-bounds[i]) > 1e-6
+           or abs(context['bbox_max_mm'][i]-bounds[i+2]) > 1e-6 for i in (0, 1)):
+        return None  # This bounded route supports the canonical top projection.
+    u0, v0, u1, v1 = bounds
+    page = [[cx+(ref['point'][0]-(u0+u1)/2)*scale, cy-(ref['point'][1]-(v0+v1)/2)*scale] for ref in refs]
+    a, b = [ref['point'][component] for ref in refs]
+    value = b-a
+    if value <= 0:
+        return None
+    feature = 'projection:' + json.dumps(refs, sort_keys=True, separators=(',', ':'))
+    metadata = measurement_attributes(context['model_object_id'], 'feature_reference', feature, 'XY'[component], a, b)
+    metadata.update({'data-reference-projection': 'axis', 'data-reference-kind': 'visible_projection',
+        'data-page-axis': axis, 'data-scale': scale, 'data-dimension-source': 'auto', 'data-tolerance-text': '',
+        'data-reference-a-x': page[0][0], 'data-reference-a-y': page[0][1],
+        'data-reference-b-x': page[1][0], 'data-reference-b-y': page[1][1]})
+    for name, ref in zip(('a', 'b'), refs):
+        metadata[f'data-reference-{name}-kind'] = ref['kind']
+        if ref['kind'] == 'circle_center':
+            metadata[f'data-reference-{name}-radius-page-mm'] = ref['radius']*scale
+    if axis == 'u':
+        metadata['data-extension-gap-y'] = DIM_GAP
+        elements = _dim_horizontal(page[0][0], page[1][0], page[0][1], shaft, value,
+                                   svg_element_id=record['dim_id'])
+        elements[1] = re.sub(r'y1="[^"]+"', f'y1="{page[1][1]+DIM_GAP:.2f}"', elements[1])
+        roles = ['extension-a', 'extension-b', 'dimension-line', 'arrow-a', 'arrow-b', 'label']
+    else:
+        metadata['data-extension-gap-x'] = -DIM_GAP
+        elements = _dim_vertical(page[1][1], page[0][1], page[0][0], shaft, value,
+                                 svg_element_id=record['dim_id'])
+        elements[0] = re.sub(r'x1="[^"]+"', f'x1="{page[1][0]-DIM_GAP:.2f}"', elements[0])
+        roles = ['extension-b', 'extension-a', 'dimension-line', 'arrow-b', 'arrow-a', 'label']
+    record.update(measurement_identity=metadata, projection_references=refs, svg_element_id=record['dim_id'])
+    elements = tag_annotation(elements, record['dim_id'], roles, metadata)
+    return [re.sub(r'^<(\w+)', r'<\1 data-reference-kind="visible_projection"', e, count=1)
+            if not e.startswith('<text') else e for e in elements]
+
+
+def render_verified_baseline_dimensions_svg(features, origin, axis, bounds, cx, cy, scale, *,
+                                            vname, geometry_groups, model_context, telemetry, style_cfg=None):
+    if vname != 'top' or axis != 'horizontal' or not features:
+        return None
+    desired = sorted({tuple(feature['position']) for feature in features})
+    visible, _ = _visible_projection_geometry(geometry_groups)
+    if set(desired) != {(c[0], c[1]) for c in visible}:
+        return None
+    pairs = [_projected_reference_pair(origin[0], p[0], 'u', bounds, geometry_groups) for p in desired]
+    if any(pair is None or math.dist(pair[1]['point'], p) > 1e-6 for pair, p in zip(pairs, desired)):
+        return None
+    style = style_cfg or {}
+    row_spacing = style.get('baseline_row_spacing', style.get('feat_dim_stack', 5))
+    baseline_y = cy+((bounds[1]+bounds[3])/2-origin[1])*scale + style.get('dim_gap', DIM_GAP)*scale + 10
+    output, records = [], []
+    for index, pair in enumerate(pairs, 1):
+        record = {'dim_id': f'baseline_{vname}_{index:03d}', 'source': 'auto', 'view': vname,
+                  'category': 'baseline_horizontal', 'value_mm': pair[1]['point'][0]-pair[0]['point'][0],
+                  'status': 'rendered', 'drawing_object_id': f'svg:baseline-{vname}:{index}'}
+        elements = _projected_dimension(pair, 'u', bounds, cx, cy, scale, baseline_y+(index-1)*row_spacing, record, model_context)
+        if elements is None:
+            return None
+        output.extend(elements); records.append(record)
+    telemetry.setdefault('auto_dimensions', []).extend(records)
+    return f'<g class="baseline-dimensions dimensions-{vname}" stroke="#000" stroke-width="0.18" fill="none">\n' + '\n'.join(output) + '\n</g>'
+
+
+def _remove_complete_annotation(svg, annotation_id, required_roles):
+    pattern = (r'<(?:line|polygon|text)\b[^>]*\bdata-annotation-id="' + re.escape(annotation_id)
+               + r'"[^>]*(?:/>|>[^<]*</text>)')
+    members = re.findall(pattern, svg)
+    roles = [re.search(r'data-annotation-role="([^"]+)"', member) for member in members]
+    roles = [match[1] for match in roles if match]
+    if not all(roles.count(role) == 1 for role in required_roles):
+        return None
+    return re.sub(pattern, '', svg)
+
+
+def replace_verified_legacy_diameters(views_svg, telemetry):
+    for plan in telemetry.get('plan_dimensions', []):
+        binding = plan.get('runtime_binding', {})
+        if (plan.get('status') != 'rendered' or not plan.get('rendered')
+                or binding.get('measurement') != 'legacy_cylindrical_diameter'
+                or binding.get('status') != 'resolved' or binding.get('visible_circle_proof') != 'final_projection'):
+            continue
+        for auto in telemetry.get('auto_dimensions', []):
+            identity = auto.get('measurement_identity', {})
+            if (auto.get('status') != 'rendered' or auto.get('category') != 'hole_diameter' or auto.get('view') != 'top'
+                    or identity.get('data-model-object-id') != binding['model_object_id']
+                    or auto.get('tolerance_text', '') or identity.get('data-tolerance-text', '')):
+                continue
+            actual = [identity.get('data-center-model-u'), identity.get('data-center-model-v'), identity.get('data-radius-model-mm')]
+            if any(not isinstance(a, (int, float)) or abs(a-b) > 1e-6 for a, b in zip(actual, binding['circle_uv_mm'])):
+                continue
+            updated = _remove_complete_annotation(views_svg['top'], auto['dim_id'], ['leader', 'shelf', 'arrow', 'label'])
+            if updated is None:
+                continue
+            views_svg['top'] = updated
+            auto.update(status='replaced', rendered=False, reason='verified_named_hole_circle', represented_by=plan['dim_id'])
+            telemetry.setdefault('replacements', []).append({'source': auto['dim_id'], 'represented_by': plan['dim_id'],
+                'reason': 'verified_named_hole_circle', 'model_object_id': binding['model_object_id'],
+                'face_ref': binding['face_ref'], 'circle_uv_mm': binding['circle_uv_mm']})
+
+
+def replace_verified_baseline_chains(views_svg, telemetry, view):
+    baselines = [d for d in telemetry.get('auto_dimensions', []) if d.get('view') == view
+                 and d.get('category') == 'baseline_horizontal' and d.get('projection_references')]
+    chains = [d for d in telemetry.get('auto_dimensions', []) if d.get('view') == view
+              and d.get('category') == 'chain_horizontal' and d.get('status') == 'rendered']
+    if not baselines or not chains or any(not d.get('projection_references') for d in chains):
+        return
+    covered = {tuple(d['projection_references'][1]['point']) for d in baselines}
+    needed = {tuple(ref['point']) for d in chains for ref in d['projection_references'] if ref['kind'] == 'circle_center'}
+    if needed != covered:
+        return
+    updated = views_svg[view]
+    for chain in chains:
+        updated = _remove_complete_annotation(updated, chain['dim_id'],
+                    ['extension-a', 'extension-b', 'dimension-line', 'arrow-a', 'arrow-b', 'label'])
+        if updated is None:
+            return
+    views_svg[view] = updated
+    represented = [d['dim_id'] for d in baselines]
+    for chain in chains:
+        chain.update(status='replaced', rendered=False, reason='verified_baseline_covers_circle_x_positions', represented_by=represented)
+    telemetry.setdefault('replacements', []).append({'source': [d['dim_id'] for d in chains],
+        'represented_by': represented, 'reason': 'verified_baseline_covers_circle_x_positions',
+        'covered_circle_positions': sorted(covered)})
+
+
 def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                           tolerances=None, return_stacks=False,
-                          style_cfg=None, telemetry=None, dedupe_state=None):
+                          style_cfg=None, telemetry=None, dedupe_state=None, model_context=None, geometry_groups=None):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
@@ -462,6 +688,29 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     def pg(u, v):
         return cx + (u - bcx) * scale, cy - (v - bcy) * scale
 
+    def extent_metadata(category, measured, page_a, page_b):
+        context = model_context or {}
+        axes = {'front': ('X', 'Z'), 'top': ('X', 'Y'), 'right': ('Y', 'Z')}
+        if context.get('source') != 'freecad_runtime' or vname not in axes:
+            return None
+        axis = axes[vname][0 if category == 'overall_width' else 1]
+        index = 'XYZ'.index(axis)
+        try:
+            a, b = context['bbox_min_mm'][index], context['bbox_max_mm'][index]
+            if not all(math.isfinite(n) for n in (a, b, measured)) or abs(b-a-measured) > 1e-6:
+                return None
+            object_id = context['model_object_id']
+        except (KeyError, TypeError, IndexError):
+            return None
+        attrs = measurement_attributes(object_id, 'body_extent', object_id, axis, a, b)
+        attrs.update({'data-page-axis': 'u' if category == 'overall_width' else 'v', 'data-scale': scale,
+                      'data-dimension-source': 'auto',
+                      'data-reference-a-x': page_a[0], 'data-reference-a-y': page_a[1],
+                      'data-reference-b-x': page_b[0], 'data-reference-b-y': page_b[1]})
+        attrs['data-extension-gap-y' if category == 'overall_width' else 'data-extension-gap-x'] = (
+            DIM_GAP if category == 'overall_width' else -DIM_GAP)
+        return attrs
+
     # Shape extents in page coordinates
     left, top = pg(u0, v1)      # top-left (v1 is max = top in model)
     right, bottom = pg(u1, v0)  # bottom-right
@@ -496,10 +745,16 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             _record_conflict("overall_width", "cross_view_redundant",
                              severity="info", detail={"value_mm": round(width_mm, 3)})
         elif y_dim < cell_bottom:
-            record = _record_dim("overall_width", width_mm)
-            out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
+            record = _record_dim("overall_width", width_mm, detail={'tolerance_text': gen_tol})
+            metadata = extent_metadata('overall_width', width_mm, [left, bottom], [right, bottom])
+            if record and metadata:
+                metadata['data-tolerance-text'] = gen_tol
+                record['measurement_identity'] = metadata
+            elements = _dim_horizontal(left, right, bottom, y_dim, width_mm,
                                        tol_text=gen_tol,
-                                       svg_element_id=record["svg_element_id"] if record else None))
+                                       svg_element_id=record["svg_element_id"] if record else None)
+            out.extend(tag_annotation(elements, record['dim_id'] if record and model_context else None,
+                ['extension-a', 'extension-b', 'dimension-line', 'arrow-a', 'arrow-b', 'label'], metadata))
             h_stack += 1
         else:
             _record_conflict("overall_width", "cell_bottom_limit",
@@ -513,10 +768,16 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             _record_conflict("overall_height", "cross_view_redundant",
                              severity="info", detail={"value_mm": round(height_mm, 3)})
         elif x_dim < cell_right:
-            record = _record_dim("overall_height", height_mm)
-            out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
+            record = _record_dim("overall_height", height_mm, detail={'tolerance_text': gen_tol})
+            metadata = extent_metadata('overall_height', height_mm, [right, bottom], [right, top])
+            if record and metadata:
+                metadata['data-tolerance-text'] = gen_tol
+                record['measurement_identity'] = metadata
+            elements = _dim_vertical(top, bottom, right, x_dim, height_mm,
                                      tol_text=gen_tol,
-                                     svg_element_id=record["svg_element_id"] if record else None))
+                                     svg_element_id=record["svg_element_id"] if record else None)
+            out.extend(tag_annotation(elements, record['dim_id'] if record and model_context else None,
+                ['extension-b', 'extension-a', 'dimension-line', 'arrow-b', 'arrow-a', 'label'], metadata))
             v_stack += 1
         else:
             _record_conflict("overall_height", "cell_right_limit",
@@ -546,11 +807,24 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             continue
         center_uv = [round(cu, 3), round(cv, 3)]
         record = _record_dim("hole_diameter", dia_mm, detail={"center_uv": center_uv})
-        out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
+        elements = _dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
                                  tol_text=hole_tol,
                                  cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom),
                                  svg_element_id=record['svg_element_id'] if record else None,
-                                 center_uv=center_uv))
+                                 center_uv=center_uv)
+        metadata = None
+        if model_context and model_context.get('source') == 'freecad_runtime':
+            object_id = model_context['model_object_id']
+            metadata = measurement_attributes(object_id, 'circle', f'projectedcircle:{vname}:{cu}:{cv}',
+                                               {'front': 'Y', 'top': 'Z', 'right': 'X'}[vname], 0, dia_mm)
+            metadata.update({'data-center-x': px, 'data-center-y': py, 'data-radius-page-mm': r_scaled,
+                             'data-center-model-u': cu, 'data-center-model-v': cv, 'data-radius-model-mm': cr,
+                             'data-scale': scale, 'data-page-axis': 'circle', 'data-tolerance-text': hole_tol,
+                             'data-dimension-source': 'auto'})
+            if record:
+                record['measurement_identity'] = metadata
+        out.extend(tag_annotation(elements, record['dim_id'] if record and model_context else None,
+                                   ['leader', 'shelf', 'arrow', 'label'], metadata))
         leader_angle += 30  # stagger angles for multiple holes
 
     # -- Feature chain dimensions (hole positions from edges) --
@@ -576,18 +850,21 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                 px1, _ = pg(chain_u[k], v0)
                 px2, _ = pg(chain_u[k + 1], v0)
                 if abs(px2 - px1) >= 8.0:  # min page width for readable text
-                    h_segments.append((px1, px2, dist))
+                    h_segments.append((px1, px2, dist, chain_u[k], chain_u[k+1]))
 
         if h_segments and h_stack < max_h_stacks:
             y_feat = bottom + eff_dim_offset + eff_feat_stack * h_stack
             if y_feat < cell_bottom:
-                for px1, px2, dist in h_segments:
+                for px1, px2, dist, start, finish in h_segments:
                     if _is_redundant_across_views("linear_h", dist):
                         _record_conflict("chain_horizontal", "cross_view_redundant",
                                          severity="info", detail={"value_mm": round(dist, 3)})
                         continue
-                    out.extend(_dim_horizontal(px1, px2, bottom, y_feat, dist))
-                    _record_dim("chain_horizontal", dist)
+                    record = _record_dim("chain_horizontal", dist)
+                    refs = _projected_reference_pair(start, finish, 'u', bounds, geometry_groups) if vname == 'top' and geometry_groups else None
+                    elements = _projected_dimension(refs, 'u', bounds, cx, cy, scale, y_feat, record, model_context) if refs and record else None
+                    out.extend(re.sub(r'^<(\w+)', r'<\1 data-auto-chain="horizontal"', element)
+                               for element in (elements or _dim_horizontal(px1, px2, bottom, y_feat, dist)))
                 h_stack += 1
             else:
                 _record_conflict("chain_horizontal", "cell_bottom_limit",
@@ -605,18 +882,21 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                 _, py_top = pg(u0, chain_v[k + 1])  # higher v → smaller page y
                 _, py_bot = pg(u0, chain_v[k])       # lower v → larger page y
                 if abs(py_bot - py_top) >= 8.0:
-                    v_segments.append((py_top, py_bot, dist))
+                    v_segments.append((py_top, py_bot, dist, chain_v[k], chain_v[k+1]))
 
         if v_segments and v_stack < max_v_stacks:
             x_feat = right + eff_dim_offset + eff_feat_stack * v_stack
             if x_feat < cell_right:
-                for py_top, py_bot, dist in v_segments:
+                for py_top, py_bot, dist, start, finish in v_segments:
                     if _is_redundant_across_views("linear_v", dist):
                         _record_conflict("chain_vertical", "cross_view_redundant",
                                          severity="info", detail={"value_mm": round(dist, 3)})
                         continue
-                    out.extend(_dim_vertical(py_top, py_bot, right, x_feat, dist))
-                    _record_dim("chain_vertical", dist)
+                    record = _record_dim("chain_vertical", dist)
+                    refs = _projected_reference_pair(start, finish, 'v', bounds, geometry_groups) if vname == 'top' and geometry_groups else None
+                    elements = _projected_dimension(refs, 'v', bounds, cx, cy, scale, x_feat, record, model_context) if refs and record else None
+                    out.extend(re.sub(r'^<(\w+)', r'<\1 data-auto-chain="vertical"', element)
+                               for element in (elements or _dim_vertical(py_top, py_bot, right, x_feat, dist)))
                 v_stack += 1
             else:
                 _record_conflict("chain_vertical", "cell_right_limit",

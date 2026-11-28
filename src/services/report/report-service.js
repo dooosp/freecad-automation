@@ -1,7 +1,6 @@
 import { resolve, join, relative, isAbsolute } from 'node:path';
 import { readFile, realpath } from 'node:fs/promises';
 import {
-  readJsonIfExists,
   runPythonJsonScript,
 } from '../../../lib/context-loader.js';
 import {
@@ -27,6 +26,7 @@ import {
   deriveReportArtifactPaths,
   writeDecisionReportSummary,
 } from './decision-report-summary.js';
+import { loadReportEvidenceSnapshot, readReportDrawingSvg } from './report-evidence-provenance.js';
 
 function toBool(value, fallback) {
   if (typeof value === 'boolean') return value;
@@ -148,14 +148,14 @@ export function createReportService({
     options = null,
     profileName = null,
   }) {
-    const loadedConfig = config ?? await loadConfig(resolve(freecadRoot, configPath));
+    const loadedConfig = structuredClone(config ?? await loadConfig(resolve(freecadRoot, configPath)));
     const resolvedOutputDir = outputDir
       ? resolve(freecadRoot, outputDir)
       : resolve(freecadRoot, 'output');
     const normalizedResults = (analysisResults && typeof analysisResults === 'object')
       ? sanitizeObject(analysisResults)
       : {};
-    let drawingSheet = null;
+    let drawingSvgSnapshot = null;
     if (drawingResult) {
       const svgPath = drawingResult.drawing_paths?.find((entry) => entry.format === 'svg')?.path
         || drawingResult.svg_path || drawingResult.drawing_path;
@@ -169,12 +169,13 @@ export function createReportService({
       if (sourceRelative.startsWith('..') || isAbsolute(sourceRelative)) {
         throw new Error('Drawing report SVG must be generated inside its report output directory.');
       }
-      drawingSheet = {
-        svg: await readFileFn(sourcePath, 'utf8'),
-        scale: drawingResult.scale || loadedConfig.drawing?.scale || 'auto',
-        views: drawingResult.views || loadedConfig.drawing?.views || [],
-      };
+      drawingSvgSnapshot = await readReportDrawingSvg(sourcePath, readFileFn);
     }
+    const drawingSheet = drawingSvgSnapshot && {
+      svg: drawingSvgSnapshot.value,
+      scale: drawingResult.scale || loadedConfig.drawing?.scale || 'auto',
+      views: drawingResult.views || loadedConfig.drawing?.views || [],
+    };
 
     const shopProfile = await loadShopProfileFn(freecadRoot, profileName);
     const ruleProfile = await loadRuleProfileFn(freecadRoot, loadedConfig, { silent: true });
@@ -225,29 +226,26 @@ export function createReportService({
       primaryOutputPath: expectedPdfPath,
       configName: loadedConfig.name,
     });
-    const [createQuality, drawingQuality, createManifest, drawingManifest, extractedDrawingSemantics] = await Promise.all([
-      readJsonIfExists(reportArtifacts.create_quality),
-      readJsonIfExists(reportArtifacts.drawing_quality),
-      readJsonIfExists(reportArtifacts.create_manifest),
-      readJsonIfExists(reportArtifacts.drawing_manifest),
-      readJsonIfExists(reportArtifacts.extracted_drawing_semantics),
-    ]);
+    if (drawingSvgSnapshot) reportArtifacts.drawing_svg = drawingSvgSnapshot.path;
+    const evidenceSnapshot = await loadReportEvidenceSnapshot({
+      configPath: configPath ? resolve(freecadRoot, configPath) : null,
+      config: loadedConfig,
+      artifactPaths: reportArtifacts,
+      drawingSvgSnapshot,
+    });
     const repoContext = collectRepoContext(freecadRoot);
     const runtimeInfo = buildRuntimeDiagnostics({ runtime: getFreeCADRuntimeFn() });
+    const reportGeneratedAt = new Date().toISOString();
 
     const preliminarySummary = buildDecisionReportSummary({
       configPath: resolve(freecadRoot, configPath || `${reportStem}.toml`),
       config: loadedConfig,
       reportPdfPath: expectedPdfPath,
-      reportGeneratedAt: new Date().toISOString(),
+      reportGeneratedAt,
       repoContext,
       runtimeInfo,
       artifactPaths: reportArtifacts,
-      createQuality,
-      drawingQuality,
-      createManifest,
-      drawingManifest,
-      extractedDrawingSemantics,
+      ...evidenceSnapshot,
       dfm: normalizedResults.dfm || null,
       fem: normalizedResults.fem ? femInput : null,
       tolerance: tolInput || null,
@@ -318,13 +316,6 @@ export function createReportService({
       primaryOutputPath: resolvedPdfPath,
       configName: loadedConfig.name,
     });
-    const [finalCreateQuality, finalDrawingQuality, finalCreateManifest, finalDrawingManifest, finalExtractedDrawingSemantics] = await Promise.all([
-      readJsonIfExists(finalArtifactPaths.create_quality),
-      readJsonIfExists(finalArtifactPaths.drawing_quality),
-      readJsonIfExists(finalArtifactPaths.create_manifest),
-      readJsonIfExists(finalArtifactPaths.drawing_manifest),
-      readJsonIfExists(finalArtifactPaths.extracted_drawing_semantics),
-    ]);
     let featureCatalog = null;
     let featureCatalogPath = null;
     const drawingIntent = getDrawingIntent(loadedConfig);
@@ -348,15 +339,19 @@ export function createReportService({
       configPath: resolve(freecadRoot, configPath || `${reportStem}.toml`),
       config: loadedConfig,
       reportPdfPath: resolvedPdfPath,
-      reportGeneratedAt: new Date().toISOString(),
+      reportGeneratedAt,
       repoContext,
       runtimeInfo,
-      artifactPaths: finalArtifactPaths,
-      createQuality: finalCreateQuality || createQuality,
-      drawingQuality: finalDrawingQuality || drawingQuality,
-      createManifest: finalCreateManifest || createManifest,
-      drawingManifest: finalDrawingManifest || drawingManifest,
-      extractedDrawingSemantics: finalExtractedDrawingSemantics || extractedDrawingSemantics,
+      // The PDF and JSON consume the same verified bytes even if files change while rendering.
+      artifactPaths: {
+        ...reportArtifacts,
+        report_pdf: finalArtifactPaths.report_pdf,
+        report_summary_json: finalArtifactPaths.report_summary_json,
+        report_manifest: finalArtifactPaths.report_manifest,
+        feature_catalog: finalArtifactPaths.feature_catalog,
+        drawing_intent: finalArtifactPaths.drawing_intent,
+      },
+      ...evidenceSnapshot,
       featureCatalog,
       dfm: normalizedResults.dfm || null,
       fem: normalizedResults.fem ? femInput : null,
@@ -373,8 +368,8 @@ export function createReportService({
     if (drawingIntentPath) {
       result.drawing_intent_json = drawingIntentPath;
     }
-    if (finalExtractedDrawingSemantics || extractedDrawingSemantics) {
-      result.extracted_drawing_semantics_json = finalArtifactPaths.extracted_drawing_semantics;
+    if (evidenceSnapshot.extractedDrawingSemantics) {
+      result.extracted_drawing_semantics_json = reportArtifacts.extracted_drawing_semantics;
     }
     if (featureCatalogPath) {
       result.feature_catalog_json = featureCatalogPath;

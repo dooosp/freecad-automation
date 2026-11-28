@@ -90,7 +90,7 @@ export async function resolveSavedDrawing({ jobStore, artifactRef }) {
     }
     if (snapshots.planToml) {
       const tomlPlan = parseTOML(snapshots.planToml.readDetachedBytes().toString('utf8')).drawing_plan;
-      if (!isDeepStrictEqual(tomlPlan, plan)) throw new Error('mismatched TOML plan');
+      if (!isDeepStrictEqual(structuredClone(tomlPlan), plan)) throw new Error('mismatched TOML plan');
     }
   } catch {
     throw new Error('Saved Drawing config and plan evidence is invalid or inconsistent.');

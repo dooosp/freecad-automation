@@ -23,6 +23,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from _slot_relief import RADIUS_FIELD, declared_slots, inspect_slot_relief, relief_parameters
+
 
 # ---------------------------------------------------------------------------
 # Manufacturing constraint tables by process type
@@ -432,12 +434,21 @@ def _extract_cut_boxes(config):
         if s.get("type") == "box" and s.get("id") in cut_tools:
             pos = _safe_pos(s)
             width, depth = _box_plan_dims(s)
+            x = pos[0]
+            if RADIUS_FIELD in s:
+                try:
+                    radius = relief_parameters(s)[-1]
+                except ValueError:
+                    pass  # DFM-04 keeps invalid or unsupported relief unverified.
+                else:
+                    x -= radius
+                    width += 2 * radius
             boxes.append({
                 "id": s.get("id", ""),
                 "width": width,
                 "depth": depth,
                 "height": s.get("height", 0),
-                "x": pos[0],
+                "x": x,
                 "y": pos[1],
                 "z": pos[2],
             })
@@ -512,11 +523,6 @@ def _analyze_box_walls(bodies, holes, cut_boxes):
                 results.append((min_thk, f"intersection '{b1['id']}'/'{b2['id']}'", "intersection_wall"))
 
     return results
-
-
-def _has_operation(config, op_type):
-    """Check if any operation of given type exists."""
-    return any(op.get("op") == op_type for op in config.get("operations", []))
 
 
 def _dist_2d(x1, y1, x2, y2):
@@ -876,49 +882,242 @@ def check_hole_spacing(config, constraints):
 # DFM-04: Missing fillet/chamfer on internal corners
 # ---------------------------------------------------------------------------
 
-def check_fillet_chamfer(config, constraints):
-    """Warn if cut operations exist without fillet/chamfer."""
-    checks = []
-    has_cuts = any(op.get("op") == "cut" for op in config.get("operations", []))
-    has_fillet = _has_operation(config, "fillet")
-    has_chamfer = _has_operation(config, "chamfer")
+def _final_operation_lineage(config):
+    """Resolve recipe ancestry using create_model's ordered shape/result writes.
 
-    if has_cuts and not has_fillet and not has_chamfer:
-        checks.append(DFMCheck(
-            "DFM-04", "warning",
-            "No fillet or chamfer operations found — internal corners may cause stress concentration",
-            recommendation="Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
-            feature_type="internal_corner",
-            actual_value=0,
-            actual_unit="count",
-            required_value=1,
-            required_unit="count",
-            delta=-1,
-            evidence={
-                "measurement": "corner_relief_ops",
-                "fillet_count": 0,
-                "chamfer_count": 0,
-            },
-        ))
-    elif has_cuts and not has_fillet:
-        checks.append(DFMCheck(
+    Sets are copied on every write so reusing an ID cannot retroactively change
+    an earlier branch. This is recipe evidence, not a geometry verification.
+    Unresolvable recipes keep a conservative, explicitly labelled fallback.
+    """
+    operations = config.get("operations", [])
+    shapes = {shape["id"]: set() for shape in config.get("shapes", []) if shape.get("id")}
+    unresolved = set()
+    for index, operation in enumerate(operations):
+        op_type = operation.get("op")
+        if op_type in ("fuse", "cut", "common"):
+            source = operation.get("base")
+            refs = [source]
+            tool = operation.get("tool")
+            if isinstance(tool, str):
+                refs.append(tool)
+            elif not isinstance(tool, dict):
+                refs.append(None)
+        elif op_type in ("fillet", "chamfer", "shell", "circular_pattern"):
+            source = operation.get("target")
+            refs = [source]
+        else:
+            # The runtime cannot evaluate an unknown operation either.
+            return operations, config.get("final"), False
+        result = operation.get("result", source)
+        if not isinstance(result, str) or not result:
+            return operations, config.get("final"), False
+        lineage = {index}
+        valid = True
+        for ref in refs:
+            if not isinstance(ref, str) or ref not in shapes or ref in unresolved:
+                valid = False
+            else:
+                lineage.update(shapes[ref])
+        shapes[result] = lineage
+        if valid:
+            unresolved.discard(result)
+        else:
+            unresolved.add(result)
+    final_id = config.get("final", next(reversed(shapes), None))
+    if not isinstance(final_id, str) or final_id not in shapes or final_id in unresolved:
+        return operations, final_id, False
+    return [operations[index] for index in sorted(shapes[final_id])], final_id, True
+
+
+def _only_disjoint_circular_through_holes(config, operations):
+    """Recognize a narrow recipe with no polygonal or blind-pocket corners.
+
+    A single unrotated box with enclosed, disjoint, axial through-cylinders is
+    constructive recipe evidence. It says nothing about runtime relief success.
+    Unsupported shapes, modifications, and mixed operation graphs do not qualify.
+    """
+    if not operations or operations[0].get("op") != "cut":
+        return False
+    specs = config.get("shapes", [])
+    shapes = {shape.get("id"): shape for shape in specs}
+    if len(shapes) != len(specs):
+        return False
+    current = operations[0].get("base")
+    body = shapes.get(current, {})
+
+    def finite(values):
+        return all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                   and math.isfinite(value) for value in values)
+
+    def position(shape):
+        pos = shape.get("position", [0, 0, 0])
+        return pos if isinstance(pos, (list, tuple)) and len(pos) == 3 and finite(pos) else None
+
+    dimensions = [body.get(key) for key in ("length", "width", "height")]
+    origin = position(body)
+    if (body.get("type") != "box" or "rotation" in body or origin is None
+            or not finite(dimensions) or min(dimensions) <= 0):
+        return False
+    bx, by, bz = origin
+    length, width, height = dimensions
+    holes = []
+    written_ids = set()
+    finishing = False
+    relief_extent = 0
+    for operation in operations:
+        op_type = operation.get("op")
+        if op_type in ("fillet", "chamfer"):
+            if operation.get("target") != current:
+                return False
+            size = operation.get("radius" if op_type == "fillet" else "size")
+            if not finite([size]) or size <= 0:
+                return False
+            relief_extent += size
+            finishing = True
+            current = operation.get("result", current)
+        elif op_type == "cut" and not finishing and operation.get("base") == current:
+            tool_id = operation.get("tool")
+            if not isinstance(tool_id, str) or tool_id in written_ids:
+                return False
+            tool = shapes.get(tool_id, {})
+            radius, depth = tool.get("radius"), tool.get("height")
+            pos = position(tool)
+            if (tool.get("type") != "cylinder" or "rotation" in tool or pos is None
+                    or tool.get("direction", [0, 0, 1]) != [0, 0, 1]
+                    or not finite([radius, depth]) or min(radius, depth) <= 0):
+                return False
+            x, y, z = pos
+            if not (bx + radius < x < bx + length - radius
+                    and by + radius < y < by + width - radius
+                    and z <= bz and z + depth >= bz + height):
+                return False
+            if any(_dist_2d(x, y, hx, hy) <= radius + hr for hx, hy, hr in holes):
+                return False
+            holes.append((x, y, radius))
+            current = operation.get("result", current)
+        else:
+            return False
+        written_ids.add(current)
+    if not holes:
+        return False
+    # Large or repeated finish operations may merge nearby surfaces; keep those
+    # outside this metadata-only exemption rather than assuming their outcome.
+    clearance = min(dimensions) / 2
+    for index, (x, y, radius) in enumerate(holes):
+        edge_gap = min(x - bx, bx + length - x, y - by, by + width - y) - radius
+        clearance = min(clearance, radius, edge_gap / 2)
+        for hx, hy, hr in holes[:index]:
+            clearance = min(clearance, (_dist_2d(x, y, hx, hy) - radius - hr) / 2)
+    return relief_extent < clearance
+
+
+def _check_slot_relief(config, constraints, operations, final_id, resolved, final_shape, slots):
+    evidence = {"measurement": "slot_side_relief", "final_shape_id": final_id,
+                "geometry_verification": "not_performed", "reason_code": "slot_relief_scope_unverified"}
+    slot = slots[0] if len(slots) == 1 else None
+    required = max(0.5, constraints.get("min_internal_radius") or 0)
+    if slot and resolved and (config.get("manufacturing") or {}).get("process", "machining") == "machining":
+        try:
+            evidence = inspect_slot_relief(config, operations, final_id, final_shape, slot)
+        except Exception:
+            # Keep a warning when FreeCAD cannot establish the final-solid proof.
+            evidence["reason_code"] = "slot_relief_inspection_failed"
+    actual = None
+    severity = "warning"
+    recommendation = "Check the slot cutter and verify all four relief surfaces on the selected final solid."
+    if evidence["geometry_verification"] == "measured":
+        actual = min(corner["radius_mm"] for corner in evidence["corners"])
+        if actual >= required:
+            evidence["reason_code"] = "slot_relief_verified"
+            severity = "info"
+            recommendation = None
+            message = f"All four slot corners have verified through relief R{actual:g} mm or greater"
+        else:
+            evidence["reason_code"] = "slot_relief_radius_below_minimum"
+            message = f"Measured slot corner relief R{actual:g} mm is below the R{required:g} mm minimum"
+            recommendation = f"Increase the side-relief radius to at least {required:g} mm and recheck the final slot."
+    else:
+        message = "Slot corner relief is unverified on the selected final solid"
+        if evidence["reason_code"] == "slot_relief_not_in_final":
+            message = "The declared slot relief cutter is absent from the selected final solid's cuts"
+        elif evidence["reason_code"] == "slot_relief_geometry_unavailable":
+            recommendation = "Run DFM with FreeCAD available to measure the four slot relief surfaces."
+
+    return DFMCheck(
+        "DFM-04", severity, message, feature=slot.get("id") if slot else None,
+        recommendation=recommendation, actual_value=actual, actual_unit="mm",
+        required_value=required, required_unit="mm",
+        delta=actual - required if actual is not None else None,
+        confidence="high" if actual is not None else "low", evidence=evidence,
+    )
+
+
+def check_fillet_chamfer(config, constraints, final_shape=None):
+    """Flag unverified cut-corner relief in the selected output's recipe."""
+    operations, final_id, resolved = _final_operation_lineage(config)
+    slots = declared_slots(config)
+    if slots:
+        return [_check_slot_relief(config, constraints, operations, final_id, resolved, final_shape, slots)]
+    cut_count = sum(op.get("op") == "cut" for op in operations)
+    if not cut_count:
+        return []
+    fillet_count = sum(op.get("op") == "fillet" for op in operations)
+    chamfer_count = sum(op.get("op") == "chamfer" for op in operations)
+    has_relief = bool(fillet_count or chamfer_count)
+    if resolved and _only_disjoint_circular_through_holes(config, operations):
+        return [DFMCheck(
             "DFM-04", "info",
-            "Chamfer present but no fillet — consider fillets for stress-critical corners",
-            recommendation="Add a fillet to the most stress-critical internal corners if fatigue or crack initiation is a concern.",
+            "The selected recipe has only disjoint circular through-holes in a box; "
+            "no polygonal or blind-pocket internal corners are identified",
+            recommendation="Verify the manufactured geometry and hole-edge finish against the drawing; runtime geometry was not inspected by this check.",
             feature_type="internal_corner",
-            actual_value=0,
-            actual_unit="count",
-            required_value=1,
-            required_unit="count",
-            delta=-1,
+            confidence="medium",
             evidence={
-                "measurement": "fillet_ops",
-                "fillet_count": 0,
-                "chamfer_count": 1,
+                "measurement": "cut_primitive_classification",
+                "basis": "config_primitive_geometry",
+                "reason_code": "corner_relief_not_applicable",
+                "final_shape_id": final_id,
+                "cut_count": cut_count,
+                "fillet_count": fillet_count,
+                "chamfer_count": chamfer_count,
+                "geometry_verification": "not_performed",
+                "relief_verification": "unknown",
             },
-        ))
-
-    return checks
+        )]
+    # Runtime relief is best effort and can skip edges, even with no selector.
+    # Neither reachability nor operation count proves that risk corners changed.
+    message = (
+        "Fillet/chamfer operations are present, but internal corner relief is unverified"
+        if has_relief else
+        "No fillet or chamfer operations found in the selected shape's lineage — internal corners may cause stress concentration"
+    )
+    if not resolved:
+        message = "Final shape lineage could not be resolved; internal corner relief is unverified"
+    return [DFMCheck(
+        "DFM-04", "warning", message,
+        recommendation=(
+            "Inspect the selected final geometry at the cut features and verify relief on each risky internal corner; "
+            "where needed, add a fillet with R >= 0.5 mm or a suitable chamfer. "
+            "Operation presence alone does not establish that those corners were relieved."
+        ),
+        feature_type="internal_corner",
+        actual_value=None if has_relief else 0,
+        actual_unit=None if has_relief else "count",
+        required_value=None if has_relief else 1,
+        required_unit=None if has_relief else "count",
+        delta=None if has_relief else -1,
+        confidence="low",
+        evidence={
+            "measurement": "corner_relief_ops",
+            "basis": "config_operation_lineage" if resolved else "config_operation_fallback",
+            "reason_code": "corner_relief_unverified" if has_relief or not resolved else "corner_relief_missing",
+            "final_shape_id": final_id,
+            "cut_count": cut_count,
+            "fillet_count": fillet_count,
+            "chamfer_count": chamfer_count,
+            "relief_verification": "unknown",
+        },
+    )]
 
 
 # ---------------------------------------------------------------------------
@@ -1265,7 +1464,7 @@ def _build_context_checks(config, requested_process, resolved_process):
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def run_dfm_check(config):
+def run_dfm_check(config, *, final_shape=None):
     """Run all DFM checks and return report dict."""
     mfg = config.get("manufacturing", {})
     requested_process = mfg.get("process", "machining")
@@ -1312,7 +1511,7 @@ def run_dfm_check(config):
     all_checks.extend(check_wall_thickness(config, constraints))
     all_checks.extend(check_hole_edge_distance(config, constraints))
     all_checks.extend(check_hole_spacing(config, constraints))
-    all_checks.extend(check_fillet_chamfer(config, constraints))
+    all_checks.extend(check_fillet_chamfer(config, constraints, final_shape))
     all_checks.extend(check_drill_ratio(config, constraints))
     all_checks.extend(check_undercut(config, constraints))
 

@@ -44,6 +44,43 @@ function makePlateConfig() {
   };
 }
 
+function groupedHolePlan(feature, id = 'MOUNTING_HOLE_DIA', style = 'diameter') {
+  const config = makePlateConfig();
+  config.shapes = [config.shapes[0], ...[[20, 20], [120, 20], [20, 80], [120, 80]].map((xy, index) => ({
+    id: `hole${index + 1}`, type: 'cylinder', radius: 2, height: 12, position: [...xy, -2],
+  }))];
+  config.operations = [1, 2, 3, 4].map((index) => ({
+    op: 'cut', base: index === 1 ? 'plate' : 'body', tool: `hole${index}`, result: 'body',
+  }));
+  config.drawing_plan.dim_intents = [{ id, feature, view: 'top', style, required: true, value_mm: 4 }];
+  return buildDrawingPlanner({ config });
+}
+
+{
+  const planner = groupedHolePlan('hole1, hole2,hole3, hole4');
+  for (const featureId of ['hole1', 'hole2', 'hole3', 'hole4']) {
+    const diameter = planner.required_dimensions_by_feature.find((entry) => entry.feature_id === featureId && entry.dimension_type === 'diameter');
+    assert.equal(diameter.status, 'planned', 'an explicit group contains the named member intent');
+    assert.equal(planner.missing_dimensions.some((entry) => entry.feature_id === featureId && entry.dimension_type === 'diameter'), false);
+    assert.equal(planner.suggested_actions.some((entry) => entry.includes(`Add a required diameter dimension intent for "${featureId}"`)), false);
+  }
+}
+
+for (const [feature, id, expectedMissing] of [
+  ['hole1,hole2', 'HOLE3_DIA', ['hole3', 'hole4']],
+  ['hole10,hole2,hole3,hole4', 'MOUNTING_HOLE_DIA', ['hole1']],
+]) {
+  const planner = groupedHolePlan(feature, id);
+  assert.deepEqual(planner.missing_dimensions.filter((entry) => entry.dimension_type === 'diameter').map((entry) => entry.feature_id).sort(), expectedMissing,
+    'explicit group membership must not borrow an ID substring or a similarly named member');
+}
+
+{
+  const planner = groupedHolePlan('hole1,hole2,hole3,hole4', 'MOUNTING_HOLE_DIA', 'linear');
+  assert.equal(planner.missing_dimensions.filter((entry) => entry.dimension_type === 'diameter').length, 4,
+    'matching feature members and numeric values do not replace a diameter intent');
+}
+
 {
   const config = makePlateConfig();
   const first = buildDrawingPlanner({ config });

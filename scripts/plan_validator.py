@@ -49,7 +49,7 @@ KNOWN_INTENT_KEYS = {"id", "feature", "view", "style", "required", "priority",
                       "reason", "value_mm", "confidence", "source", "review",
                       "placement", "placement_side", "placement_offset_mm",
                       "placement_angle_deg", "dedupe",
-                      "process_step", "tolerance_grade"}
+                      "process_step", "tolerance_grade", "reference"}
 KNOWN_NOTE_KEYS = {"general", "placement"}
 
 
@@ -161,6 +161,11 @@ def validate_plan(plan, part_type=None):
         p = di.get("placement")
         if p is not None and not isinstance(p, dict):
             warnings.append(f"dim_intent '{di.get('id')}' placement should be a table/object")
+        if "reference" in di:
+            supported = {"axis": "Y", "from": {"feature": "plate", "boundary": "y_min"},
+                         "to": {"feature": "slot", "boundary": "y_min"}}
+            if di["reference"] != supported:
+                errors.append(f"dim_intent '{di.get('id')}' reference must explicitly measure plate y_min to slot y_min along Y")
 
     # Layout validity
     layout = views.get("layout", "")

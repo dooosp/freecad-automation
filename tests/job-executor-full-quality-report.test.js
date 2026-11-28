@@ -63,7 +63,7 @@ async function runReport(t, { invalidShape = false, createFailure = false, runti
   let drawingConfig;
   let reportInput;
   const runtime = async (script, input) => {
-    calls.push(script);
+    calls.push(script === 'generate_drawing.py' ? 'drawing' : script);
     if (script === 'create_model.py') {
       createConfig = structuredClone(input);
       if (createFailure) return { success: false, error: 'fixture create execution failed' };
@@ -82,6 +82,12 @@ async function runReport(t, { invalidShape = false, createFailure = false, runti
         ? { triangle_count: 12, points: 8, watertight_or_closed: true, bbox: model.bounding_box }
         : model,
     };
+    if (script === 'generate_drawing.py') {
+      drawingConfig = structuredClone(input);
+      const path = join(input.export.directory, `${NAME}_drawing.svg`);
+      await writeFile(path, '<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 297 210"><rect x="20" y="20" width="50" height="50" fill="none" stroke="black"/></svg>');
+      return { success: true, drawing_paths: [{ format: 'svg', path }], views: ['front'], scale: '1:2' };
+    }
     if (script === 'engineering_report.py') {
       reportInput = input;
       const path = join(input._report_output_dir, `${NAME}_report.pdf`);
@@ -101,13 +107,6 @@ async function runReport(t, { invalidShape = false, createFailure = false, runti
       return { path, physical_width_mm: 297, physical_height_mm: 210, page_box_tolerance_mm: 0.2 };
     },
     generateCreateQuality: (input) => generateCreateQualityArtifact({ ...input, runtimeAvailable }),
-    generateDrawing: async ({ config: drawn }) => {
-      calls.push('drawing');
-      drawingConfig = structuredClone(drawn);
-      const path = join(drawn.export.directory, `${NAME}_drawing.svg`);
-      await writeFile(path, '<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 297 210"><rect x="20" y="20" width="50" height="50" fill="none" stroke="black"/></svg>');
-      return { success: true, drawing_paths: [{ format: 'svg', path }], views: ['front'], scale: '1:2' };
-    },
     generateReport: (input) => realReport({ ...input, runScript: runtime }),
   });
   const queued = await store.createJob({
@@ -121,7 +120,8 @@ async function runReport(t, { invalidShape = false, createFailure = false, runti
   });
   await executor.execute(queued.id);
   assert.deepEqual(config, original, 'caller config must remain unchanged');
-  return { job: await store.getJob(queued.id), artifacts: await store.listArtifacts(queued.id), calls, createConfig, drawingConfig, reportInput };
+  return { job: await store.getJob(queued.id), artifacts: await store.listArtifacts(queued.id),
+    store, executor, calls, createConfig, drawingConfig, reportInput };
 }
 
 test('full report creates and reimports exports, ignores ambient evidence and supplied DFM, and publishes one manifest', async (t) => {
@@ -137,6 +137,20 @@ test('full report creates and reimports exports, ignores ambient evidence and su
   assert.equal(result.reportInput._report_options.include_drawing, true);
   assert.equal(result.reportInput.dfm_results.score, 100, 'real DFM replaces caller-supplied stale analysis');
   assert.equal(result.job.result.report_summary.surfaces.create_quality.status, 'pass');
+  const surfaces = result.job.result.report_summary.surfaces;
+  for (const surface of [surfaces.create_quality, surfaces.drawing_quality]) {
+    const proof = surface.evidence_provenance;
+    assert.equal(proof.status, 'pass', JSON.stringify(proof.reason_codes));
+    assert.equal(proof.producer_input.path, result.job.artifacts.effective_config);
+    assert.equal(proof.effective_input.source_checks.find(({ role }) => role === 'config').current.sha256,
+      proof.producer_input.sha256);
+  }
+  const dir = result.createConfig.export.directory;
+  const snapshot = async (suffix) => JSON.parse(await readFile(join(dir, `${NAME}_${suffix}.json`), 'utf8'));
+  assert.deepEqual(await snapshot('create_effective_config'), result.createConfig);
+  assert.deepEqual(await snapshot('effective_config'), result.drawingConfig);
+  assert.ok(!Object.hasOwn(result.job.result.drawing_result, 'authored_config'));
+  assert.ok(!Object.hasOwn(result.job.result.drawing_result, 'effective_config'));
   assert.ok(!JSON.stringify(result.job.result).includes('STALE AMBIENT'));
   assert.ok(result.calls.indexOf('create_model.py') < result.calls.indexOf('drawing'));
   assert.ok(result.calls.indexOf('drawing') < result.calls.indexOf('engineering_report.py'));
@@ -149,6 +163,41 @@ test('full report creates and reimports exports, ignores ambient evidence and su
   }
   const keys = result.artifacts.map((artifact) => `${artifact.type}:${artifact.path}`);
   assert.equal(new Set(keys).size, keys.length);
+});
+
+test('ordinary report seeds both producer proofs and only verifies matching private config snapshots', async (t) => {
+  const producer = await runReport(t);
+  const { store, executor } = producer;
+  const inputPath = producer.job.artifacts.effective_config;
+  const sourceDir = producer.createConfig.export.directory;
+  async function seed() {
+    const job = await store.createJob({ type: 'report', config_path: inputPath, options: { include_dfm: false } });
+    await executor.execute(job.id);
+    const completed = await store.getJob(job.id);
+    assert.equal(completed.status, 'succeeded', completed.error?.message);
+    return completed;
+  }
+  const valid = await seed();
+  for (const surface of ['create_quality', 'drawing_quality']) {
+    const proof = valid.result.report_summary.surfaces[surface].evidence_provenance;
+    assert.equal(proof.status, 'pass', JSON.stringify(proof.reason_codes));
+  }
+  const copies = Object.values(valid.result.seeded_artifacts);
+  const published = (await store.listArtifacts(valid.id)).filter(({ scope }) => scope === 'user-facing');
+  for (const suffix of ['create_effective_config', 'authored_config', 'effective_config']) {
+    const name = `${NAME}_${suffix}.json`;
+    const source = join(sourceDir, name);
+    const copy = join(valid.paths.root, 'artifacts', name);
+    assert.deepEqual(await readFile(copy), await readFile(source));
+    assert.ok(!copies.includes(copy) && !published.some(({ path }) => path === copy));
+  }
+  await rm(join(sourceDir, `${NAME}_create_effective_config.json`));
+  await writeFile(join(sourceDir, `${NAME}_authored_config.json`), '{}');
+  const invalid = await seed();
+  const { create_quality, drawing_quality } = invalid.result.report_summary.surfaces;
+  assert.equal(create_quality.evidence_provenance.status, 'unknown');
+  assert.equal(drawing_quality.evidence_provenance.status, 'fail');
+  assert.equal(invalid.result.report_summary.ready_for_manufacturing_review, false);
 });
 
 test('full report adds STEP and STL when the captured config has no export block', async (t) => {

@@ -59,12 +59,12 @@ try:
         elif op == "fillet":
             target = shapes[op_spec["target"]]
             shapes[op_spec.get("result", op_spec["target"])] = apply_fillet(
-                target, op_spec["radius"], op_spec.get("edges")
+                target, op_spec["radius"], op_spec.get("edges"), edge_segments=op_spec.get("edge_segments")
             )
         elif op == "chamfer":
             target = shapes[op_spec["target"]]
             shapes[op_spec.get("result", op_spec["target"])] = apply_chamfer(
-                target, op_spec["size"], op_spec.get("edges")
+                target, op_spec["size"], op_spec.get("edges"), edge_segments=op_spec.get("edge_segments")
             )
         elif op == "circular_pattern":
             target = shapes[op_spec["target"]]

@@ -216,6 +216,51 @@ def _extract_keyway_width(config, fg):
 # Bracket footprint features use the box builder's X/Y dimensions, independent
 # of the display intent ID (the template calls base_length "WIDTH").
 BOX_FOOTPRINT_DIMENSIONS = {"base_length": "length", "base_width": "width"}
+BRACKET_VERTICAL_INTENTS = {
+    "HEIGHT": ("overall_height", "front"),
+    "THK": ("base_thickness", "right"),
+    "WEB_H": ("web_height", "front"),
+}
+
+
+def named_bracket_boxes(config):
+    """Return the base and web of the named box-fusion bracket recipe."""
+    names = ("base_plate", "vertical_leg")
+    matches = [shape for shape in config.get("shapes", []) if shape.get("id") in names]
+    boxes = {shape["id"]: shape for shape in matches}
+    if len(matches) != 2 or set(boxes) != set(names):
+        return None
+    if any(shape.get("type") != "box" or "rotation" in shape or "side_relief_radius_mm" in shape
+           or not all(key in shape for key in ("length", "width", "height"))
+           for shape in matches):
+        return None
+    if not any(op.get("op") == "fuse" and op.get("base") == names[0] and op.get("tool") == names[1]
+               for op in config.get("operations", [])):
+        return None
+    return boxes[names[0]], boxes[names[1]]
+
+
+def _bracket_vertical_values(config):
+    boxes = named_bracket_boxes(config)
+    if not boxes:
+        return {}
+    base, web = boxes
+    overall = web.get("position", [0, 0, 0])[2] + web["height"] - base.get("position", [0, 0, 0])[2]
+    return {
+        "HEIGHT": (overall, "shapes.vertical_leg.position[2]+shapes.vertical_leg.height-shapes.base_plate.position[2]"),
+        "THK": (base["height"], "shapes.base_plate.height"),
+        "WEB_H": (web["height"], "shapes.vertical_leg.height"),
+    }
+
+
+def _extract_segment_fillet_radius(config, fg):
+    fillets = [(i, op) for i, op in enumerate(config.get("operations", []))
+               if op.get("op") == "fillet" and op.get("edge_segments")]
+    if len(fillets) == 1:
+        index, op = fillets[0]
+        return op.get("radius"), "high", f"operations[{index}].radius"
+    return None, "none", "no_unique_segment_fillet"
+
 
 FEATURE_RULES = {
     # Flange
@@ -238,6 +283,7 @@ FEATURE_RULES = {
     "DEPTH":          lambda c, fg: _extract_box_dimension(c, fg, "length"),
     "BASE_W":         lambda c, fg: _extract_box_dimension(c, fg, "width"),
     "WEB_H":          lambda c, fg: _extract_box_dimension(c, fg, "height"),
+    "FILLET":         _extract_segment_fillet_radius,
     "HOLE_DIA":       lambda c, fg: _extract_bolt_hole_diameter(c, fg),
     # Housing
     "BORE_ID":        lambda c, fg: _extract_inner_diameter(c, fg),
@@ -259,6 +305,7 @@ def extract_values(config, feature_graph, dim_intents):
         New list of enriched dim_intent dicts (original list unchanged).
     """
     enriched = []
+    bracket_values = _bracket_vertical_values(config)
     for intent in dim_intents:
         di = dict(intent)  # shallow copy
         fid = di.get("id", "")
@@ -275,7 +322,10 @@ def extract_values(config, feature_graph, dim_intents):
         # Prefer the footprint feature's meaning over legacy display ID aliases.
         box_dimension = BOX_FOOTPRINT_DIMENSIONS.get(feature)
         extractor = FEATURE_RULES.get(fid)
-        if box_dimension:
+        if fid in bracket_values and feature == BRACKET_VERTICAL_INTENTS[fid][0]:
+            value_mm, source = bracket_values[fid]
+            confidence = "high"
+        elif box_dimension:
             value_mm, confidence, source = _extract_box_dimension(
                 config, feature_graph, box_dimension, base_footprint=True)
         elif extractor:

@@ -390,6 +390,15 @@ def merge_plan(config, template):
 
         # Dim intents
         plan["dim_intents"] = template.get("dim_intents", [])
+        if plan["part_type"] == "bracket":
+            from feature_extractor import named_bracket_boxes
+            if named_bracket_boxes(config):
+                # The web's inner edge has open space to its right. Keep its
+                # height away from the overall height on the left silhouette.
+                plan["dim_intents"] = [
+                    {**di, "placement": {**di.get("placement", {}), "side": "right"}}
+                    if di.get("id") == "WEB_H" else di for di in plan["dim_intents"]
+                ]
 
         # Notes
         plan["notes"] = template.get("notes", {})

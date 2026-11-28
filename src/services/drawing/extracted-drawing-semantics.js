@@ -19,6 +19,11 @@ import {
   buildPlannerActionsFromExtractedCoverage,
   formatPlannerSuggestedAction,
 } from './drawing-planner.js';
+import {
+  isFrontPlateLinearRequirement, runtimePlateThicknessRequirements,
+  isStandoffHeightRequirement, runtimeStandoffHeightRequirements,
+  hasPcbRuntimeContext, isPcbDimensionRequirement, runtimePcbDimensionRequirements,
+} from './current-traceability.js';
 
 const EXTRACTED_DRAWING_SEMANTICS_SCHEMA = JSON.parse(
   readFileSync(new URL('../../../schemas/extracted-drawing-semantics.schema.json', import.meta.url), 'utf8')
@@ -599,28 +604,82 @@ function dedupeViewEntries(entries = []) {
   return result;
 }
 
-function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimensions = [], traceability = null) {
+function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimensions = [], traceability = null,
+  dimensionMap = null, svgContent = null, drawingIntent = null) {
   const dimensions = [];
+  const runtimeMatches = new Map([
+    ...runtimePlateThicknessRequirements(requiredDimensions, traceability, dimensionMap, svgContent),
+    ...runtimeStandoffHeightRequirements(requiredDimensions, traceability, dimensionMap, svgContent),
+    ...runtimePcbDimensionRequirements(requiredDimensions, traceability, dimensionMap, svgContent),
+  ]);
+  const pcbContext = hasPcbRuntimeContext(drawingIntent, dimensionMap, traceability);
+  const hasThicknessBinding = asArray(dimensionMap?.plan_dimensions).some((entry) => entry.dim_id === 'THK')
+    || asArray(traceability?.links).some((link) => link.dim_id === 'THK' && link.source === 'freecad_runtime');
+  const hasStandoffBinding = asArray(dimensionMap?.plan_dimensions).some((entry) => entry.dim_id === 'STANDOFF_HEIGHT')
+    || asArray(traceability?.links).some((link) => link.dim_id === 'STANDOFF_HEIGHT');
+  const requiresRuntimeBinding = (requirement) => (hasThicknessBinding && isFrontPlateLinearRequirement(requirement))
+    || (hasStandoffBinding && isStandoffHeightRequirement(requirement))
+    || (pcbContext && isPcbDimensionRequirement(requirement));
+  const boundRequirements = requiredDimensions.filter(requiresRuntimeBinding);
+  const textByAnnotation = new Map();
+  for (const node of textNodes) {
+    const id = extractSvgAttributes(node.attributes)['data-dim-id'];
+    if (id) textByAnnotation.set(id, textByAnnotation.has(id) ? null : node);
+  }
+  const runtimeByText = new Map();
+  for (const match of runtimeMatches.values()) {
+    const node = textByAnnotation.get(match.entry.dim_id);
+    const labelPattern = match.entry.style === 'diameter' ? /^[⌀Ø]\d+(?:\.\d+)?$/ : /^\d+(?:\.\d+)?$/;
+    if (node && labelPattern.test(node.text) && Math.abs(parseDimensionValue(node.text).value - match.entry.value_mm) <= 1e-6) {
+      runtimeByText.set(node, match);
+    }
+  }
   for (const node of textNodes) {
     const { value, unit } = parseDimensionValue(node.text);
     if (!isSvgDimensionText(node.text, requiredDimensions)) continue;
-    const aliasMatchedRequired = matchAliasedRequiredDimension(node.text, requiredDimensions, value);
-    const matchedRequired = aliasMatchedRequired || findUniqueRequiredDimensionByValue(requiredDimensions, value);
+    const runtimeMatch = runtimeByText.get(node);
+    const valueMatch = findUniqueRequiredDimensionByValue(requiredDimensions, value);
+    const aliased = matchAliasedRequiredDimension(node.text, requiredDimensions, value);
+    // A bare symbol cannot disambiguate a number shared with a runtime-bound dimension.
+    const ambiguousSymbol = !valueMatch && !/[a-z]/i.test(node.text)
+      && boundRequirements.some((requirement) => dimensionValueMatches(requirement, value));
+    const textMatch = ambiguousSymbol ? null : aliased ?? valueMatch;
+    const matchedRequired = runtimeMatch?.requirement ?? (requiresRuntimeBinding(textMatch) ? null : textMatch);
     const aliasMatched = matchedRequired && semanticAliasMatchesText(node.text, matchedRequired).length > 0;
+    const standoffMatch = runtimeMatch?.entry.dim_id === 'STANDOFF_HEIGHT';
+    const pcbMatch = runtimeMatch?.link.evidence.measurement?.startsWith('pcb_');
     dimensions.push({
       id: node.id,
       raw_text: node.text,
       value,
       unit,
       matched_intent_id: matchedRequired?.id ?? null,
-      matched_feature_id: matchedRequired ? matchFeatureId(matchedRequired, traceability) : null,
+      matched_feature_id: runtimeMatch?.link.feature_id ?? (matchedRequired ? matchFeatureId(matchedRequired, traceability) : null),
       source: resolveMaybe(svgPath),
       confidence: roundConfidence(matchedRequired ? (aliasMatched ? 0.88 : 0.84) : 0.62),
       provenance: createProvenance({
         artifactType: 'svg',
         path: svgPath,
-        method: 'svg_dimension_text_scan',
+        method: pcbMatch ? 'svg_runtime_pcb_dimension' : standoffMatch ? 'svg_runtime_standoff_height' : runtimeMatch ? 'svg_runtime_final_edge' : 'svg_dimension_text_scan',
         svg_text_id: node.id,
+        ...(runtimeMatch ? { runtime_annotation_id: runtimeMatch.entry.dim_id,
+          model_object_id: runtimeMatch.link.evidence.model_object_id,
+          ...(pcbMatch ? {
+            dimension_kind: runtimeMatch.link.evidence.dimension_kind,
+            reference_refs: runtimeMatch.link.evidence.reference_refs || [],
+            ...(runtimeMatch.link.evidence.members ? {
+              member_feature_ids: runtimeMatch.link.evidence.member_feature_ids,
+              model_face_refs: runtimeMatch.link.evidence.members.map((member) => member.face_ref),
+            } : {}),
+            ...(runtimeMatch.supporting?.length ? {
+              supporting_dimension_ids: runtimeMatch.supporting.map((match) => match.entry.dim_id),
+              supporting_reference_refs: runtimeMatch.supporting.flatMap((match) => match.link.evidence.reference_refs),
+            } : {}),
+          } : standoffMatch ? {
+            member_feature_ids: runtimeMatch.link.evidence.member_feature_ids,
+            model_face_refs: runtimeMatch.link.evidence.members.map((member) => member.face_ref),
+            representative_feature_id: runtimeMatch.link.evidence.representative_feature_id,
+          } : { model_edge_ref: runtimeMatch.link.evidence.edge_ref }) } : {}),
       }),
     });
   }
@@ -1294,7 +1353,13 @@ export function buildExtractedDrawingSemantics({
     ...collectViewsFromLayout(layoutReport, layoutReportPath, requiredViews),
     ...collectViewsFromSvgText(textNodes, drawingSvgPath, requiredViews),
   ]);
-  const dimensions = collectDimensionsFromSvg(textNodes, drawingSvgPath, requiredDimensions, traceability);
+  const dimensions = collectDimensionsFromSvg(textNodes, drawingSvgPath, requiredDimensions, traceability, dimensionMap, svgContent, drawingIntent);
+  for (const method of ['svg_runtime_final_edge', 'svg_runtime_standoff_height', 'svg_runtime_pcb_dimension']) {
+    if (dimensions.some((dimension) => dimension.provenance.method === method)) {
+      methods.push(method);
+      sources.push(createSource('traceability', traceabilityPath, true, method));
+    }
+  }
   const notes = [
     ...materialTitleBlockNotes,
     ...collectNotesFromSvg(textNodes, drawingSvgPath, requiredNotes, requiredDimensions),
