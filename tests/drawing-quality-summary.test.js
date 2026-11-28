@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { resolveAutoDimensionCoverage } from '../src/services/drawing/auto-dimension-coverage.js';
 import { currentTraceability } from '../src/services/drawing/current-traceability.js';
+import { standoffRuntimeInput, invalidStandoffCases } from './helpers/standoff-runtime-evidence.js';
+import { pcbRuntimeInput } from './helpers/pcb-runtime-evidence.js';
 
 import {
   buildDrawingQualitySummary,
@@ -90,6 +92,37 @@ function makeBaseArtifacts() {
   };
 }
 
+{
+  const artifacts = makeBaseArtifacts();
+  const binding = { status: 'resolved', source: 'freecad_runtime', feature_id: 'plate',
+    model_object_id: 'final', measurement: 'final_edge', edge_ref: 'final:Edge6', measured_mm: 4,
+    endpoints_3d_mm: [[145, 0, 0], [145, 0, 4]], endpoints_uv_mm: [[145, 0], [145, 4]],
+    bounds: [145, 0, 145, 4] };
+  artifacts.dimensionMap.plan_dimensions = [{ dim_id: 'THK', feature: 'plate', view: 'front', style: 'linear',
+    value_mm: 4, rendered: true, status: 'rendered', runtime_binding: binding }];
+  artifacts.traceability.links = [{ dim_id: 'THK', feature_id: 'plate', feature_key: 'plate', source: 'freecad_runtime',
+    rendered: true, status: 'rendered', represented_by: 'THK', evidence: { ...binding, model_value_mm: 4 } }];
+  artifacts.svgContent = '<svg><g class="dimensions-front plan-dimensions-front"><text data-dim-id="THK">4</text></g><text>Ø4</text></svg>';
+  artifacts.drawingIntent = { required_dimensions: [
+    { id: 'PLATE_THICKNESS', feature: 'plate', view: 'front', dimension_type: 'linear', value_mm: 4, required: true },
+    { id: 'MOUNTING_HOLE_DIA', feature: 'hole1', view: 'top', dimension_type: 'diameter', value_mm: 4, required: true },
+  ] };
+  const rows = buildDrawingQualitySummary(artifacts).semantic_quality.traceability.rows;
+  assert.equal(rows[0].status, 'linked', 'canonical requirement ID may differ from the validated runtime annotation ID');
+  assert.equal(rows[0].evidence.source, 'freecad_runtime');
+  assert.equal(rows[1].status, 'missing');
+  for (const invalidate of [
+    (input) => { input.dimensionMap.plan_dimensions[0].rendered = false; },
+    (input) => { input.dimensionMap.plan_dimensions[0].runtime_binding.status = 'unresolved'; },
+    (input) => { input.dimensionMap.plan_dimensions[0].feature = 'slot'; },
+    (input) => { input.svgContent = input.svgContent.replace('>4<', '>6<'); },
+  ]) {
+    const invalid = structuredClone(artifacts);
+    invalidate(invalid);
+    assert.equal(buildDrawingQualitySummary(invalid).semantic_quality.traceability.rows[0].status, 'missing');
+  }
+}
+
 function makeAutoCoveredArtifacts({ feature = 'base_length', view = 'front', value = 120,
   category = 'overall_width', bucket = 'linear_h' } = {}) {
   const autoId = `auto_${view}_001`;
@@ -107,6 +140,76 @@ function makeAutoCoveredArtifacts({ feature = 'base_length', view = 'front', val
   artifacts.svgContent = `<svg><g class="dimensions-${view}"><text id="${autoId}"${
     bucket === 'linear_v' ? ' transform="rotate(-90,10,10)"' : ''}>${value}</text></g></svg>`;
   return artifacts;
+}
+
+{
+  const input = { ...makeBaseArtifacts(), ...pcbRuntimeInput() };
+  let rows = buildDrawingQualitySummary(input).semantic_quality.traceability.rows;
+  for (const row of rows.filter((row) => row.dimension_id !== 'PLATE_THICKNESS')) {
+    assert.equal(row.status, 'linked', `${row.dimension_id} needs its measured reference link`);
+  }
+  input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'CONNECTOR_SLOT_WIDTH').rendered = false;
+  rows = buildDrawingQualitySummary(input).semantic_quality.traceability.rows;
+  assert.equal(rows.find((row) => row.dimension_id === 'CONNECTOR_SLOT_SIZE').status, 'missing',
+    'length alone cannot close the two-dimensional slot-size requirement');
+}
+
+{
+  const input = { ...makeBaseArtifacts(), ...pcbRuntimeInput() };
+  const length = 'CONNECTOR_SLOT_SIZE', width = 'CONNECTOR_SLOT_WIDTH';
+  const evidence = (id) => [
+    input.dimensionMap.plan_dimensions.find((d) => d.dim_id === id).runtime_binding,
+    input.traceability.links.find((d) => d.dim_id === id).evidence,
+  ];
+  const relief = { slot_opening_bounds_mm: [59.5, 42, 0, 78.5, 52, 4], slot_relief_radius_mm: 0.5,
+    slot_relief_face_refs: ['final:Face20', 'final:Face21', 'final:Face22', 'final:Face23'] };
+  for (const binding of [length, width, 'CONNECTOR_SLOT_POSITION'].flatMap(evidence)) {
+    Object.assign(binding, structuredClone(relief));
+  }
+  for (const binding of evidence(width)) {
+    binding.reference_refs[0].geometry_ref = 'final:Edge22';
+    binding.reference_refs[1].geometry_ref = 'final:Edge24';
+  }
+  const slotSizeStatus = () => buildDrawingQualitySummary(input).semantic_quality.traceability.rows
+    .find((row) => row.dimension_id === length).status;
+  assert.equal(slotSizeStatus(), 'linked');
+  for (const binding of evidence(width)) binding.slot_opening_bounds_mm[0] = 59.75;
+  assert.equal(slotSizeStatus(), 'missing', 'a changed opening bound must agree with the measured relief radius');
+  for (const binding of evidence(width)) {
+    binding.slot_opening_bounds_mm[0] = 59.5;
+    binding.reference_refs[1].geometry_ref = binding.reference_refs[0].geometry_ref;
+  }
+  assert.equal(slotSizeStatus(), 'missing', 'the shortened side wall cannot anchor both clearance endpoints');
+}
+
+for (const height of [8, 10]) {
+  const input = { ...makeBaseArtifacts(), ...standoffRuntimeInput(height) };
+  const row = buildDrawingQualitySummary(input).semantic_quality.traceability.rows[0];
+  assert.equal(row.status, 'linked');
+  assert.equal(row.evidence.source, 'freecad_runtime');
+}
+for (const [name, invalidate] of Object.entries(invalidStandoffCases)) {
+  const input = { ...makeBaseArtifacts(), ...standoffRuntimeInput() };
+  invalidate(input);
+  const trace = currentTraceability(input.traceability, input.dimensionMap, input.svgContent, new Map());
+  assert.equal(trace.links[0].feature_id, null, `${name} must invalidate the current runtime link`);
+  assert.equal(buildDrawingQualitySummary(input).semantic_quality.traceability.rows[0].status, 'missing',
+    `${name} must not bypass validation through the matching STANDOFF_HEIGHT requirement ID`);
+}
+
+// A numerically plausible QA score cannot override a measured annotation error.
+for (const reason of ['linear_anchor_unresolved', 'linear_value_geometry_mismatch']) {
+  const artifacts = makeBaseArtifacts();
+  const issues = [{ dim_id: 'CONNECTOR_SLOT_POSITION', reason, expected_mm: 42, observed_mm: 145 }];
+  artifacts.qaReport.metrics.linear_binding_mismatch = 1;
+  artifacts.qaReport.details.linear_binding_issues = issues;
+  const summary = buildDrawingQualitySummary(artifacts);
+  const blocker = summary.blocking_issues.find((issue) => issue.code === 'linear-dimension-binding');
+  assert(blocker, 'unresolved or geometrically inconsistent dimensions must block quality');
+  assert.deepEqual(blocker.details.issues, issues);
+  assert.equal(summary.status, 'fail');
+  assert.equal(shouldFailDrawingQualityGate(summary), false, 'default draw remains warning-friendly');
+  assert.equal(shouldFailDrawingQualityGate(summary, { strictQuality: true }), true);
 }
 
 {

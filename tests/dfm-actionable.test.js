@@ -10,6 +10,7 @@ const result = await runDfm({
   freecadRoot: ROOT,
   config: {
     name: 'actionable_bracket',
+    final: 'disc',
     manufacturing: {
       process: 'machining',
     },

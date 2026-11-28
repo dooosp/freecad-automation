@@ -5,6 +5,7 @@ All constants are grounded in generate_drawing.py output structure.
 """
 import xml.etree.ElementTree as ET
 import re
+import math
 from dataclasses import dataclass
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -176,16 +177,111 @@ def _text_content(elem):
     return "".join(parts)
 
 
-def _get_font_size(elem):
-    """Get font-size from element or nearest parent-like hint."""
-    fs = elem.get("font-size")
-    if fs:
-        return float(fs)
-    return 2.0  # default
+_IDENTITY = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+_TRANSFORM_RE = re.compile(r'([A-Za-z]+)\s*\(([^)]*)\)')
+_TRANSFORM_NUMBER_RE = re.compile(r'[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?')
+_TEXT_PROPERTIES = ('font-size', 'text-anchor', 'font-family')
 
 
-def elem_bbox_approx(elem):
-    """Approximate bounding box for an SVG element."""
+def _matrix_product(left, right):
+    """Compose SVG affine matrices: left(right(point))."""
+    a, b, c, d, e, f = left
+    g, h, i, j, k, l = right
+    return (a*g + c*h, b*g + d*h, a*i + c*j, b*i + d*j,
+            a*k + c*l + e, b*k + d*l + f)
+
+
+def _transform_matrix(value):
+    """Parse the SVG transform attribute without changing operation order."""
+    if not value or value.strip() == 'none':
+        return _IDENTITY
+    matrix = _IDENTITY
+    end = 0
+    for match in _TRANSFORM_RE.finditer(value):
+        if value[end:match.start()].strip(' ,\t\r\n'):
+            raise ValueError(f'Unsupported SVG transform: {value}')
+        name, arguments = match.groups()
+        if _TRANSFORM_NUMBER_RE.sub('', arguments).strip(' ,\t\r\n'):
+            raise ValueError(f'Invalid SVG transform arguments: {value}')
+        args = [float(n) for n in _TRANSFORM_NUMBER_RE.findall(arguments)]
+        if not all(math.isfinite(n) for n in args):
+            raise ValueError(f'Non-finite SVG transform: {value}')
+        if name == 'matrix' and len(args) == 6:
+            operation = tuple(args)
+        elif name == 'translate' and len(args) in (1, 2):
+            operation = (1, 0, 0, 1, args[0], args[1] if len(args) == 2 else 0)
+        elif name == 'scale' and len(args) in (1, 2):
+            operation = (args[0], 0, 0, args[1] if len(args) == 2 else args[0], 0, 0)
+        elif name == 'rotate' and len(args) in (1, 3):
+            angle = math.radians(args[0])
+            cosine, sine = math.cos(angle), math.sin(angle)
+            operation = (cosine, sine, -sine, cosine, 0, 0)
+            if len(args) == 3:
+                x, y = args[1:]
+                operation = _matrix_product(
+                    (1, 0, 0, 1, x, y),
+                    _matrix_product(operation, (1, 0, 0, 1, -x, -y)))
+        elif name in ('skewX', 'skewY') and len(args) == 1:
+            tangent = math.tan(math.radians(args[0]))
+            operation = ((1, 0, tangent, 1, 0, 0) if name == 'skewX'
+                         else (1, tangent, 0, 1, 0, 0))
+        else:
+            raise ValueError(f'Unsupported SVG transform: {value}')
+        matrix = _matrix_product(matrix, operation)
+        end = match.end()
+    if value[end:].strip(' ,\t\r\n'):
+        raise ValueError(f'Unsupported SVG transform: {value}')
+    return matrix
+
+
+def svg_contexts(root):
+    """Map elements to their page transform and inherited text properties.
+
+    These are the SVG presentation attributes/inline styles used by our
+    generated drawings, not a CSS layout or font-shaping implementation.
+    """
+    contexts = {}
+
+    def walk(elem, matrix, inherited):
+        properties = dict(inherited)
+        inline = dict(item.split(':', 1) for item in elem.get('style', '').split(';')
+                      if ':' in item)
+        inline = {key.strip(): value.strip() for key, value in inline.items()}
+        for name in _TEXT_PROPERTIES:
+            value = inline.get(name, elem.get(name))
+            if value and value != 'inherit':
+                properties[name] = value
+        matrix = _matrix_product(matrix, _transform_matrix(elem.get('transform')))
+        contexts[elem] = {'matrix': matrix, 'properties': properties}
+        for child in elem:
+            walk(child, matrix, properties)
+
+    walk(root, _IDENTITY, {})
+    return contexts
+
+
+def page_delta_to_local(context, dx, dy):
+    """Convert a page-space displacement without moving an SVG rotate pivot."""
+    a, b, c, d, _, _ = context['matrix']
+    determinant = a*d - b*c
+    if abs(determinant) < 1e-12:
+        return None
+    return ((d*dx - c*dy) / determinant, (-b*dx + a*dy) / determinant)
+
+
+def _transformed_bbox(box, matrix):
+    if matrix == _IDENTITY:
+        return box
+    a, b, c, d, e, f = matrix
+    corners = [(a*x + c*y + e, b*x + d*y + f)
+               for x in (box.x, box.x + box.w)
+               for y in (box.y, box.y + box.h)]
+    xs, ys = zip(*corners)
+    return BBox(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+
+
+def _local_bbox_approx(elem, properties):
+    """Existing geometric/font approximation before SVG transforms."""
     tag = local_tag(elem)
 
     if tag == "path":
@@ -222,10 +318,10 @@ def elem_bbox_approx(elem):
     elif tag == "text":
         x = float(elem.get("x", 0))
         y = float(elem.get("y", 0))
-        fs = _get_font_size(elem)
+        fs = float(properties.get('font-size', '2').removesuffix('px'))
         text = _text_content(elem)
         w = len(text) * fs * 0.55
-        anchor = elem.get("text-anchor", "start")
+        anchor = properties.get("text-anchor", "start")
         if anchor == "middle":
             x -= w / 2
         elif anchor == "end":
@@ -250,17 +346,29 @@ def elem_bbox_approx(elem):
         ys = [c[1] for c in coords]
         return BBox(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
 
-    elif tag == "g":
-        child_bbs = [elem_bbox_approx(c) for c in elem]
-        return BBox.union_all(child_bbs)
-
     return None
+
+
+def elem_bbox_approx(elem, contexts=None):
+    """Approximate page-space bbox, including local and ancestor transforms.
+
+    Pass contexts built from the SVG root when inspecting an individual child.
+    A bare element call includes its own transform and descendant inheritance.
+    """
+    if contexts is None:
+        contexts = svg_contexts(elem)
+    if local_tag(elem) in ('g', 'svg'):
+        return BBox.union_all(elem_bbox_approx(child, contexts) for child in elem)
+    context = contexts[elem]
+    box = _local_bbox_approx(elem, context['properties'])
+    return _transformed_bbox(box, context['matrix']) if box is not None else None
 
 
 def group_center(g_elem):
     """Return center of the first drawable child's bbox in a <g>."""
+    contexts = svg_contexts(g_elem)
     for child in g_elem:
-        bb = elem_bbox_approx(child)
+        bb = elem_bbox_approx(child, contexts)
         if bb and bb.area() >= 0:
             return bb.center()
     return None

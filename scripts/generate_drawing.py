@@ -1635,11 +1635,11 @@ try:
             elif op == "fillet":
                 shapes[op_spec.get("result", op_spec["target"])] = apply_fillet(
                     shapes[op_spec["target"]], op_spec["radius"],
-                    op_spec.get("edges"))
+                    op_spec.get("edges"), edge_segments=op_spec.get("edge_segments"))
             elif op == "chamfer":
                 shapes[op_spec.get("result", op_spec["target"])] = apply_chamfer(
                     shapes[op_spec["target"]], op_spec["size"],
-                    op_spec.get("edges"))
+                    op_spec.get("edges"), edge_segments=op_spec.get("edge_segments"))
             elif op == "shell":
                 shapes[op_spec.get("result", op_spec["target"])] = apply_shell(
                     shapes[op_spec["target"]], op_spec["thickness"],
@@ -1651,8 +1651,29 @@ try:
         parts_metadata = {final_name: get_metadata(compound)}
         log(f"  Single part: {final_name}")
 
+    slot_relief_dfm = None
+    slot_corner_relief = None
+    if not is_assembly:
+        from _slot_relief import declared_slots
+        if declared_slots(config):
+            from dfm_checker import run_dfm_check
+            dfm = run_dfm_check(config, final_shape=compound)
+            slot_corner_relief = next(
+                issue for issue in dfm["issues"] if issue["rule_id"] == "DFM-04"
+            )
+            slot_relief_dfm = {
+                "score": dfm["score"],
+                "summary": {key: dfm["summary"][key] for key in ("errors", "warnings")},
+                "slot_corner_relief": slot_corner_relief,
+            }
+
     # -- Compute Scale --
     bbox = tight_bbox(compound)
+    model_dimension_context = {
+        'source': 'freecad_runtime', 'model_object_id': final_name if not is_assembly else model_name,
+        'bbox_min_mm': [bbox.XMin, bbox.YMin, bbox.ZMin],
+        'bbox_max_mm': [bbox.XMax, bbox.YMax, bbox.ZMax],
+    }
     log(f"  BBox: {bbox.XLength:.1f} x {bbox.YLength:.1f} x {bbox.ZLength:.1f} mm")
 
     scale = resolve_drawing_scale(scale_hint, bbox)
@@ -1752,6 +1773,36 @@ try:
     for dim_id, src_view, dst_view in plan_view_reroutes:
         log(f"  Plan intent '{dim_id}': rerouted {src_view} -> {dst_view} for circular anchor")
 
+    runtime_linear_bindings = {}
+    runtime_datum_targets = {}
+    if not is_assembly:
+        from _drawing_traceability import (resolve_front_plate_thickness, resolve_front_standoff_height,
+                                          resolve_named_top_hole_diameters, resolve_named_plate_hole_datums,
+                                          resolve_bracket_drawing_bindings)
+        runtime_linear_bindings = resolve_front_plate_thickness(
+            config, compound, final_name,
+            lambda edge: project_view(edge, VIEW_DIRECTIONS['front'], 'front'))
+        runtime_linear_bindings.update(resolve_front_standoff_height(
+            config, compound, final_name,
+            lambda edge: project_view(edge, VIEW_DIRECTIONS['front'], 'front'),
+            view_data.get('front', {}).get('groups', {})))
+        runtime_linear_bindings.update(resolve_named_top_hole_diameters(
+            config, compound, final_name,
+            lambda edge: project_view(edge, VIEW_DIRECTIONS['top'], 'top'),
+            view_data.get('top', {}).get('groups', {})))
+        runtime_linear_bindings.update(resolve_bracket_drawing_bindings(
+            config, compound, final_name, resolved_plan_intents, view_data,
+            lambda edge: project_view(edge, VIEW_DIRECTIONS['top'], 'top')))
+        runtime_datum_targets.update(resolve_named_plate_hole_datums(
+            config, compound, final_name, runtime_linear_bindings,
+            lambda shape: project_view(shape, VIEW_DIRECTIONS['top'], 'top')))
+        from _pcb_drawing_bindings import resolve_pcb_drawing_bindings
+        runtime_linear_bindings.update(resolve_pcb_drawing_bindings(
+            config, compound, final_name,
+            lambda edge, view: project_view(edge, VIEW_DIRECTIONS[view], view),
+            datum_targets=runtime_datum_targets,
+            slot_relief_evidence=slot_corner_relief["evidence"] if slot_corner_relief else None))
+
     # -- P0-2: View Fit Hard Clamp (2-pass) --
     # Pass 1: check if any view overflows its cell, reduce scale to tightest fit.
     # Pass 2: verify with reduced scale; apply safety factor if still overflowing.
@@ -1827,7 +1878,8 @@ try:
                 vd["cx"], vd["cy"], scale,
                 arcs=vd.get("arcs"), tolerances=tol_cfg,
                 return_stacks=True, style_cfg=dim_style_cfg,
-                telemetry=dim_telemetry, dedupe_state=auto_dedupe_state)
+                telemetry=dim_telemetry, dedupe_state=auto_dedupe_state,
+                model_context=model_dimension_context, geometry_groups=vd['groups'])
             dim_svg, h_stk, v_stk = dim_result
             if dim_svg:
                 svg += '\n' + dim_svg
@@ -1857,15 +1909,27 @@ try:
                         existing_auto_dims=auto_dims_for_view,
                         dedupe_policy=plan_dedupe_policy,
                         dedupe_tol_mm=plan_dedupe_tol,
-                        process_groups=_pgroups)
+                        process_groups=_pgroups,
+                        runtime_linear_bindings=runtime_linear_bindings,
+                        existing_svg=svg)
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:
                     log(f"  Plan dims skipped ({vname}): {e}")
-            datum_svg = render_datums_svg(vname, vd["bounds"], vd["cx"], vd["cy"], scale)
+            from _pcb_drawing_bindings import render_pcb_datums
+            datum_svg = render_pcb_datums(vname, vd['bounds'], vd['cx'], vd['cy'], scale, runtime_datum_targets)
+            if datum_svg is None:
+                datum_svg = render_datums_svg(vname, vd["bounds"], vd["cx"], vd["cy"], scale)
             if datum_svg:
                 svg += '\n' + datum_svg
         views_svg[vname] = svg
+
+    from _pcb_drawing_bindings import replace_pcb_auto_chains
+    pcb_pattern_replaced = replace_pcb_auto_chains(views_svg, dim_telemetry)
+    from _pcb_drawing_bindings import deduplicate_pcb_overall_dimensions
+    deduplicate_pcb_overall_dimensions(views_svg, dim_telemetry, model_dimension_context)
+    from _drawing_svg import replace_verified_legacy_diameters
+    replace_verified_legacy_diameters(views_svg, dim_telemetry)
 
     if not views_svg:
         respond_error("No views could be projected. Shape may be empty.")
@@ -1918,7 +1982,7 @@ try:
 
     # -- Detail View (optional, ISO cell by default; explicit alternate cell can coexist with section) --
     detail_cfg = drawing_cfg.get("detail") or derived_detail_cfg
-    if detail_cfg:
+    if detail_cfg and detail_cfg.get("enabled", True):
         source_vn = detail_cfg.get("source_view", "front")
         detail_cell = _resolve_optional_view_cell(detail_cfg, "iso")
         section_region_ref = (view_metadata.get("section") or {}).get("region_ref")
@@ -2039,7 +2103,7 @@ try:
             log("  Thread callouts: no matching circles found in any view")
 
     # -- Baseline/Ordinate Dimensions (if configured) --
-    if dim_strategy in ("baseline", "ordinate") and feature_graph:
+    if dim_strategy in ("baseline", "ordinate") and feature_graph and not pcb_pattern_replaced:
         for bv in ("front", "top", "right"):
             if bv not in view_data:
                 continue
@@ -2060,12 +2124,21 @@ try:
             origin = (0, 0)
             if dim_strategy == "baseline":
                 bl_style = config.get("drawing_plan", {}).get("style", {})
-                bl_svg = render_baseline_dimensions_svg(
-                    dim_features, origin, "horizontal",
-                    vd["bounds"], vd["cx"], vd["cy"], scale,
-                    style_cfg=bl_style)
+                from _drawing_svg import (render_verified_baseline_dimensions_svg, replace_verified_baseline_chains)
+                bl_svg = render_verified_baseline_dimensions_svg(
+                    dim_features, origin, 'horizontal', vd['bounds'], vd['cx'], vd['cy'], scale,
+                    vname=bv, geometry_groups=vd['groups'], model_context=model_dimension_context,
+                    telemetry=dim_telemetry, style_cfg=bl_style)
+                verified_baseline = bl_svg is not None
+                if bl_svg is None:
+                    bl_svg = render_baseline_dimensions_svg(
+                        dim_features, origin, "horizontal",
+                        vd["bounds"], vd["cx"], vd["cy"], scale,
+                        style_cfg=bl_style)
                 if bl_svg:
                     views_svg[bv] += '\n' + bl_svg
+                    if verified_baseline:
+                        replace_verified_baseline_chains(views_svg, dim_telemetry, bv)
                     log(f"  Baseline dimensions: added to {bv}")
             elif dim_strategy == "ordinate":
                 ord_svg = render_ordinate_dimensions_svg(
@@ -2094,6 +2167,11 @@ try:
             standard=config.get("standard", "KS"),
             drawing_intent=config.get("drawing_intent", {}),
         )
+    if slot_corner_relief and slot_corner_relief["evidence"]["geometry_verification"] == "measured":
+        opening = slot_corner_relief["evidence"]["opening_bounds_mm"]
+        radius = slot_corner_relief["actual_value"]
+        notes_list = [*(notes_list or []),
+                      f"Slot: 4x R{radius:g} side reliefs. X span incl. reliefs: {opening[3] - opening[0]:g} mm."]
 
     # -- Compose Drawing --
     extra_svg = '\n'.join(extra_svg_parts)
@@ -2161,6 +2239,8 @@ try:
     dimension_map = {
         "auto_dimensions": auto_dims,
         "plan_dimensions": plan_dims,
+        "replacements": dim_telemetry.get('replacements', []),
+        "datum_bindings": runtime_datum_targets,
         "summary": {
             "auto_count": len(auto_dims),
             "plan_count": len(plan_dims),
@@ -2171,10 +2251,17 @@ try:
         },
     }
     traceability = build_traceability_payload(model_name, feature_graph, dim_telemetry)
+    if slot_corner_relief:
+        traceability["slot_corner_relief"] = slot_corner_relief
     if not is_assembly:
-        from _drawing_traceability import link_plate_runtime_dimensions
+        from _drawing_traceability import (link_plate_runtime_dimensions, link_front_plate_thickness,
+                                          link_front_standoff_height)
         link_plate_runtime_dimensions(config, final_name, parts_metadata[final_name],
                                       view_data, dim_telemetry, traceability)
+        link_front_plate_thickness(dim_telemetry, traceability)
+        link_front_standoff_height(dim_telemetry, traceability)
+        from _pcb_drawing_bindings import link_pcb_drawing_bindings
+        link_pcb_drawing_bindings(dim_telemetry, traceability)
 
     # -- Response --
     scale_label = format_scale(scale)
@@ -2194,6 +2281,8 @@ try:
         },
         "traceability": traceability,
     }
+    if slot_relief_dfm:
+        response["slot_relief_dfm"] = slot_relief_dfm
     if dxf_path:
         response["drawing_paths"].append({
             "format": "dxf", "path": dxf_path,

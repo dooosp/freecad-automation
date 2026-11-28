@@ -34,6 +34,12 @@ The schema stays compatibility-first at the top level, but canonical v1 coverage
 
 The checked-in sweep matrix examples are not `config_version` documents, but the same validation cleanup also tightens the typed matrix shape the runtime expects: `jobs`, `parameters`, `execution`, and `objectives`.
 
+### Fillet and chamfer edge references
+
+An operation can specify `edge_segments` as pairs of XYZ endpoints in model millimeters. Each pair must resolve to one straight edge on the operation's current solid, with two perpendicular planar neighbors. Endpoint order is interchangeable. This selection runs the requested fillet or chamfer once and requires one valid result solid. Ambiguous, missing, repeated or coplanar targets fail the operation. Use `radius` for fillet and `size` for chamfer. Use either `edge_segments` or the existing `edges` indices.
+
+The infotainment `after` example uses this selection for the web and tab roots and the tab's top-edge chamfer. Its front-view fillet callout is measured on the final web-root arc. `drawing.detail.enabled = false` reserves the isometric cell in this drawing.
+
 ## Compatibility Aliases
 
 These still load, but `fcad` will warn about them during normal command execution:
@@ -74,6 +80,20 @@ A deduplicated automatic label counts as displayed only when its unique ID, valu
 The quality summary separates successful duplicate suppression and cross-view redundancy (`informational_conflict_count`) from actionable `conflict_count`. The original conflict sidecar remains intact. Repeated baseline coordinates with the same tolerance produce one label; different coordinates and tolerances remain separate.
 
 Short notes retain their existing placement. Longer notes use two columns inside the title block. If the available space is exceeded, the SVG shows an omission count and drawing quality fails; the full notes remain in the drawing plan. Default draw still writes artifacts with warnings, while `--strict-quality` returns a nonzero exit code for blocking failures. A drawing-quality pass covers the configured checks, not manufacturing approval or every advisory planner recommendation.
+
+## Explicit PCB slot-position reference
+
+The [PCB verification override](../configs/overrides/pcb_mount_plate_verified.json) keeps the original geometry input and supplies its drawing requirements. Its slot-position definition was confirmed on 2026-11-06: measure along Y from the plate's front (`y_min`) face to the slot's start (`y_min`) face. In the original model this is 0 to 42 mm; the slot center is 47 mm and is not the target.
+
+```json
+{"reference":{"axis":"Y","from":{"feature":"plate","boundary":"y_min"},"to":{"feature":"slot","boundary":"y_min"}}}
+```
+
+This optional `drawing_plan.dim_intents[].reference` object has a bounded schema. Legacy plans may omit it, but an omitted or unsupported reference cannot establish a slot-position runtime binding. Structural validation does not prove geometry: the drawing run must still find the actual final faces and endpoints. The override also supplies explicit hole-pattern and slot-size dimensions and required notes. Use a fresh output directory when applying it. These model/drawing checks do not change physical-inspection evidence or canonical manufacturing readiness.
+
+The PCB slot's `side_relief_radius_mm` adds four outward semicircles on the X sides of its unrotated box cutter. The radius must be positive and less than one quarter of the cutter width. The clearance rectangle and Y datum stay fixed. The full opening grows by one radius at each X end. In this example, R0.5 produces a 19 mm full X span and retains the 18 × 10 mm clearance rectangle. The drawing records both the relief and its full span.
+
+For a supported through cut in a rectangular plate, `fcad dfm` uses FreeCAD to verify all four full-depth relief surfaces on the selected final solid. A measured radius below the applicable minimum, unused cutter, unsupported topology, or unavailable runtime keeps the corner warning. Default DFM remains advisory. `fcad dfm --strict` fails on that warning.
 
 ## Drawing Intent
 
