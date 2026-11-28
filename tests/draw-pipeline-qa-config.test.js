@@ -35,6 +35,8 @@ try {
 
   const config = {
     name: 'qa_dfm_bridge',
+    // The in-place cut must select its body, not the last inserted hole tool.
+    final: 'body',
     manufacturing: {
       process: 'machining',
       material: 'aluminum',

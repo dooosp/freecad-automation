@@ -90,6 +90,7 @@ import { prepareTrackedReportAnalysisResults } from '../src/services/jobs/job-ex
     resolvedConfig: {
       config: {
         name: 'casting_wall_process_probe',
+        final: 'body',
         manufacturing: { process: 'casting', material: 'AL6061' },
         shapes: [
           { id: 'body', type: 'cylinder', radius: 10, height: 10 },

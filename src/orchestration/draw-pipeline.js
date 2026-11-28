@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -8,6 +9,7 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { stringify as tomlStringify } from 'smol-toml';
+import { slotReliefQaArgs } from '../services/drawing/qa-runner.js';
 import {
   applyOverrideConfig,
   compileDrawingPlan,
@@ -118,6 +120,15 @@ function finalizeRunLog(runLog) {
 
 function writeJson(filepath, payload) {
   writeFileSync(filepath, JSON.stringify(payload, null, 2));
+}
+
+function dependencyInput(role, path) {
+  try {
+    const bytes = readFileSync(path);
+    return { role, path, sha256: createHash('sha256').update(bytes).digest('hex'), size_bytes: bytes.length };
+  } catch {
+    return { role, path, sha256: null, size_bytes: null };
+  }
 }
 
 function resolveArtifactStem(config, result) {
@@ -355,6 +366,7 @@ export async function runDrawPipeline({
   weightsPresetValue = null,
   strictQuality = false,
   loadConfig,
+  loadConfigSnapshot = null,
   deepMerge,
   generateDrawing,
   runScript,
@@ -370,7 +382,14 @@ export async function runDrawPipeline({
 
   try {
     const loadStage = beginStage(runLog, 'load_config');
-    const config = await loadConfig(absPath);
+    const sourceInputs = [];
+    const loadConsumedConfig = async (path, role) => {
+      if (!loadConfigSnapshot) return loadConfig(path);
+      const document = await loadConfigSnapshot(path);
+      if (document.input_record) sourceInputs.push({ role, ...document.input_record });
+      return document.config;
+    };
+    const config = await loadConsumedConfig(absPath, 'config');
     const reviewerFeedbackInput = loadReviewerFeedbackInput({
       projectRoot,
       configPath: absPath,
@@ -384,13 +403,14 @@ export async function runDrawPipeline({
       const absOverridePath = await applyOverrideConfig({
         config,
         overridePath,
-        loadConfig,
+        loadConfig: (path) => loadConsumedConfig(path, 'override'),
         deepMerge,
       });
       onInfo(`  Override: ${absOverridePath}`);
       endStage(overrideStage, 'ok');
     }
 
+    const authoredConfig = structuredClone(config);
     ensureDrawSchema(config);
 
     if (flags.includes('--bom')) {
@@ -399,16 +419,24 @@ export async function runDrawPipeline({
 
     ensureDrawingViews(config);
 
+    let planStatus = 'skipped';
     if (!flags.includes('--no-plan')) {
+      for (const name of ['intent_compiler.py', '_feature_inference.py', 'feature_extractor.py', 'plan_validator.py']) {
+        sourceInputs.push(dependencyInput(name === 'intent_compiler.py' ? 'compiler' : `compiler.${name}`, join(projectRoot, 'scripts', name)));
+      }
       const planStage = beginStage(runLog, 'intent_compile');
       try {
         const planResult = compileDrawingPlan({
           projectRoot,
           config,
         });
+        planStatus = 'applied';
+        const templatePath = join(projectRoot, 'configs/templates', `${planResult.partType}.toml`);
+        if (existsSync(templatePath)) sourceInputs.push(dependencyInput('template', templatePath));
         onInfo(`  Plan: ${planResult.partType} template applied`);
         endStage(planStage, 'ok', { part_type: planResult.partType });
       } catch (error) {
+        planStatus = 'failed';
         const message = error.stderr ? error.stderr.toString().trim() : error.message;
         onError(`  Plan warning: ${message} (falling back to default)`);
         endStage(planStage, 'warning', { warning: message });
@@ -416,6 +444,8 @@ export async function runDrawPipeline({
     } else {
       addSkippedStage(runLog, 'intent_compile', '--no-plan');
     }
+    if (!flags.includes('--no-score')) sourceInputs.push(dependencyInput('qa-scorer', join(projectRoot, 'scripts/qa_scorer.py')));
+    if (!flags.includes('--raw')) sourceInputs.push(dependencyInput('postprocess', join(projectRoot, 'scripts/postprocess_svg.py')));
 
     const modelName = config.name || 'unnamed';
     artifactStem = modelName;
@@ -429,6 +459,8 @@ export async function runDrawPipeline({
         freecadRoot: projectRoot,
         runScript,
         loadConfig,
+        loadConfigSnapshot,
+        sourceInputs,
         deepMerge,
         config,
         postprocess: false,
@@ -446,6 +478,8 @@ export async function runDrawPipeline({
     if (!result.success) {
       throw new Error(result.error || 'generate_drawing.py returned success=false');
     }
+    // Keep QA and downstream semantics on the exact input actually sent to the renderer.
+    if (result.effective_config) Object.assign(config, structuredClone(result.effective_config));
     result.reviewer_feedback_path = reviewerFeedbackInput.reviewerFeedbackPath || null;
     result.reviewer_feedback_input_status = reviewerFeedbackInput.inputStatus;
 
@@ -500,6 +534,7 @@ export async function runDrawPipeline({
       .filter((dp) => dp.format === 'svg')
       .map((dp) => dp.path.replace(/\\/g, '/'));
     const qaScript = join(projectRoot, 'scripts', 'qa_scorer.py');
+    const reliefQaArgs = slotReliefQaArgs(result.slot_relief_dfm);
     const postprocessScript = join(projectRoot, 'scripts', 'postprocess_svg.py');
     const failUnderArgs = failUnderValue ? ['--fail-under', String(failUnderValue)] : [];
     const qaWeightPreset = weightsPresetValue || config.drawing_plan?.dimensioning?.qa_weight_preset || '';
@@ -511,8 +546,30 @@ export async function runDrawPipeline({
     const configStage = beginStage(runLog, 'persist_effective_config');
     try {
       const effectiveConfigPath = join(artifactDir, `${artifactStem}_effective_config.json`);
-      writeJson(effectiveConfigPath, config);
+      writeJson(effectiveConfigPath, result.effective_config || config);
+      result.effective_config_path = effectiveConfigPath;
+      const authoredConfigPath = join(artifactDir, `${artifactStem}_authored_config.json`);
+      writeJson(authoredConfigPath, authoredConfig);
+      result.authored_config_path = authoredConfigPath;
+      result.authored_config = authoredConfig;
+      if (result.effective_config) {
+        result.effective_input = {
+          schema_version: '1.0',
+          authored_config_kind: 'drawing.authored-config-json',
+          runtime_config_kind: 'drawing.effective-config-json',
+          sources: sourceInputs,
+          recipe: {
+            kind: 'draw-pipeline-v1', bom: flags.includes('--bom'), no_plan: flags.includes('--no-plan'),
+            working_directory: process.cwd(),
+            plan_status: planStatus, standard: result.effective_config.standard,
+            weights_preset: qaWeightPreset || null, raw: flags.includes('--raw'), no_score: flags.includes('--no-score'),
+            fail_under: failUnderValue || null, override: Boolean(overridePath),
+            unsupported_flags: flags.filter((flag) => !['--bom', '--no-plan', '--raw', '--no-score', '--strict-quality', '--weights-preset', '--fail-under'].includes(flag)),
+          },
+        };
+      }
       runLog.artifacts.effective_config = effectiveConfigPath;
+      runLog.artifacts.authored_config = authoredConfigPath;
       configArgs = ['--config', effectiveConfigPath];
       endStage(configStage, 'ok');
     } catch (error) {
@@ -553,7 +610,7 @@ export async function runDrawPipeline({
           const qaBeforeJson = svgPath.replace('.svg', '_qa_before.json');
           execFileSync(
             'python3',
-            [qaScript, svgPath, '--json', qaBeforeJson, ...planArgs, ...configArgs],
+            [qaScript, svgPath, '--json', qaBeforeJson, ...planArgs, ...configArgs, ...reliefQaArgs],
             { cwd: projectRoot, encoding: 'utf-8', timeout: 30_000 }
           );
           qaBefore = JSON.parse(readFileSync(qaBeforeJson, 'utf-8'));
@@ -603,7 +660,7 @@ export async function runDrawPipeline({
         try {
           const qaOutput = execFileSync(
             'python3',
-            [qaScript, svgPath, '--json', qaJson, ...planArgs, ...configArgs, ...qaWeightArgs, ...failUnderArgs],
+            [qaScript, svgPath, '--json', qaJson, ...planArgs, ...configArgs, ...reliefQaArgs, ...qaWeightArgs, ...failUnderArgs],
             { cwd: projectRoot, encoding: 'utf-8', timeout: 30_000 }
           );
           if (qaOutput.trim()) onInfo(qaOutput.trim());

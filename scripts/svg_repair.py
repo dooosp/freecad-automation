@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from _general_notes import _wrap_text
 
 from svg_common import (
-    local_tag, svg_tag, elem_bbox_approx,
+    local_tag, svg_tag, elem_bbox_approx, svg_contexts, page_delta_to_local,
     cell_bbox, classify_by_position,
     CELLS, GEOMETRY_CLASSES, ANNOTATION_PREFIXES, TITLEBLOCK_Y, BBox,
 )
@@ -157,12 +157,17 @@ def rebuild_notes(tree):
 # 2. repair_text_overlaps — iterative de-overlap
 # ---------------------------------------------------------------------------
 
-def _text_priority(elem, parent_class):
+def _text_priority(elem, parent_class, context, bbox):
     """Assign priority: 0=fixed, 1=prefer-fixed, 2=movable."""
-    y_val = float(elem.get("y", "0"))
-    if y_val > TITLEBLOCK_Y:
+    if bbox.y > TITLEBLOCK_Y:
         return 0
-    ff = elem.get("font-family", "")
+    # Moving a linked numeric label alone would detach it from its shelf/leader.
+    # Preserve its target and let QA expose the unresolved layout instead.
+    if (elem.get('data-dim-id') or elem.get('data-runtime-diameter')
+            or (elem.get('data-annotation-id')
+                and elem.get('data-annotation-role') == 'label')):
+        return 0
+    ff = context['properties'].get("font-family", "")
     if "monospace" in ff.lower():
         return 0
 
@@ -178,12 +183,13 @@ def _collect_texts_with_info(tree):
     """Collect all <text> elements with bbox, priority, view_id."""
     results = []
     root = tree.getroot()
+    contexts = svg_contexts(root)
 
     def _walk(parent, parent_class):
         for child in parent:
             tag = local_tag(child)
             if tag == "text":
-                bb = elem_bbox_approx(child)
+                bb = elem_bbox_approx(child, contexts)
                 if bb is None or bb.area() < 0.1:
                     continue
                 content = child.text or ""
@@ -193,7 +199,7 @@ def _collect_texts_with_info(tree):
                 view = classify_by_position(cx, cy)
                 if view is None:
                     continue
-                pri = _text_priority(child, parent_class)
+                pri = _text_priority(child, parent_class, contexts[child], bb)
                 results.append({
                     "elem": child,
                     "bbox": bb,
@@ -203,6 +209,8 @@ def _collect_texts_with_info(tree):
                     "shift_x": 0.0,
                     "orig_x": float(child.get("x", "0")),
                     "orig_y": float(child.get("y", "0")),
+                    "context": contexts[child],
+                    "contexts": contexts,
                 })
             elif tag == "g":
                 cls = child.get("class", "") or parent_class
@@ -262,20 +270,26 @@ def repair_text_overlaps(tree, max_iter=40, step_mm=2.5,
                     old_x = float(mover["elem"].get("x", "0"))
                     old_y = float(mover["elem"].get("y", "0"))
 
+                    dx = dy = 0.0
                     if abs(mover["shift_y"]) >= max_shift_mm:
                         if abs(mover["shift_x"]) >= max_shift_mm:
                             continue
-                        new_x = old_x + step_mm
-                        new_x = min(new_x, vcell.x + vcell.w - 2.0)
-                        mover["elem"].set("x", f"{new_x:.2f}")
-                        mover["shift_x"] += step_mm
+                        dx = min(step_mm, vcell.x + vcell.w - 2.0
+                                 - (mover['bbox'].x + mover['bbox'].w))
                     else:
-                        new_y = old_y + step_mm
-                        new_y = min(new_y, vcell.y + vcell.h - 2.0)
-                        mover["elem"].set("y", f"{new_y:.2f}")
-                        mover["shift_y"] += step_mm
+                        dy = min(step_mm, vcell.y + vcell.h - 2.0
+                                 - (mover['bbox'].y + mover['bbox'].h))
+                    if dx < 0 or dy < 0 or dx + dy <= 1e-9:
+                        continue
+                    local_delta = page_delta_to_local(mover['context'], dx, dy)
+                    if local_delta is None:
+                        continue
+                    mover["elem"].set("x", f"{old_x + local_delta[0]:.6f}")
+                    mover["elem"].set("y", f"{old_y + local_delta[1]:.6f}")
+                    mover["shift_x"] += dx
+                    mover["shift_y"] += dy
 
-                    mover["bbox"] = elem_bbox_approx(mover["elem"])
+                    mover["bbox"] = elem_bbox_approx(mover["elem"], mover['contexts'])
                     first_move = id(mover["elem"]) not in moved_set
                     moved_set.add(id(mover["elem"]))
                     resolved_this += 1

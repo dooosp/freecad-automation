@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { verifiedReportProvenance } from './helpers/report-evidence-fixture.js';
 
 import {
   buildDecisionReportSummary,
@@ -7,8 +8,11 @@ import {
   validateDecisionReportSummary,
 } from '../src/services/report/decision-report-summary.js';
 
+const qualityProvenance = await verifiedReportProvenance();
+
 function makeBaseInput(overrides = {}) {
   return {
+    qualityProvenance,
     configPath: '/tmp/ks_bracket.toml',
     config: {
       name: 'ks_bracket',

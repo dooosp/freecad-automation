@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { verifiedReportProvenance } from './helpers/report-evidence-fixture.js';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -18,9 +19,11 @@ const DRAWING_INTENT_SCHEMA = JSON.parse(
   readFileSync(join(ROOT, 'schemas', 'drawing-intent.schema.json'), 'utf8')
 );
 const TMP_DIR = mkdtempSync(join(tmpdir(), 'fcad-drawing-intent-'));
+const qualityProvenance = await verifiedReportProvenance();
 
 function makePassingReportInput(config) {
   return {
+    qualityProvenance,
     configPath: '/tmp/intent_probe.toml',
     config,
     reportPdfPath: '/tmp/output/intent_probe_report.pdf',
