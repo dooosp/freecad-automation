@@ -1,0 +1,19 @@
+{
+  "part": "CL-106",
+  "revision": "A",
+  "characteristics": [
+    {
+      "id": "PTCH",
+      "drawing_ref": "CL-106 / B2 / locating pitch",
+      "unit": "mm",
+      "lower": "24.90",
+      "upper": "25.10",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4"
+      ]
+    }
+  ]
+}

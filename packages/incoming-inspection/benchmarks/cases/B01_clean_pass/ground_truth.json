@@ -1,0 +1,19 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "WIDTH", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "7.95"},
+      {"characteristic": "WIDTH", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "8"},
+      {"characteristic": "WIDTH", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "8.05"}
+    ],
+    "unmatched_rows": []
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "WIDTH", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "7.95"},
+      {"characteristic": "WIDTH", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "8"},
+      {"characteristic": "WIDTH", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "8.05"}
+    ],
+    "unmatched_rows": []
+  },
+  "diff": {"mode": "comparison", "reasons": [], "changes": [], "unmatched_changes": []}
+}

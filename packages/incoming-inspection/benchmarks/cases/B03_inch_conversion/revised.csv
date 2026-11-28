@@ -1,0 +1,4 @@
+Part No.,Revision,Lot ID,Vendor,Characteristic,Sample,Reading,UOM,Result
+SL-103,A,LOT-103,SYN-EN,LAND,S1,0.393701,in,PASS
+SL-103,A,LOT-103,SYN-EN,LAND,S2,0.4020,inch,NG
+SL-103,A,LOT-103,SYN-EN,LAND,S3,0.3976,in,OK

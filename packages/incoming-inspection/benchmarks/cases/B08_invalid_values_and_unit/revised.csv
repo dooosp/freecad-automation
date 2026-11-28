@@ -1,0 +1,5 @@
+Part No.,Revision,Lot ID,Vendor,Characteristic,Sample,Reading,UOM,Result
+HD-108,B,LOT-108,SYN-EN,DIA,S1,N/A,mm,
+HD-108,B,LOT-108,SYN-EN,DIA,S2,10.05,mm,PASS
+HD-108,B,LOT-108,SYN-EN,DIA,S3,10.05,mm,PASS
+HD-108,B,LOT-108,SYN-EN,DIA,S4,10.10,mm,PASS

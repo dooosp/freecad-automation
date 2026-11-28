@@ -1,0 +1,9 @@
+{
+  "part": "품번",
+  "revision": "개정",
+  "lot": "LOT",
+  "characteristic": "항목",
+  "sample": "번호",
+  "value": "실측(mm)",
+  "supplier_result": "판정"
+}

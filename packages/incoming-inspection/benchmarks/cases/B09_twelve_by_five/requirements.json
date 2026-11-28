@@ -1,0 +1,174 @@
+{
+  "part": "PL-109",
+  "revision": "D",
+  "characteristics": [
+    {
+      "id": "C01",
+      "drawing_ref": "PL-109 / A1 / flange width",
+      "unit": "mm",
+      "lower": "41.95",
+      "upper": "42.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C02",
+      "drawing_ref": "PL-109 / A2 / pilot diameter",
+      "unit": "mm",
+      "lower": "11.95",
+      "upper": "12.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C03",
+      "drawing_ref": "PL-109 / A3 / lip thickness",
+      "unit": "mm",
+      "lower": "2.45",
+      "upper": "2.55",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C04",
+      "drawing_ref": "PL-109 / B1 / slot span",
+      "unit": "mm",
+      "lower": "17.95",
+      "upper": "18.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C05",
+      "drawing_ref": "PL-109 / B2 / boss height",
+      "unit": "mm",
+      "lower": "5.95",
+      "upper": "6.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C06",
+      "drawing_ref": "PL-109 / B3 / mount pitch",
+      "unit": "mm",
+      "lower": "33.95",
+      "upper": "34.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C07",
+      "drawing_ref": "PL-109 / C1 / counterbore",
+      "unit": "mm",
+      "lower": "7.95",
+      "upper": "8.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C08",
+      "drawing_ref": "PL-109 / C2 / recess depth",
+      "unit": "mm",
+      "lower": "5.45",
+      "upper": "5.55",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C09",
+      "drawing_ref": "PL-109 / C3 / pin spacing",
+      "unit": "mm",
+      "lower": "25.95",
+      "upper": "26.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C10",
+      "drawing_ref": "PL-109 / D1 / ledge length",
+      "unit": "mm",
+      "lower": "31.95",
+      "upper": "32.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C11",
+      "drawing_ref": "PL-109 / D2 / lug thickness",
+      "unit": "mm",
+      "lower": "3.95",
+      "upper": "4.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    },
+    {
+      "id": "C12",
+      "drawing_ref": "PL-109 / D3 / land diameter",
+      "unit": "mm",
+      "lower": "9.95",
+      "upper": "10.05",
+      "samples": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ]
+    }
+  ]
+}

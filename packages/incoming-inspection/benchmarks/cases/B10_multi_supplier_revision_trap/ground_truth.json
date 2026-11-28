@@ -1,0 +1,21 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "SLOT", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "6.07"},
+      {"characteristic": "SLOT", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "6"}
+    ],
+    "unmatched_rows": [
+      {"row": 3, "characteristic": "SLOT", "sample": "S1", "reasons": ["supplier_mismatch"]}
+    ]
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "SLOT", "sample": "S1", "status": "out_of_tolerance", "reasons": ["above_upper_limit", "supplier_result_mismatch"], "source_rows": [1], "measured_mm": "6.07"},
+      {"characteristic": "SLOT", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "6"}
+    ],
+    "unmatched_rows": [
+      {"row": 3, "characteristic": "SLOT", "sample": "S1", "reasons": ["supplier_mismatch"]}
+    ]
+  },
+  "diff": {"mode": "full_review_required", "reasons": ["requirements_changed", "mapping_changed"], "changes": [], "unmatched_changes": []}
+}

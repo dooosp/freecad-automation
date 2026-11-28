@@ -1,0 +1,14 @@
+{
+  "supplier": "SYN-DUAL",
+  "lot": "LOT-110",
+  "first": {
+    "requirements": "requirements.json",
+    "mapping": "mapping.json",
+    "measurements": "first.csv"
+  },
+  "revised": {
+    "requirements": "revised_requirements.json",
+    "mapping": "revised_mapping.json",
+    "measurements": "revised.csv"
+  }
+}

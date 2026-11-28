@@ -1,0 +1,27 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "LAND", "sample": "S1", "status": "out_of_tolerance", "reasons": ["below_lower_limit"], "source_rows": [1], "measured_mm": "9.99998"},
+      {"characteristic": "LAND", "sample": "S2", "status": "out_of_tolerance", "reasons": ["above_upper_limit"], "source_rows": [2], "measured_mm": "10.2108"},
+      {"characteristic": "LAND", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "10.09904"}
+    ],
+    "unmatched_rows": []
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "LAND", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "10.0000054"},
+      {"characteristic": "LAND", "sample": "S2", "status": "out_of_tolerance", "reasons": ["above_upper_limit"], "source_rows": [2], "measured_mm": "10.2108"},
+      {"characteristic": "LAND", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "10.09904"}
+    ],
+    "unmatched_rows": []
+  },
+  "diff": {
+    "mode": "comparison",
+    "reasons": [],
+    "changes": [
+      {"characteristic": "LAND", "sample": "S1", "kind": "changed"},
+      {"characteristic": "LAND", "sample": "S2", "kind": "unresolved"}
+    ],
+    "unmatched_changes": []
+  }
+}

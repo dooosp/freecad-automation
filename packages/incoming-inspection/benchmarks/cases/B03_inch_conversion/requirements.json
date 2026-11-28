@@ -1,0 +1,18 @@
+{
+  "part": "SL-103",
+  "revision": "A",
+  "characteristics": [
+    {
+      "id": "LAND",
+      "drawing_ref": "SL-103 / A1 / land length",
+      "unit": "mm",
+      "lower": "10.00",
+      "upper": "10.21",
+      "samples": [
+        "S1",
+        "S2",
+        "S3"
+      ]
+    }
+  ]
+}

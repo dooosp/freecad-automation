@@ -1,0 +1,4 @@
+협력사,품번,도면개정,로트,시료,검사항목,실측,단위,협력사판정
+SYN-DUAL,SR-110,B,LOT-110,S1,SLOT,6.07,mm,합격
+SYN-DUAL,SR-110,B,LOT-110,S2,SLOT,6.00,mm,합격
+SYN-OTHER,SR-110,B,LOT-110,S1,SLOT,5.99,mm,합격

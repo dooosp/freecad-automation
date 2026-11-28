@@ -1,0 +1,18 @@
+{
+  "part": "PN-102",
+  "revision": "B",
+  "characteristics": [
+    {
+      "id": "PIN",
+      "drawing_ref": "PN-102 / B3 / pin diameter",
+      "unit": "mm",
+      "lower": "9.90",
+      "upper": "10.10",
+      "samples": [
+        "S1",
+        "S2",
+        "S3"
+      ]
+    }
+  ]
+}

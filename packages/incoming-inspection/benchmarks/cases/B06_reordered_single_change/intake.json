@@ -1,0 +1,14 @@
+{
+  "supplier": "SYN-KR",
+  "lot": "LOT-106",
+  "first": {
+    "requirements": "requirements.json",
+    "mapping": "mapping.json",
+    "measurements": "first.csv"
+  },
+  "revised": {
+    "requirements": "requirements.json",
+    "mapping": "mapping.json",
+    "measurements": "revised.csv"
+  }
+}

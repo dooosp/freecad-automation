@@ -1,0 +1,27 @@
+{
+  "first": {
+    "results": [
+      {"characteristic": "PIN", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "10.1"},
+      {"characteristic": "PIN", "sample": "S2", "status": "out_of_tolerance", "reasons": ["above_upper_limit", "supplier_result_mismatch"], "source_rows": [2], "measured_mm": "10.11"},
+      {"characteristic": "PIN", "sample": "S3", "status": "in_tolerance", "reasons": ["supplier_result_mismatch"], "source_rows": [3], "measured_mm": "9.99"}
+    ],
+    "unmatched_rows": []
+  },
+  "revised": {
+    "results": [
+      {"characteristic": "PIN", "sample": "S1", "status": "in_tolerance", "reasons": [], "source_rows": [1], "measured_mm": "10.1"},
+      {"characteristic": "PIN", "sample": "S2", "status": "in_tolerance", "reasons": [], "source_rows": [2], "measured_mm": "10.09"},
+      {"characteristic": "PIN", "sample": "S3", "status": "in_tolerance", "reasons": [], "source_rows": [3], "measured_mm": "9.99"}
+    ],
+    "unmatched_rows": []
+  },
+  "diff": {
+    "mode": "comparison",
+    "reasons": [],
+    "changes": [
+      {"characteristic": "PIN", "sample": "S2", "kind": "changed"},
+      {"characteristic": "PIN", "sample": "S3", "kind": "changed"}
+    ],
+    "unmatched_changes": []
+  }
+}

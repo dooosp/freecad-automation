@@ -1,0 +1,17 @@
+{
+  "part": "SR-110",
+  "revision": "B",
+  "characteristics": [
+    {
+      "id": "SLOT",
+      "drawing_ref": "SR-110 / B2 / slot width",
+      "unit": "mm",
+      "lower": "5.90",
+      "upper": "6.10",
+      "samples": [
+        "S1",
+        "S2"
+      ]
+    }
+  ]
+}
