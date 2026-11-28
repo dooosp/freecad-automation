@@ -65,12 +65,14 @@ def _build_single_part(part_config):
 
         elif op == "fillet":
             target = shapes[op_spec["target"]].copy()
-            result = apply_fillet(target, op_spec["radius"], op_spec.get("edges"))
+            result = apply_fillet(target, op_spec["radius"], op_spec.get("edges"),
+                                  edge_segments=op_spec.get("edge_segments"))
             shapes[op_spec.get("result", op_spec["target"])] = result
 
         elif op == "chamfer":
             target = shapes[op_spec["target"]].copy()
-            result = apply_chamfer(target, op_spec["size"], op_spec.get("edges"))
+            result = apply_chamfer(target, op_spec["size"], op_spec.get("edges"),
+                                   edge_segments=op_spec.get("edge_segments"))
             shapes[op_spec.get("result", op_spec["target"])] = result
 
         elif op == "circular_pattern":

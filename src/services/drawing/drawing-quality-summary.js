@@ -2,7 +2,11 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { resolveAutoDimensionCoverage } from './auto-dimension-coverage.js';
-import { currentTraceability } from './current-traceability.js';
+import {
+  currentTraceability, runtimePlateThicknessRequirements,
+  isStandoffHeightRequirement, runtimeStandoffHeightRequirements,
+  hasPcbRuntimeContext, isPcbDimensionRequirement, runtimePcbDimensionRequirements,
+} from './current-traceability.js';
 import { compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
 import { evaluateLayoutReadability, summarizeLayoutReadabilityActions } from './layout-readability.js';
 import {
@@ -335,6 +339,12 @@ function buildSemanticDrawingQualityReport({
   const notes = collectIntentNotes(intent);
   const views = collectIntentViews(intent);
   const evidence = buildDimensionEvidence(dimensionMap, traceability, autoRepresentations);
+  const runtimeRequirements = new Map([
+    ...runtimePlateThicknessRequirements(dimensions.required, traceability, dimensionMap, svgContent),
+    ...runtimeStandoffHeightRequirements(dimensions.required, traceability, dimensionMap, svgContent),
+    ...runtimePcbDimensionRequirements(dimensions.required, traceability, dimensionMap, svgContent),
+  ]);
+  const pcbContext = hasPcbRuntimeContext(intent, dimensionMap, traceability);
   const producedViewSet = new Set(producedViews.map(normalizeComparable).filter(Boolean));
   const svgText = extractSvgText(svgContent);
 
@@ -347,6 +357,8 @@ function buildSemanticDrawingQualityReport({
       ))
   ));
   const presentDimensions = dimensions.required.filter((dimension) => {
+    if (isStandoffHeightRequirement(dimension)) return runtimeRequirements.has(dimension.id);
+    if (pcbContext && isPcbDimensionRequirement(dimension)) return runtimeRequirements.has(dimension.id);
     const dimKey = normalizeComparable(dimension.id ?? dimension.dim_id);
     if (dimKey && evidence.renderedDimensions.has(dimKey)) return true;
     const featureKey = normalizeComparable(dimension.feature ?? dimension.feature_id);
@@ -369,7 +381,26 @@ function buildSemanticDrawingQualityReport({
 
   const traceabilityRows = dimensions.required.map((dimension) => {
     const dimKey = normalizeComparable(dimension.id ?? dimension.dim_id);
-    const link = dimKey ? evidence.traceLinks.get(dimKey) : null;
+    const runtimeMatch = runtimeRequirements.get(dimension.id);
+    const runtimeLink = runtimeMatch ? {
+      dimension_id: runtimeMatch.entry.dim_id, feature_id: runtimeMatch.link.feature_id,
+      source: 'freecad_runtime',
+      ...(runtimeMatch.link.evidence.measurement?.startsWith('pcb_')
+        ? { dimension_kind: runtimeMatch.link.evidence.dimension_kind,
+          reference_refs: runtimeMatch.link.evidence.reference_refs || [],
+          ...(runtimeMatch.link.evidence.members ? {
+            member_feature_ids: runtimeMatch.link.evidence.member_feature_ids,
+            model_face_refs: runtimeMatch.link.evidence.members.map((member) => member.face_ref),
+          } : {}),
+          ...(runtimeMatch.supporting?.length ? { supporting_dimension_ids: runtimeMatch.supporting.map((match) => match.entry.dim_id) } : {}),
+        }
+        : runtimeMatch.entry.dim_id === 'STANDOFF_HEIGHT'
+        ? { member_feature_ids: runtimeMatch.link.evidence.member_feature_ids,
+          model_face_refs: runtimeMatch.link.evidence.members.map((member) => member.face_ref) }
+        : { model_edge_ref: runtimeMatch.link.evidence.edge_ref }),
+    } : null;
+    const link = isStandoffHeightRequirement(dimension) || (pcbContext && isPcbDimensionRequirement(dimension)) ? runtimeLink
+      : (dimKey ? evidence.traceLinks.get(dimKey) : null) ?? runtimeLink;
     return {
       dimension_id: dimension.id ?? dimension.dim_id ?? itemName(dimension),
       feature_id: link?.feature_id ?? dimension.feature ?? null,
@@ -932,6 +963,16 @@ export function buildDrawingQualitySummary({
       `Critical QA issue count ${highSeverityIssues.length} forces a failed drawing-quality gate.`,
       { issue_ids: highSeverityIssues.map((issue) => issue?.id).filter(Boolean) }
     );
+  }
+  const linearBindingIssues = asArray(qaReport?.details?.linear_binding_issues);
+  if (Number(qaReport?.metrics?.linear_binding_mismatch) > 0 || linearBindingIssues.length > 0) {
+    pushIssue(
+      blockingIssues,
+      'linear-dimension-binding',
+      'Linear dimensions contain unresolved targets or labels inconsistent with their measured SVG span.',
+      { issues: linearBindingIssues }
+    );
+    recommendedActions.push('Resolve the identified dimension references and compare their visible labels with the actual geometry; retain unresolved requirements for review.');
   }
   if (semanticQuality.enforceable && semanticQuality.required_blockers.length > 0) {
     pushIssue(

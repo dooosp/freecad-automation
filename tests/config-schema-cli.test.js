@@ -18,6 +18,19 @@ function runCli(args) {
 }
 
 try {
+  const slotReference = { axis: 'Y', from: { feature: 'plate', boundary: 'y_min' },
+    to: { feature: 'slot', boundary: 'y_min' } };
+  const slotReferenceConfig = (reference) => ({ config_version: 1,
+    drawing_plan: { dim_intents: [{ id: 'CONNECTOR_SLOT_POSITION', feature: 'slot',
+      view: 'top', style: 'linear', value_mm: 42, reference }] } });
+  assert.equal(validateConfigDocument(slotReferenceConfig(slotReference)).valid, true);
+  for (const reference of [null, [], { ...slotReference, axis: 'X' },
+    { ...slotReference, to: { feature: 'slot', boundary: 'center' } },
+    { ...slotReference, from: { feature: 'hole1', boundary: 'y_min' } },
+    { ...slotReference, extra: 'unknown' }]) {
+    assert.equal(validateConfigDocument(slotReferenceConfig(reference)).valid, false,
+      'unsupported positional reference must not be silently accepted');
+  }
   // The assembly runtime accepts Euler angles and axis-angle placements.
   const fourBar = await loadConfigWithDiagnostics(resolve(ROOT, 'configs/examples/four_bar_linkage.toml'));
   assert.deepEqual(fourBar.config.assembly.parts[2].rotation.length, 4);

@@ -228,9 +228,11 @@ function hasMatchingDimension(dimensions, { featureId = null, terms = [], styles
     const style = normalizeId(dimension.style);
     const idOrStyleMatches = normalizedTerms.length === 0
       || normalizedTerms.some((term) => id.includes(term) || style.includes(term));
+    const explicitMembers = dimension.feature?.includes(',')
+      ? dimension.feature.split(',').map((member) => member.trim()) : null;
     const featureMatches = !normalizedFeature
-      || feature === normalizedFeature
-      || id.includes(normalizedFeature);
+      || (explicitMembers ? explicitMembers.includes(String(featureId).trim())
+        : feature === normalizedFeature || id.includes(normalizedFeature));
     const styleMatches = normalizedStyles.length === 0
       || normalizedStyles.some((term) => style.includes(term) || id.includes(term));
     return featureMatches && idOrStyleMatches && styleMatches;

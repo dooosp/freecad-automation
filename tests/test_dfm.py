@@ -32,7 +32,8 @@ def _base_config(extra_shapes=None, extra_ops=None, manufacturing=None):
         shapes.extend(extra_shapes)
     if extra_ops:
         ops.extend(extra_ops)
-    cfg = {"shapes": shapes, "operations": ops}
+    # In-place operations do not move the body to the end of the runtime map.
+    cfg = {"shapes": shapes, "operations": ops, "final": "disc"}
     if manufacturing:
         cfg["manufacturing"] = manufacturing
     return cfg
@@ -141,7 +142,7 @@ class TestDFM04FilletChamfer(unittest.TestCase):
         dfm04 = [c for c in result["checks"] if c["code"] == "DFM-04"]
         self.assertTrue(len(dfm04) > 0, "Expected DFM-04 warning without chamfer")
 
-    def test_with_chamfer_no_error(self):
+    def test_chamfer_metadata_does_not_prove_internal_corner_relief(self):
         cfg = _base_config(
             extra_shapes=[
                 {"id": "h1", "type": "cylinder", "radius": 5,
@@ -155,7 +156,8 @@ class TestDFM04FilletChamfer(unittest.TestCase):
         result = run_dfm_check(cfg)
         dfm04_err = [c for c in result["checks"]
                      if c["code"] == "DFM-04" and c["severity"] in ("error", "warning")]
-        self.assertEqual(len(dfm04_err), 0)
+        self.assertEqual([c["severity"] for c in dfm04_err], ["warning"])
+        self.assertEqual(dfm04_err[0]["evidence"]["reason_code"], "corner_relief_unverified")
 
 
 class TestDFM05DrillRatio(unittest.TestCase):

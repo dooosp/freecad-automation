@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { verifiedReportProvenance } from './helpers/report-evidence-fixture.js';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
@@ -272,6 +273,8 @@ function ksBracketArtifacts(jobDir) {
   };
 }
 
+const qualityProvenance = await verifiedReportProvenance();
+
 function makeReportInput({
   fixtureName,
   config,
@@ -280,6 +283,7 @@ function makeReportInput({
   featureCatalog,
 }) {
   return {
+    qualityProvenance,
     configPath: `/tmp/${fixtureName}.toml`,
     config,
     reportPdfPath: `/tmp/output/${fixtureName}_report.pdf`,

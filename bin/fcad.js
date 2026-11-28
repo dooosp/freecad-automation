@@ -1164,6 +1164,8 @@ async function emitOutputManifestSafe({
   repoContext,
   startedAt,
   inputPath = null,
+  inputRecord = null,
+  effectiveInput = null,
   primaryOutputPath = null,
   outputDir = null,
   baseName = null,
@@ -1181,6 +1183,8 @@ async function emitOutputManifestSafe({
       command,
       commandArgs,
       inputPath,
+      inputRecord,
+      effectiveInput,
       outputs,
       linkedArtifacts,
       warnings,
@@ -2952,6 +2956,7 @@ async function cmdDraw(rawArgs = []) {
       weightsPresetValue,
       strictQuality,
       loadConfig: loadConfigForCli,
+      loadConfigSnapshot: loadConfigDocumentForCli,
       deepMerge,
       generateDrawing,
       runScript: runWithCliStderr,
@@ -2982,6 +2987,10 @@ async function cmdDraw(rawArgs = []) {
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: result.effective_input?.sources?.find((entry) => entry.role === 'config')
+        ? (({ role, ...record }) => record)(result.effective_input.sources.find((entry) => entry.role === 'config'))
+        : null,
+      effectiveInput: result.effective_input || null,
       primaryOutputPath: svgPath,
       outputDir: configDocument.config.export?.directory || null,
       outputs: (result.drawing_paths || [])
@@ -2990,6 +2999,8 @@ async function cmdDraw(rawArgs = []) {
         .concat(result.extracted_drawing_semantics_path ? [createOutputEntry('drawing.extracted-semantics-json', result.extracted_drawing_semantics_path)] : [])
         .concat(result.drawing_intent_json ? [createOutputEntry('drawing.intent-json', result.drawing_intent_json)] : [])
         .concat(result.feature_catalog_json ? [createOutputEntry('drawing.feature-catalog-json', result.feature_catalog_json)] : [])
+        .concat(result.authored_config_path ? [createOutputEntry('drawing.authored-config-json', result.authored_config_path)] : [])
+        .concat(result.effective_config_path ? [createOutputEntry('drawing.effective-config-json', result.effective_config_path)] : [])
         .filter(Boolean),
       linkedArtifacts: {
         ...buildDrawLinkedArtifactsFromSvg(svgPath),
@@ -3120,6 +3131,7 @@ async function cmdCreate(rawArgs = []) {
     console.log(`  Shapes: ${config.shapes?.length || 0}`);
     console.log(`  Operations: ${config.operations?.length || 0}`);
 
+    const runtimeInput = structuredClone(config);
     const result = await createModel({
       freecadRoot: PROJECT_ROOT,
       runScript: (script, input, opts = {}) => runScript(script, input, {
@@ -3144,6 +3156,9 @@ async function cmdCreate(rawArgs = []) {
         onStderr: (text) => process.stderr.write(text),
       }),
     });
+    const effectiveConfigPath = createQuality.path.replace(/_create_quality\.json$/i, '_create_effective_config.json');
+    writeFileSync(effectiveConfigPath, JSON.stringify(runtimeInput, null, 2));
+    result.effective_config_path = effectiveConfigPath;
 
     const outputManifestWarnings = [
       ...(configDocument.summary?.warnings || []),
@@ -3179,11 +3194,21 @@ async function cmdCreate(rawArgs = []) {
       repoContext,
       startedAt,
       inputPath: absPath,
+      inputRecord: configDocument.input_record,
+      effectiveInput: {
+        schema_version: '1.0',
+        authored_config_kind: 'model.effective-config-json',
+        runtime_config_kind: 'model.effective-config-json',
+        sources: [{ role: 'config', ...configDocument.input_record }],
+        recipe: { kind: 'create-v1' },
+      },
       primaryOutputPath: result.exports?.[0]?.path || null,
       outputDir: config.export?.directory || null,
       outputs: [
         ...createOutputEntriesFromExports(result.exports, 'model'),
         ...createOutputEntriesFromPartFiles(result.assembly?.part_files),
+        createOutputEntry('model.create-quality-json', createQuality.path),
+        createOutputEntry('model.effective-config-json', effectiveConfigPath),
       ],
       linkedArtifacts: {
         quality_json: createQuality.path,
@@ -3553,7 +3578,7 @@ async function cmdDfm(rawArgs = []) {
     console.log(`=== DFM Report (${result.process}) ===\n`);
 
     if (checks.length === 0) {
-      console.log('  No issues found — design is manufacturing-ready.\n');
+      console.log('  No DFM issues detected by the available checks.\n');
     } else if (issues.length > 0) {
       for (const issue of issues) {
         const icon = issue.status === 'fail' ? '\x1b[31mFAIL\x1b[0m'
@@ -3601,6 +3626,7 @@ async function cmdDfm(rawArgs = []) {
       }
     }
     console.log(`DFM Score: ${score}/100`);
+    const slotCornerRelief = issues.find((issue) => issue.evidence?.measurement === 'slot_side_relief');
 
     const emittedManifestPath = await writeStdoutCommandManifest({
       manifestPath,
@@ -3619,6 +3645,7 @@ async function cmdDfm(rawArgs = []) {
         summary,
         check_count: checks.length,
         strict_mode: strict,
+        ...(slotCornerRelief ? { slot_corner_relief: slotCornerRelief } : {}),
       },
     });
     const outputWarnings = [
@@ -3842,7 +3869,16 @@ async function cmdReport(rawArgs = []) {
         ...(result.feature_catalog_json ? { feature_catalog_json: result.feature_catalog_json } : {}),
         ...(result.extracted_drawing_semantics_json ? { extracted_drawing_semantics_json: result.extracted_drawing_semantics_json } : {}),
       },
-      warnings: configDocument.summary?.warnings || [],
+      warnings: uniqueStrings([
+        ...(configDocument.summary?.warnings || []),
+        ...(result.report_summary?.warnings || []),
+        ...(result.report_summary?.overall_status && result.report_summary.overall_status !== 'pass'
+          ? [
+            `Report quality status: ${result.report_summary.overall_status}.`,
+            ...(result.report_summary.blocking_issues || []),
+          ]
+          : []),
+      ]),
     });
     if (result.summary_json && result.report_summary) {
       const reportManifestArtifact = (result.report_summary.artifacts_referenced || [])

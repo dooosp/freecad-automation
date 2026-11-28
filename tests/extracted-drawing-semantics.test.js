@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { standoffRuntimeInput, invalidStandoffCases, STANDOFF_GROUP } from './helpers/standoff-runtime-evidence.js';
+import { pcbRuntimeInput } from './helpers/pcb-runtime-evidence.js';
 
 import {
   buildExtractedDrawingSemantics,
@@ -10,6 +12,165 @@ import {
 } from '../src/services/drawing/extracted-drawing-semantics.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+
+{
+  const input = pcbRuntimeInput();
+  const result = buildExtractedDrawingSemantics(input);
+  for (const id of ['PLATE_LENGTH', 'PLATE_WIDTH', 'MOUNTING_HOLE_DIA', 'MOUNTING_HOLE_PATTERN_X',
+    'MOUNTING_HOLE_PATTERN_Y', 'CONNECTOR_SLOT_SIZE', 'CONNECTOR_SLOT_POSITION']) {
+    const matches = result.dimensions.filter((dimension) => dimension.matched_intent_id === id);
+    assert.equal(matches.length, 1, `${id} must resolve only through its measured current annotation`);
+    assert.equal(matches[0].provenance.method, 'svg_runtime_pcb_dimension');
+  }
+  assert.deepEqual(result.dimensions.find((dimension) => dimension.matched_intent_id === 'CONNECTOR_SLOT_SIZE')
+    .provenance.supporting_dimension_ids, ['CONNECTOR_SLOT_WIDTH']);
+}
+
+for (const [id, invalidate] of [
+  ['CONNECTOR_SLOT_SIZE', (input) => { input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'CONNECTOR_SLOT_WIDTH').rendered = false; }],
+  ['CONNECTOR_SLOT_POSITION', (input) => { delete input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'CONNECTOR_SLOT_POSITION').runtime_binding.explicit_reference; }],
+  ['MOUNTING_HOLE_DIA', (input) => { input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'MOUNTING_HOLE_DIA').runtime_binding.members.pop(); }],
+  ['MOUNTING_HOLE_DIA', (input) => { input.svgContent = input.svgContent.replace('x1="88.25"', 'x1="138.75"'); }],
+  ['MOUNTING_HOLE_PATTERN_X', (input) => { input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'MOUNTING_HOLE_PATTERN_X').runtime_binding.verification_pairs_3d_mm.pop(); }],
+  ['PLATE_WIDTH', (input) => { input.svgContent = input.svgContent.replace('<text data-dim-id="PLATE_WIDTH"', '<text data-dim-id="OTHER"'); }],
+  ['MOUNTING_HOLE_DIA', (input) => { input.svgContent = input.svgContent.replace('<circle cx="87.25" cy="86.5" r="1"/>', ''); }],
+  ['PLATE_LENGTH', (input) => {
+    input.svgContent = input.svgContent.replace(/<line data-dimension-line="linear" data-dim-id="PLATE_LENGTH"[^>]*>/,
+      (line) => line.replace(/x([12])="([^"]+)"/g, (_, end, value) => `x${end}="${Number(value) + 10}"`));
+  }],
+  ['PLATE_WIDTH', (input) => { input.svgContent = input.svgContent.replace('<text data-dim-id="PLATE_WIDTH">98', '<text data-dim-id="PLATE_WIDTH">99'); }],
+  ['PLATE_LENGTH', (input) => {
+    delete input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'PLATE_LENGTH').runtime_binding;
+    input.traceability.links.find((d) => d.dim_id === 'PLATE_LENGTH').source = 'legacy';
+  }],
+  ['CONNECTOR_SLOT_POSITION', (input) => {
+    for (const item of [input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'CONNECTOR_SLOT_POSITION').runtime_binding,
+      input.traceability.links.find((d) => d.dim_id === 'CONNECTOR_SLOT_POSITION').evidence]) {
+      item.explicit_reference.to.boundary = 'center';
+    }
+  }],
+  ['MOUNTING_HOLE_PATTERN_Y', (input) => {
+    for (const item of [input.dimensionMap.plan_dimensions.find((d) => d.dim_id === 'MOUNTING_HOLE_PATTERN_Y').runtime_binding,
+      input.traceability.links.find((d) => d.dim_id === 'MOUNTING_HOLE_PATTERN_Y').evidence]) {
+      item.verification_pairs_3d_mm[1][1][1] = 75;
+    }
+  }],
+]) {
+  const input = pcbRuntimeInput();
+  invalidate(input);
+  const result = buildExtractedDrawingSemantics(input);
+  assert.equal(result.dimensions.some((dimension) => dimension.matched_intent_id === id), false,
+    `invalid ${id} references must not be rescued by numeric or legacy matching`);
+}
+
+for (const height of [8, 10]) {
+  const result = buildExtractedDrawingSemantics(standoffRuntimeInput(height));
+  const matches = result.dimensions.filter((entry) => entry.matched_intent_id === 'STANDOFF_HEIGHT');
+  assert.equal(matches.length, 1, 'only the verified four-member annotation may cover standoff height');
+  assert.equal(matches[0].provenance.method, 'svg_runtime_standoff_height');
+  assert.deepEqual(matches[0].provenance.member_feature_ids, STANDOFF_GROUP.split(','));
+  assert.equal(matches[0].value, height);
+}
+
+for (const [name, invalidate] of Object.entries(invalidStandoffCases)) {
+  const input = standoffRuntimeInput();
+  invalidate(input);
+  const result = buildExtractedDrawingSemantics(input);
+  assert.equal(result.dimensions.some((entry) => entry.matched_intent_id === 'STANDOFF_HEIGHT'), false,
+    `${name} cannot be rescued by another identical numeric label`);
+}
+
+{
+  const input = standoffRuntimeInput(10);
+  input.svgContent = input.svgContent.replace('<text data-dim-id="STANDOFF_HEIGHT"', '<text');
+  assert.equal(buildExtractedDrawingSemantics(input).dimensions.some((entry) => entry.matched_intent_id === 'STANDOFF_HEIGHT'), false);
+  const reversed = standoffRuntimeInput();
+  reversed.dimensionMap.plan_dimensions[0].feature = 'standoff4,standoff3,standoff2,standoff1';
+  reversed.drawingIntent.required_dimensions[0].feature = 'standoff2,standoff1,standoff4,standoff3';
+  assert.equal(buildExtractedDrawingSemantics(reversed).dimensions.filter((entry) => entry.matched_intent_id === 'STANDOFF_HEIGHT').length, 1);
+}
+
+for (const modifyRequirement of [
+  (requirement) => { requirement.feature = 'standoff1,standoff2,standoff3'; },
+  (requirement) => { requirement.view = 'top'; },
+  (requirement) => { requirement.dimension_type = 'diameter'; },
+]) {
+  const input = standoffRuntimeInput();
+  modifyRequirement(input.drawingIntent.required_dimensions[0]);
+  assert.equal(buildExtractedDrawingSemantics(input).dimensions.some((entry) => entry.matched_intent_id === 'STANDOFF_HEIGHT'), false,
+    'an incompatible requirement must not borrow a measured height label');
+}
+
+function finalEdgeThicknessInput(value = 4) {
+  const binding = { status: 'resolved', source: 'freecad_runtime', feature_id: 'plate',
+    model_object_id: 'final', measurement: 'final_edge', edge_ref: 'final:Edge6', measured_mm: value,
+    endpoints_3d_mm: [[145, 0, 0], [145, 0, value]], endpoints_uv_mm: [[145, 0], [145, value]],
+    bounds: [145, 0, 145, value] };
+  return {
+    drawingSvgPath: '/tmp/pcb_drawing.svg',
+    svgContent: `<svg><g class="dimensions-front plan-dimensions-front"><text data-dim-id="THK">${value}</text></g><g class="dimensions-top"><text>Ø4</text></g></svg>`,
+    dimensionMap: { plan_dimensions: [{ dim_id: 'THK', feature: 'plate', view: 'front', style: 'linear',
+      value_mm: value, rendered: true, status: 'rendered', runtime_binding: binding }] },
+    traceability: { links: [{ dim_id: 'THK', feature_id: 'plate', feature_key: 'plate',
+      source: 'freecad_runtime', status: 'rendered', rendered: true, represented_by: 'THK',
+      evidence: { ...binding, model_value_mm: value } }] },
+    drawingIntent: { required_dimensions: [
+      { id: 'PLATE_THICKNESS', feature: 'plate', view: 'front', dimension_type: 'linear', value_mm: value, required: true },
+      { id: 'MOUNTING_HOLE_DIA', feature: 'hole1', view: 'top', dimension_type: 'diameter', value_mm: 4, required: true },
+    ] },
+  };
+}
+
+for (const identity of ['', 'data-dim-id="RENAMED"']) {
+  const input = finalEdgeThicknessInput(5);
+  input.svgContent = input.svgContent.replace('data-dim-id="THK"', identity)
+    .replace('</svg>', '<g class="dimensions-top"><text>5</text></g></svg>');
+  const semantics = buildExtractedDrawingSemantics(input);
+  assert.equal(semantics.dimensions.some((entry) => entry.matched_intent_id === 'PLATE_THICKNESS'), false,
+    'a unique automatic 5 cannot replace the missing current THK identity');
+}
+
+{
+  const input = finalEdgeThicknessInput();
+  input.dimensionMap.plan_dimensions[0].value_mm = 6;
+  input.dimensionMap.plan_dimensions[0].rendered = false;
+  input.dimensionMap.plan_dimensions[0].status = 'unresolved';
+  input.svgContent = '<svg><g class="dimensions-front"><text>4</text></g></svg>';
+  input.drawingIntent.required_dimensions.pop();
+  assert.equal(buildExtractedDrawingSemantics(input).dimensions[0].matched_intent_id, null,
+    'an automatic 4 must not rescue the deliberately wrong, unrendered THK 6');
+}
+
+{
+  const semantics = buildExtractedDrawingSemantics(finalEdgeThicknessInput());
+  const thickness = semantics.dimensions.find((entry) => entry.raw_text === '4');
+  assert.equal(thickness.matched_intent_id, 'PLATE_THICKNESS', 'the measured THK link disambiguates the Ø4 collision');
+  assert.equal(thickness.matched_feature_id, 'plate');
+  assert.equal(thickness.provenance.method, 'svg_runtime_final_edge');
+  assert.equal(thickness.provenance.model_edge_ref, 'final:Edge6');
+  assert.equal(semantics.dimensions.find((entry) => entry.raw_text === 'Ø4').matched_intent_id, null);
+}
+
+for (const invalidate of [
+  (input) => { input.dimensionMap.plan_dimensions[0].rendered = false; },
+  (input) => { input.dimensionMap.plan_dimensions[0].runtime_binding.status = 'unresolved'; },
+  (input) => { delete input.dimensionMap.plan_dimensions[0].runtime_binding; },
+  (input) => { input.traceability.links[0].evidence = {}; },
+  (input) => { input.dimensionMap.plan_dimensions[0].feature = 'slot'; },
+  (input) => { input.dimensionMap.plan_dimensions[0].view = 'top'; },
+  (input) => { input.dimensionMap.plan_dimensions[0].value_mm = 6; },
+  (input) => { input.traceability.links[0].evidence.endpoints_3d_mm = [[145, 0, 0], [145, 0, 6]]; },
+  (input) => { input.svgContent = input.svgContent.replace('>4<', '>6<'); },
+  (input) => { input.svgContent = input.svgContent.replace('<text data-dim-id="THK"', '<text display="none" data-dim-id="THK"'); },
+]) {
+  const input = finalEdgeThicknessInput();
+  // Even a unique number cannot rescue a missing or invalid measured binding.
+  input.drawingIntent.required_dimensions.pop();
+  invalidate(input);
+  const semantics = buildExtractedDrawingSemantics(input);
+  assert.equal(semantics.dimensions.some((entry) => entry.provenance.method === 'svg_runtime_final_edge'), false);
+  assert.equal(semantics.dimensions.find((entry) => !entry.raw_text.startsWith('Ø')).matched_intent_id, null);
+}
 
 {
   const svgPath = join(ROOT, 'tests', 'fixtures', 'svg', 'techdraw_assembly.svg');

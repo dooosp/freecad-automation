@@ -40,6 +40,9 @@
     "input": {
       "$ref": "#/$defs/fileRecord"
     },
+    "effective_input": {
+      "$ref": "#/$defs/effectiveInput"
+    },
     "repo": {
       "type": "object",
       "additionalProperties": false,
@@ -261,6 +264,91 @@
     }
   },
   "$defs": {
+    "effectiveInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authored_config_kind",
+        "runtime_config_kind",
+        "sources",
+        "recipe"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "authored_config_kind": { "type": "string", "minLength": 1 },
+        "runtime_config_kind": { "type": "string", "minLength": 1 },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "path", "sha256", "size_bytes"],
+            "properties": {
+              "role": { "type": "string", "minLength": 1 },
+              "path": { "$ref": "#/$defs/fileRecord/properties/path" },
+              "sha256": { "$ref": "#/$defs/fileRecord/properties/sha256" },
+              "size_bytes": { "$ref": "#/$defs/fileRecord/properties/size_bytes" }
+            }
+          }
+        },
+        "recipe": {
+          "oneOf": [
+            { "$ref": "#/$defs/createRecipe" },
+            { "$ref": "#/$defs/drawServiceRecipe" },
+            { "$ref": "#/$defs/drawPipelineRecipe" }
+          ]
+        }
+      }
+    },
+    "nullableNonemptyString": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "createRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "const": "create-v1" }
+      }
+    },
+    "drawServiceRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "standard", "dxf_export", "preset", "weights_preset", "postprocess", "qa"],
+      "properties": {
+        "kind": { "const": "draw-service-v1" },
+        "standard": { "type": "string", "minLength": 1 },
+        "dxf_export": { "type": "boolean" },
+        "preset": { "$ref": "#/$defs/nullableNonemptyString" },
+        "weights_preset": { "$ref": "#/$defs/nullableNonemptyString" },
+        "postprocess": { "type": "boolean" },
+        "qa": { "type": "boolean" }
+      }
+    },
+    "drawPipelineRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "bom", "no_plan", "plan_status", "standard", "weights_preset",
+        "raw", "no_score", "fail_under", "override", "unsupported_flags", "working_directory"
+      ],
+      "properties": {
+        "kind": { "const": "draw-pipeline-v1" },
+        "bom": { "type": "boolean" },
+        "no_plan": { "type": "boolean" },
+        "plan_status": { "enum": ["applied", "skipped", "failed"] },
+        "standard": { "type": "string", "minLength": 1 },
+        "weights_preset": { "$ref": "#/$defs/nullableNonemptyString" },
+        "raw": { "type": "boolean" },
+        "no_score": { "type": "boolean" },
+        "fail_under": { "type": ["string", "number", "null"] },
+        "override": { "type": "boolean" },
+        "unsupported_flags": { "type": "array", "items": { "type": "string" } },
+        "working_directory": { "type": "string", "minLength": 1 }
+      }
+    },
     "fileRecord": {
       "type": "object",
       "additionalProperties": false,

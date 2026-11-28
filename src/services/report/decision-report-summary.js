@@ -283,6 +283,10 @@ export function deriveReportArtifactPaths({ primaryOutputPath = null, outputDir 
     create_quality: join(dir, `${baseStem}_create_quality.json`),
     create_manifest: join(dir, `${baseStem}_manifest.json`),
     drawing_quality: join(dir, `${baseStem}_drawing_quality.json`),
+    drawing_svg: join(dir, `${baseStem}_drawing.svg`),
+    create_effective_config: join(dir, `${baseStem}_create_effective_config.json`),
+    drawing_authored_config: join(dir, `${baseStem}_authored_config.json`),
+    drawing_effective_config: join(dir, `${baseStem}_effective_config.json`),
     extracted_drawing_semantics: join(dir, `${baseStem}_extracted_drawing_semantics.json`),
     drawing_manifest: join(dir, `${baseStem}_drawing_manifest.json`),
     drawing_intent: join(dir, `${baseStem}_drawing_intent.json`),
@@ -817,6 +821,7 @@ export function buildDecisionReportSummary({
   drawingQuality = null,
   createManifest = null,
   drawingManifest = null,
+  qualityProvenance = null,
   extractedDrawingSemantics = null,
   featureCatalog = null,
   reportManifest = null,
@@ -847,17 +852,33 @@ export function buildDecisionReportSummary({
   const blockingIssues = [];
   const warnings = [];
   const criticalInputsMissing = [];
+  const provenanceRisks = [];
+
+  for (const key of ['create_quality', 'drawing_quality']) {
+    const provenance = qualityProvenance?.[key] || {
+      status: 'unknown', reason_codes: ['provenance-not-verified'],
+    };
+    surfaces[key].evidence_provenance = provenance;
+    if (provenance.status !== 'pass') {
+      const message = `${key.replaceAll('_', ' ')} evidence ${provenance.status === 'fail' ? 'mismatch' : 'unverified'}: ${(provenance.reason_codes || ['provenance-not-verified']).join(', ')}.`;
+      if (provenance.status === 'fail') blockingIssues.push(message);
+      else warnings.push(message);
+      provenanceRisks.push(message);
+      overallStatus = escalateStatus(overallStatus, provenance.status === 'fail' ? 'fail' : 'incomplete');
+      readyForManufacturingReview = false;
+    }
+  }
 
   if (!surfaces.create_quality.available) criticalInputsMissing.push('create_quality');
   if (!surfaces.drawing_quality.available) criticalInputsMissing.push('drawing_quality');
   if (!surfaces.dfm.available) criticalInputsMissing.push('dfm');
   if (criticalInputsMissing.length > 0) {
     overallStatus = escalateStatus(overallStatus, 'incomplete');
-    readyForManufacturingReview = null;
+    if (readyForManufacturingReview !== false) readyForManufacturingReview = null;
     warnings.push(...criticalInputsMissing.map((key) => `${key.replaceAll('_', ' ')} data is not available.`));
   }
 
-  if (surfaces.create_quality.invalid_shape) {
+  if (surfaces.create_quality.invalid_shape || surfaces.create_quality.status === 'fail') {
     overallStatus = 'fail';
     readyForManufacturingReview = false;
     blockingIssues.push(...surfaces.create_quality.blocking_issues);
@@ -1022,7 +1043,7 @@ export function buildDecisionReportSummary({
     report_pdf: resolve(paths.report_pdf),
     report_summary_json: resolve(paths.report_summary_json),
     overall_status: overallStatus,
-    overall_score: aggregateScore(surfaces),
+    overall_score: provenanceRisks.length ? null : aggregateScore(surfaces),
     ready_for_manufacturing_review: readyForManufacturingReview,
     config_name: safeFilenameComponent(config?.name, 'report'),
     run_id: runId,
@@ -1042,9 +1063,12 @@ export function buildDecisionReportSummary({
     artifacts_referenced: artifactsReferenced,
     blocking_issues: uniqueStrings(blockingIssues),
     warnings: uniqueStrings(warnings),
-    recommended_actions: renderRecommendedActions(surfaces, criticalInputsMissing),
+    recommended_actions: uniqueStrings([
+      ...(provenanceRisks.length ? ['Regenerate create and draw evidence from the current config, then regenerate this report.'] : []),
+      ...renderRecommendedActions(surfaces, criticalInputsMissing),
+    ]).slice(0, 5),
     missing_optional_artifacts: uniqueStrings(missingOptionalArtifacts),
-    top_risks: renderTopRisks(surfaces, criticalInputsMissing),
+    top_risks: uniqueStrings([...provenanceRisks, ...renderTopRisks(surfaces, criticalInputsMissing)]).slice(0, 5),
     surfaces,
     ...(drawingIntent ? { drawing_intent: drawingIntent } : {}),
     ...(featureCatalog
