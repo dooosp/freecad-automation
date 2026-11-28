@@ -27,11 +27,16 @@ function indexedRows(rows, ids) {
   return result;
 }
 
-function shapeMatches(shape, fixed, variableKeys = []) {
-  requireMatch(plain(shape));
-  requireMatch(isDeepStrictEqual(Object.keys(shape).sort(), [...Object.keys(fixed), ...variableKeys].sort()));
-  for (const [key, value] of Object.entries(fixed)) requireMatch(isDeepStrictEqual(shape[key], value));
-  for (const key of variableKeys) requireMatch(finite(shape[key]) && shape[key] > 0);
+function matchProfileFields(row, fixed, variableKeys = []) {
+  requireMatch(plain(row));
+  requireMatch(isDeepStrictEqual(Object.keys(row).sort(), [...Object.keys(fixed), ...variableKeys].sort()));
+  for (const [key, value] of Object.entries(fixed)) requireMatch(isDeepStrictEqual(row[key], value));
+  for (const key of variableKeys) requireMatch(finite(row[key]) && row[key] > 0);
+}
+
+function matchOperations(rows, expected) {
+  requireMatch(Array.isArray(rows) && rows.length === expected.length);
+  expected.forEach((operation, index) => matchProfileFields(rows[index], operation));
 }
 
 function declarations(config, ids, features, values) {
@@ -63,15 +68,15 @@ function bracketProfile(config) {
   const plate = shapes.get('plate');
   const left = shapes.get('hole_left');
   const right = shapes.get('hole_right');
-  shapeMatches(plate.row, { id: 'plate', type: 'box' }, ['length', 'width', 'height']);
-  shapeMatches(left.row, { id: 'hole_left', type: 'cylinder', position: [30, 30, -2] }, ['radius', 'height']);
-  shapeMatches(right.row, { id: 'hole_right', type: 'cylinder', position: [125, 70, -2] }, ['radius', 'height']);
+  matchProfileFields(plate.row, { id: 'plate', type: 'box' }, ['length', 'width', 'height']);
+  matchProfileFields(left.row, { id: 'hole_left', type: 'cylinder', position: [30, 30, -2] }, ['radius', 'height']);
+  matchProfileFields(right.row, { id: 'hole_right', type: 'cylinder', position: [125, 70, -2] }, ['radius', 'height']);
   requireMatch(left.row.height === plate.row.height + 4 && right.row.height === plate.row.height + 4);
-  requireMatch(isDeepStrictEqual(config.operations, [
+  matchOperations(config.operations, [
     { op: 'cut', base: 'plate', tool: 'hole_left', result: 'body' },
     { op: 'cut', base: 'body', tool: 'hole_right', result: 'body' },
     { op: 'chamfer', target: 'body', size: 1, result: 'final' },
-  ]));
+  ]);
   requireMatch(emptyOrAbsent(config.quality?.critical_dimensions));
   const diameters = [left.row.radius * 2, right.row.radius * 2];
   const declared = declarations(config, ['HOLE_LEFT_DIA', 'HOLE_RIGHT_DIA'], ['hole_left', 'hole_right'], diameters);
@@ -112,15 +117,15 @@ function hingeProfile(config) {
     { id: 'mount_hole_left', type: 'cylinder', height: 18, position: [24, 14, -3] },
     { id: 'mount_hole_right', type: 'cylinder', height: 18, position: [66, 14, -3] },
   ];
-  specifications.forEach((specification, index) => shapeMatches(shapes.get(specification.id).row, specification, index < 3 ? [] : ['radius']));
-  requireMatch(isDeepStrictEqual(config.operations, [
+  specifications.forEach((specification, index) => matchProfileFields(shapes.get(specification.id).row, specification, index < 3 ? [] : ['radius']));
+  matchOperations(config.operations, [
     { op: 'fuse', base: 'base_block', tool: 'left_ear', result: 'body' },
     { op: 'fuse', base: 'body', tool: 'right_ear', result: 'body' },
     { op: 'cut', base: 'body', tool: 'hinge_pin_left', result: 'body' },
     { op: 'cut', base: 'body', tool: 'hinge_pin_right', result: 'body' },
     { op: 'cut', base: 'body', tool: 'mount_hole_left', result: 'body' },
     { op: 'cut', base: 'body', tool: 'mount_hole_right', result: 'final' },
-  ]));
+  ]);
   const pin = shapes.get('hinge_pin_left').row.radius * 2;
   const mounting = shapes.get('mount_hole_left').row.radius * 2;
   requireMatch(shapes.get('hinge_pin_right').row.radius * 2 === pin && shapes.get('mount_hole_right').row.radius * 2 === mounting);

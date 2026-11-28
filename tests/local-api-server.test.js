@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { get } from 'node:http';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { json } from 'node:stream/consumers';
 
 import { buildImportBootstrapOptions } from '../public/js/studio/import-bootstrap-options.js';
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
@@ -139,7 +141,7 @@ const { server, jobStore } = createLocalApiServer({
           body_count: 1,
           unit_assumption: {
             unit: 'mm',
-            rationale: 'Fixture assumption.',
+            rationale: `Units recorded in ${PRIVATE_RESULT_PATH}`,
           },
           confidence: {
             level: 'medium',
@@ -177,7 +179,9 @@ const { server, jobStore } = createLocalApiServer({
             },
           },
         },
-        draft_config_toml: PREVIEW_DRAFT_CONFIG_TOML,
+        draft_config_toml: PREVIEW_DRAFT_CONFIG_TOML.replace(
+          '"tests/fixtures/imports/simple_bracket.step"', JSON.stringify(model.path)
+        ),
         geometry_intelligence: {},
       },
       tracked_review_seed: {
@@ -199,6 +203,21 @@ const { server, jobStore } = createLocalApiServer({
 try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
+
+  for (const [headers, code] of [
+    [{ host: `studio.example.invalid:${port}` }, 'untrusted_host'],
+    [{ host: '127.0.0.1:0' }, 'untrusted_host'],
+    [{ origin: 'null' }, 'untrusted_origin'],
+    [{ origin: `http://localhost:${port}` }, 'untrusted_origin'],
+  ]) {
+    const response = await new Promise((done, reject) => {
+      get(`${baseUrl}/api`, { headers }, done).on('error', reject);
+    });
+    assert.equal(response.statusCode, 403, code);
+    const payload = await json(response);
+    assert.equal(validateLocalApiResponse('error', payload).ok, true);
+    assert.equal(payload.error.code, code);
+  }
 
   writeFileSync(DOTFILE_TEST_PATH, 'hidden static fixture\n', 'utf8');
   const dotfileResponse = await fetch(`${baseUrl}/${DOTFILE_TEST_PATH.split('/').at(-1)}`);
@@ -307,6 +326,17 @@ try {
   assert.equal(payload.studio.tracked_routes.retry, '/jobs/:id/retry');
   assertNoLeakedPathStrings(payload, [ROOT, jobsDir, tmpRoot]);
 
+  const invalidConfig = await fetch(`${baseUrl}/api/studio/validate-config`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: baseUrl },
+    body: JSON.stringify({ config_toml: 'name = "draft"\nname = "duplicate"' }),
+  });
+  assert.equal(invalidConfig.status, 400);
+  const invalidConfigPayload = await invalidConfig.json();
+  assert.equal(validateLocalApiResponse('error', invalidConfigPayload).ok, true);
+  assert.equal(invalidConfigPayload.error.code, 'invalid_config');
+  assert.match(invalidConfigPayload.error.messages.join(' '), /TOML parse error/i);
+
   const healthResponse = await fetch(`${baseUrl}/health`, {
     headers: {
       accept: 'application/json',
@@ -345,6 +375,7 @@ try {
   assert.equal(bootstrapCalls[0].model.path, join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step'));
   assert.equal(bootstrapPreviewPayload.source.model_path, `output/imports/${BOOTSTRAP_SESSION_ID}/source/simple_bracket.step`);
   assert.equal(bootstrapPreviewPayload.bootstrap.import_diagnostics.source_model_path, 'tests/fixtures/imports/simple_bracket.step');
+  assert.equal(bootstrapPreviewPayload.bootstrap.import_diagnostics.unit_assumption.rationale, 'Units recorded in private-report.json');
   assert.equal(bootstrapPreviewPayload.bootstrap.bootstrap_summary.review_gate.correction_required, true);
   assert.equal(bootstrapPreviewPayload.bootstrap.draft_config_toml, PREVIEW_DRAFT_CONFIG_TOML);
   assert.equal(bootstrapPreviewPayload.tracked_review_seed.context_path, `output/imports/${BOOTSTRAP_SESSION_ID}/artifacts/engineering_context.json`);
@@ -377,7 +408,7 @@ try {
     body_count: 1,
     unit_assumption: {
       unit: 'mm',
-      rationale: 'Fixture assumption.',
+      rationale: 'Units recorded in private-report.json',
     },
     confidence: {
       level: 'medium',
@@ -951,6 +982,7 @@ try {
     headers: {
       accept: 'application/json',
       'content-type': 'application/json',
+      origin: baseUrl,
     },
     body: JSON.stringify({
       config_toml: readFileSync(join(ROOT, 'configs', 'examples', 'ks_bracket.toml'), 'utf8'),
