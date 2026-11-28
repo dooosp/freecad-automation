@@ -352,7 +352,7 @@ def render_diff(comparison):
         title = "전체 재검토 필요" if mode == "full_review_required" else "별도 검토 건"
         explanation = (
             "새 제출의 모든 필수 항목을 다시 확인하세요."
-            if mode == "full_review_required"
+            if mode == "full_review_required" or comparison.get("full_review_required") is True
             else "두 제출의 검토 건 식별 정보가 다릅니다."
         )
         result = (

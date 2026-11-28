@@ -162,3 +162,8 @@ class ReportTest(TestCase):
         self.assert_local_links_resolve(html)
         self.assertIn("전체 재검토", html)
         self.assertIn("구매자 검사 기준 변경", html)
+
+        comparison.update(mode="separate_case", reasons=["identity_changed"], full_review_required=True)
+        html = render_diff(comparison)
+        self.assertIn("별도 검토 건", html)
+        self.assertIn("새 제출의 모든 필수 항목을 다시 확인하세요.", html)
